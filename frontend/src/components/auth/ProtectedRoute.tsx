@@ -3,10 +3,11 @@
 import React, { useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
+import { UserRole } from '@/types/auth';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  requiredRole?: 'ambulance' | 'midwife' | 'wered' | 'admin';
+  requiredRole?: UserRole | UserRole[];
 }
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ 
@@ -23,17 +24,26 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
         return;
       }
       
-      if (requiredRole && user.role !== requiredRole) {
+      const rolesArray = Array.isArray(requiredRole) ? requiredRole : (requiredRole ? [requiredRole] : []);
+      
+      if (rolesArray.length > 0 && !rolesArray.includes(user.role)) {
         // Redirect to appropriate dashboard based on user role
         switch (user.role) {
-          case 'ambulance':
-            router.push('/ambulance');
+          case 'MOH_ADMIN':
+            router.push('/moh-dashboard');
             break;
-          case 'midwife':
-            router.push('/midwife');
+          case 'WOREDA_ADMIN':
+            router.push('/woreda-dashboard');
             break;
-          case 'wered':
-            router.push('/wered');
+          case 'HOSPITAL_ADMIN':
+            router.push('/hospital-dashboard');
+            break;
+          case 'DOCTOR':
+          case 'NURSE':
+            router.push('/clinic-dashboard');
+            break;
+          case 'DISPATCHER':
+            router.push('/dispatch-dashboard');
             break;
           default:
             router.push('/');
@@ -54,7 +64,8 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return null;
   }
 
-  if (requiredRole && user.role !== requiredRole) {
+  const rolesArray = Array.isArray(requiredRole) ? requiredRole : (requiredRole ? [requiredRole] : []);
+  if (rolesArray.length > 0 && !rolesArray.includes(user.role)) {
     return null;
   }
 

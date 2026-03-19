@@ -1,28 +1,116 @@
-import { Controller, Get, Post, Body, Param } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, UseGuards, Request } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
 
+@ApiTags('Users')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
+  @Roles('MOH_ADMIN', 'HOSPITAL_ADMIN')
   @Post()
-  async create(@Body() createUserDto: CreateUserDto) {
-    return this.usersService.create(createUserDto);
+  @ApiOperation({ summary: 'Create a new user' })
+  @ApiResponse({ status: 201, description: 'User successfully created' })
+  @ApiResponse({ status: 400, description: 'Bad Request' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' })
+  async create(@Body() createUserDto: CreateUserDto, @Request() req) {
+    const user = req.user;
+    
+    if (user.role === 'MOH_ADMIN') {
+      return this.usersService.create(createUserDto);
+    } else if (user.role === 'HOSPITAL_ADMIN') {
+      return this.usersService.createWithRoleValidation(
+        createUserDto, 
+        user.role, 
+        user.hospitalId?.toString()
+      );
+    }
   }
 
+  @Roles('MOH_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN')
   @Get()
-  async findAll() {
-    return this.usersService.findAll();
+  @ApiOperation({ summary: 'Get all users' })
+  @ApiResponse({ status: 200, description: 'Users retrieved successfully' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async findAll(@Request() req) {
+    const user = req.user;
+    return this.usersService.findAllWithRoleFilter(user.role, user.hospitalId?.toString());
   }
 
+  @Roles('MOH_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN')
   @Get('role/:role')
-  async findByRole(@Param('role') role: string) {
-    return this.usersService.findByRole(role);
+  @ApiOperation({ summary: 'Get users by role' })
+  @ApiParam({ name: 'role', description: 'User role' })
+  @ApiResponse({ status: 200, description: 'Users retrieved successfully' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async findByRole(@Param('role') role: string, @Request() req) {
+    const user = req.user;
+    return this.usersService.findByRoleWithFilter(role, user.role, user.hospitalId?.toString());
   }
 
+  @Roles('MOH_ADMIN', 'HOSPITAL_ADMIN')
   @Get(':id')
-  async findById(@Param('id') id: string) {
-    return this.usersService.findById(id);
+  @ApiOperation({ summary: 'Get user by ID' })
+  @ApiParam({ name: 'id', description: 'User ID' })
+  @ApiResponse({ status: 200, description: 'User retrieved successfully' })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Cannot access this user' })
+  async findById(@Param('id') id: string, @Request() req) {
+    const user = req.user;
+    return this.usersService.findByIdWithRoleFilter(id, user.role, user.hospitalId?.toString());
+  }
+
+  @Roles('MOH_ADMIN', 'HOSPITAL_ADMIN')
+  @Patch(':id')
+  @ApiOperation({ summary: 'Update a user' })
+  @ApiParam({ name: 'id', description: 'User ID' })
+  @ApiResponse({ status: 200, description: 'User successfully updated' })
+  @ApiResponse({ status: 400, description: 'Bad Request' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  async update(@Param('id') id: string, @Body() updateUserDto: CreateUserDto, @Request() req) {
+    const user = req.user;
+    
+    if (user.role === 'MOH_ADMIN') {
+      return this.usersService.update(id, updateUserDto);
+    } else if (user.role === 'HOSPITAL_ADMIN') {
+      return this.usersService.updateWithRoleValidation(
+        id,
+        updateUserDto, 
+        user.role, 
+        user.hospitalId?.toString()
+      );
+    }
+  }
+
+  @Roles('MOH_ADMIN', 'HOSPITAL_ADMIN')
+  @Delete(':id')
+  @ApiOperation({ summary: 'Delete a user' })
+  @ApiParam({ name: 'id', description: 'User ID' })
+  @ApiResponse({ status: 200, description: 'User successfully deleted' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  async delete(@Param('id') id: string, @Request() req) {
+    const user = req.user;
+    
+    if (user.role === 'MOH_ADMIN') {
+      return this.usersService.delete(id);
+    } else if (user.role === 'HOSPITAL_ADMIN') {
+      return this.usersService.deleteWithRoleValidation(
+        id,
+        user.role, 
+        user.hospitalId?.toString()
+      );
+    }
   }
 }
+

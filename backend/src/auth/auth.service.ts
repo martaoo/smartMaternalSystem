@@ -1,6 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { User, UserDocument } from '../users/schemas/user.schema';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
@@ -17,6 +17,8 @@ export class AuthService {
     email: string;
     password: string;
     role: string;
+    hospitalId?: Types.ObjectId;
+    woredaId?: Types.ObjectId;
   }) {
     const hashedPassword = await bcrypt.hash(data.password, 10);
 
@@ -32,19 +34,28 @@ export class AuthService {
     const user = await this.userModel.findOne({ email });
 
     if (!user) {
-      throw new Error('User not found');
+      throw new NotFoundException('User not found');
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
 
     if (!isMatch) {
-      throw new Error('Invalid password');
+      throw new UnauthorizedException('Invalid password');
     }
 
-    const payload = { id: user._id, role: user.role, email: user.email, name: user.name };
+    const payload = { sub: user._id, role: user.role, email: user.email, name: user.name };
 
     return {
       access_token: this.jwtService.sign(payload),
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        hospitalId: user.hospitalId,
+        woredaId: user.woredaId,
+      }
     };
   }
 }
+

@@ -3,6 +3,24 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import { User, AuthState, LoginCredentials, RegisterCredentials } from '@/types/auth';
 
+const getDashboardForRole = (role: string): string => {
+  switch (role) {
+    case 'MOH_ADMIN':
+      return '/moh-dashboard';
+    case 'HOSPITAL_ADMIN':
+      return '/hospital-dashboard';
+    case 'DOCTOR':
+    case 'NURSE':
+      return '/clinic-dashboard';
+    case 'DISPATCHER':
+      return '/dispatch-dashboard';
+    case 'WOREDA_ADMIN':
+      return '/woreda-dashboard';
+    default:
+      return '/';
+  }
+};
+
 interface AuthContextType extends AuthState {
   login: (credentials: LoginCredentials) => Promise<void>;
   register: (credentials: RegisterCredentials) => Promise<void>;
@@ -66,30 +84,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (credentials: LoginCredentials) => {
     dispatch({ type: 'LOGIN_START' });
     try {
-      // Simulate API call - replace with actual API
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Mock user data - replace with actual authentication
-      const mockUsers = [
-        { email: 'ambulance@test.com', password: 'password', role: 'ambulance', name: 'Ambulance Driver' },
-        { email: 'midwife@test.com', password: 'password', role: 'midwife', name: 'Midwife Nurse' },
-        { email: 'wered@test.com', password: 'password', role: 'wered', name: 'Wered Admin' },
-      ];
-      
-      const mockUser = mockUsers.find(u => u.email === credentials.email && u.password === credentials.password);
-      
-      if (!mockUser) {
+      const response = await fetch('http://localhost:3001/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(credentials),
+      });
+
+      if (!response.ok) {
         throw new Error('Invalid email or password');
       }
-      
-      const user: User = {
-        id: Math.random().toString(36).substr(2, 9),
-        email: mockUser.email,
-        name: mockUser.name,
-        role: mockUser.role as 'ambulance' | 'midwife' | 'wered',
-      };
+
+      const data = await response.json();
+      const user: User = data.user;
       
       localStorage.setItem('user', JSON.stringify(user));
+      localStorage.setItem('token', data.access_token);
       dispatch({ type: 'LOGIN_SUCCESS', payload: user });
     } catch (error) {
       dispatch({ type: 'LOGIN_FAILURE', payload: error instanceof Error ? error.message : 'Login failed' });
@@ -99,16 +108,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const register = async (credentials: RegisterCredentials) => {
     dispatch({ type: 'REGISTER_START' });
     try {
-      // Simulate API call - replace with actual API
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+      const response = await fetch('http://localhost:3001/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(credentials),
+      });
+
+      if (!response.ok) {
+        throw new Error('Registration failed. Email might already exist.');
+      }
+
+      const data = await response.json();
       const user: User = {
-        id: Math.random().toString(36).substr(2, 9),
-        email: credentials.email,
-        name: credentials.name,
-        role: credentials.role,
+        id: data._id,
+        email: data.email,
+        name: data.name,
+        role: data.role as User['role'],
       };
       
+      // Auto-login or just set user (note: in a real app, API register might return token too)
       localStorage.setItem('user', JSON.stringify(user));
       dispatch({ type: 'REGISTER_SUCCESS', payload: user });
     } catch (error) {
