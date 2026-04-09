@@ -13,24 +13,25 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagg
 export class HospitalsController {
   constructor(private readonly hospitalsService: HospitalsService) {}
 
-  @Roles('MOH_ADMIN', 'WOREDA_ADMIN')
+  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN')
   @Post()
   @ApiOperation({ summary: 'Create a new hospital' })
   @ApiResponse({ status: 201, description: 'Hospital successfully created' })
   @ApiResponse({ status: 400, description: 'Bad Request' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 403, description: 'Forbidden - Only MOH_ADMIN and WOREDA_ADMIN can create hospitals' })
-  async create(@Body() createHospitalDto: CreateHospitalDto) {
-    return this.hospitalsService.create(createHospitalDto);
+  @ApiResponse({ status: 403, description: 'Forbidden - Only SUPER_ADMIN, SYSTEM_ADMIN, or WOREDA_ADMIN can create hospitals' })
+  async create(@Body() createHospitalDto: CreateHospitalDto, @Request() req) {
+    const currentUser = req.user;
+    return this.hospitalsService.createWithRoleValidation(createHospitalDto, currentUser);
   }
 
-  @Roles('MOH_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN')
+  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN')
   @Get()
-  @ApiOperation({ summary: 'Get all hospitals' })
+  @ApiOperation({ summary: 'Get all hospitals (filtered by role and region)' })
   @ApiResponse({ status: 200, description: 'Hospitals retrieved successfully' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async findAll(@Request() req) {
-    const user = req.user;
-    return this.hospitalsService.findAllWithRoleFilter(user.role, user.hospitalId?.toString());
+    const currentUser = req.user;
+    return this.hospitalsService.findAllWithRoleFilter(currentUser);
   }
 }

@@ -16,7 +16,7 @@ export class User {
 
   @Prop({ 
     required: true, 
-    enum: ['MOH_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'DISPATCHER', 'MOTHER'] 
+    enum: ['SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'DISPATCHER', 'EMERGENCY_ADMIN', 'MOTHER'] 
   })
   role: string;
 
@@ -25,6 +25,18 @@ export class User {
 
   @Prop({ type: Types.ObjectId, ref: 'Woreda' })
   woredaId: Types.ObjectId;
+
+  @Prop()
+  assignedRegion: string; // For SYSTEM_ADMIN - the region/subcity they manage
+
+  @Prop()
+  phoneNumber: string;
+
+  @Prop()
+  department: string;
+
+  @Prop()
+  licenseNumber: string;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

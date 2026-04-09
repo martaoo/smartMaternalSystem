@@ -1,8 +1,13 @@
-import { IsEmail, IsEnum, IsString, MinLength, IsOptional, IsMongoId, ValidateIf } from 'class-validator';
+import { IsEmail, IsEnum, IsString, MinLength, IsOptional, IsMongoId, ValidateIf, IsNotEmpty } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateUserDto {
-  @ApiProperty({ example: 'user@example.com', description: 'User email address' })
+  @ApiProperty({ example: 'John Doe', description: 'User full name' })
+  @IsString()
+  @IsNotEmpty()
+  name: string;
+
+  @ApiProperty({ example: 'john@example.com', description: 'User email' })
   @IsEmail()
   email: string;
 
@@ -11,41 +16,41 @@ export class CreateUserDto {
   @MinLength(6)
   password: string;
 
-  @ApiProperty({ example: 'John Doe', description: 'User full name' })
-  @IsString()
-  name: string;
-
   @ApiProperty({ 
-    enum: ['MOH_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'DISPATCHER', 'MOTHER'],
-    example: 'DOCTOR',
+    enum: ['SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'DISPATCHER', 'EMERGENCY_ADMIN', 'MOTHER'],
+    example: 'SYSTEM_ADMIN',
     description: 'User role' 
   })
-  @IsEnum(['MOH_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'DISPATCHER', 'MOTHER'])
+  @IsEnum(['SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'DISPATCHER', 'EMERGENCY_ADMIN', 'MOTHER'])
   role: string;
 
-  @ApiPropertyOptional({ example: '507f1f77bcf86cd799439011', description: 'Hospital ID (required for HOSPITAL_ADMIN, DOCTOR, NURSE, DISPATCHER)' })
-  @ValidateIf(o => ['HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'DISPATCHER'].includes(o.role))
+  @ApiPropertyOptional({ example: '507f1f77bcf86cd799439011', description: 'Associated hospital ID (for hospital staff - auto-assigned for Hospital Admin)' })
+  @IsOptional()
   @IsMongoId()
   hospitalId?: string;
 
-  @ApiPropertyOptional({ example: '507f1f77bcf86cd799439011', description: 'Woreda ID (required for WOREDA_ADMIN, HOSPITAL_ADMIN)' })
-  @ValidateIf(o => ['WOREDA_ADMIN', 'HOSPITAL_ADMIN'].includes(o.role))
+  @ApiPropertyOptional({ example: '507f1f77bcf86cd799439011', description: 'Associated woreda ID (for woreda staff - auto-assigned for Hospital Admin)' })
+  @IsOptional()
   @IsMongoId()
   woredaId?: string;
 
-  @ApiPropertyOptional({ example: '+251900000001', description: 'User phone number' })
+  @ApiPropertyOptional({ example: 'Addis Ababa', description: 'Assigned region for SYSTEM_ADMIN' })
+  @ValidateIf(o => ['SYSTEM_ADMIN'].includes(o.role))
+  @IsString()
+  assignedRegion?: string;
+
+  @ApiPropertyOptional({ example: '+251911234567', description: 'Phone number' })
   @IsOptional()
   @IsString()
   phoneNumber?: string;
 
-  @ApiPropertyOptional({ example: 'Obstetrics', description: 'Department (required for DOCTOR, NURSE)' })
-  @ValidateIf(o => ['DOCTOR', 'NURSE'].includes(o.role))
+  @ApiPropertyOptional({ example: 'Obstetrics', description: 'Department (for medical staff)' })
+  @ValidateIf(o => ['DOCTOR', 'NURSE', 'MIDWIFE'].includes(o.role))
   @IsString()
   department?: string;
 
-  @ApiPropertyOptional({ example: 'MD001234', description: 'License number (required for DOCTOR, NURSE)' })
-  @ValidateIf(o => ['DOCTOR', 'NURSE'].includes(o.role))
+  @ApiPropertyOptional({ example: 'MD001234', description: 'License number (for medical staff)' })
+  @ValidateIf(o => ['DOCTOR', 'NURSE', 'MIDWIFE'].includes(o.role))
   @IsString()
   licenseNumber?: string;
 }
-

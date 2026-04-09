@@ -3,14 +3,20 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { User, UserDocument } from './schemas/user.schema';
 import { CreateUserDto } from './dto/create-user.dto';
+import { WoredasService } from '../woredas/woredas.service';
+import { HospitalsService } from '../hospitals/hospitals.service';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class UsersService {
-  constructor(@InjectModel(User.name) private userModel: Model<UserDocument>) {}
+  constructor(
+    @InjectModel(User.name) private userModel: Model<UserDocument>,
+    private woredasService: WoredasService,
+    private hospitalsService: HospitalsService
+  ) {}
 
   async create(createUserDto: CreateUserDto): Promise<User> {
-    const { email, password, role, hospitalId, woredaId, ...userData } = createUserDto;
+    const { email, password, role, hospitalId, woredaId, assignedRegion, ...userData } = createUserDto;
 
     // Check if user already exists
     const existingUser = await this.userModel.findOne({ email });
@@ -28,189 +34,252 @@ export class UsersService {
       role,
       hospitalId: hospitalId ? new Types.ObjectId(hospitalId) : undefined,
       woredaId: woredaId ? new Types.ObjectId(woredaId) : undefined,
+      assignedRegion,
     });
 
     return user.save();
   }
 
-  async createWithRoleValidation(createUserDto: CreateUserDto, creatorRole: string, creatorHospitalId?: string): Promise<User> {
-    const { role: newRole, hospitalId, woredaId } = createUserDto;
+  async createWithRoleValidation(createUserDto: CreateUserDto, currentUser: any): Promise<User> {
+    const currentUserRole = currentUser.role;
+    const { role, assignedRegion, woredaId, hospitalId } = createUserDto;
 
     // Role-based creation permissions
-    if (creatorRole === 'HOSPITAL_ADMIN') {
-      // Hospital Admin can only create workers for his own hospital
-      if (['DOCTOR', 'NURSE', 'DISPATCHER'].includes(newRole)) {
-        if (!hospitalId || hospitalId !== creatorHospitalId) {
-          throw new BadRequestException(`Hospital Admin can only create workers for their own hospital. Provided hospitalId: ${hospitalId}, Creator hospitalId: ${creatorHospitalId}`);
-        }
-      } else if (newRole === 'HOSPITAL_ADMIN') {
-        throw new BadRequestException('Hospital Admin cannot create other Hospital Admins');
-      } else if (['MOH_ADMIN', 'WOREDA_ADMIN'].includes(newRole)) {
-        throw new BadRequestException('Hospital Admin cannot create MOH Admins or Woreda Admins');
+    if (currentUserRole === 'SUPER_ADMIN') {
+      // SUPER_ADMIN can create SYSTEM_ADMIN and any other role
+      if (role === 'SYSTEM_ADMIN' && !assignedRegion) {
+        throw new BadRequestException('System Admin must have an assigned region');
       }
-    } else if (creatorRole === 'WOREDA_ADMIN') {
-      // Woreda Admin cannot create any users (as per requirement)
-      throw new BadRequestException('Woreda Admin cannot create users');
+      if (role === 'WOREDA_ADMIN') {
+        if (!woredaId) {
+          throw new BadRequestException('Woreda Admin must have a woredaId');
+        }
+        // Validate woreda exists
+        const woreda = await this.woredasService.findById(woredaId);
+        if (!woreda) {
+          throw new BadRequestException('Woreda not found');
+        }
+      }
+      if (role === 'HOSPITAL_ADMIN') {
+        if (!woredaId || !hospitalId) {
+          throw new BadRequestException('Hospital Admin must have both woredaId and hospitalId');
+        }
+        // Validate woreda exists
+        const woreda = await this.woredasService.findById(woredaId);
+        if (!woreda) {
+          throw new BadRequestException('Woreda not found');
+        }
+        // Validate hospital exists
+        const hospital = await this.hospitalsService.findById(hospitalId);
+        if (!hospital) {
+          throw new BadRequestException('Hospital not found');
+        }
+      }
+    } else if (currentUserRole === 'SYSTEM_ADMIN') {
+      // SYSTEM_ADMIN can create WOREDA_ADMIN, HOSPITAL_ADMIN, DOCTOR, NURSE, DISPATCHER, MOTHER
+      if (['SUPER_ADMIN', 'SYSTEM_ADMIN'].includes(role)) {
+        throw new ForbiddenException('System Admin cannot create Super Admin or other System Admins');
+      }
+      
+      // Validate required fields for each role
+      if (role === 'WOREDA_ADMIN') {
+        if (!woredaId) {
+          throw new BadRequestException('Woreda Admin must have a woredaId');
+        }
+        // Validate woreda belongs to their assigned region
+        const woreda = await this.woredasService.findById(woredaId);
+        if (!woreda) {
+          throw new BadRequestException('Woreda not found');
+        }
+        if (woreda.region !== currentUser.assignedRegion) {
+          throw new ForbiddenException('System Admin can only create Woreda Admins in their assigned region');
+        }
+      } else if (role === 'HOSPITAL_ADMIN') {
+        if (!woredaId || !hospitalId) {
+          throw new BadRequestException('Hospital Admin must have both woredaId and hospitalId');
+        }
+        // Validate woreda belongs to their assigned region
+        const woreda = await this.woredasService.findById(woredaId);
+        if (!woreda) {
+          throw new BadRequestException('Woreda not found');
+        }
+        if (woreda.region !== currentUser.assignedRegion) {
+          throw new ForbiddenException('System Admin can only create Hospital Admins in their assigned region');
+        }
+        // Validate hospital exists and belongs to their assigned region
+        const hospital = await this.hospitalsService.findById(hospitalId);
+        if (!hospital) {
+          throw new BadRequestException('Hospital not found');
+        }
+        // Check if hospital is in the same woreda
+        if (hospital.woredaId?.toString() !== woredaId) {
+          throw new ForbiddenException('Hospital Admin must be in the same woreda as specified');
+        }
+      } else if (['DOCTOR', 'NURSE', 'MIDWIFE', 'DISPATCHER', 'EMERGENCY_ADMIN', 'MOTHER'].includes(role)) {
+        // These roles must be within the System Admin's assigned region
+        if (woredaId) {
+          const woreda = await this.woredasService.findById(woredaId);
+          if (woreda && woreda.region !== currentUser.assignedRegion) {
+            throw new ForbiddenException('System Admin can only create users in their assigned region');
+          }
+        }
+        if (hospitalId) {
+          const hospital = await this.hospitalsService.findById(hospitalId);
+          if (hospital) {
+            const hospitalWoreda = await this.woredasService.findById(hospital.woredaId?.toString());
+            if (hospitalWoreda && hospitalWoreda.region !== currentUser.assignedRegion) {
+              throw new ForbiddenException('System Admin can only create users in their assigned region');
+            }
+          }
+        }
+      }
+    } else if (currentUserRole === 'WOREDA_ADMIN') {
+      // WOREDA_ADMIN can create HOSPITAL_ADMIN, DOCTOR, NURSE, DISPATCHER, MOTHER
+      if (['SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN'].includes(role)) {
+        throw new ForbiddenException('Woreda Admin cannot create higher level admins');
+      }
+      
+      // Validate required fields and ensure created users are within their woreda
+      if (role === 'HOSPITAL_ADMIN') {
+        if (!woredaId || !hospitalId) {
+          throw new BadRequestException('Hospital Admin must have both woredaId and hospitalId');
+        }
+        // Validate woreda exists
+        const woreda = await this.woredasService.findById(woredaId);
+        if (!woreda) {
+          throw new BadRequestException('Woreda not found');
+        }
+        if (woredaId !== currentUser.woredaId?.toString()) {
+          throw new ForbiddenException('Woreda Admin can only create Hospital Admins for their woreda');
+        }
+      } else if (['DOCTOR', 'NURSE', 'MIDWIFE', 'DISPATCHER', 'EMERGENCY_ADMIN', 'MOTHER'].includes(role)) {
+        if (!woredaId) {
+          throw new BadRequestException(`${role} must have a woredaId`);
+        }
+        // Validate woreda exists
+        const woreda = await this.woredasService.findById(woredaId);
+        if (!woreda) {
+          throw new BadRequestException('Woreda not found');
+        }
+        if (woredaId !== currentUser.woredaId?.toString()) {
+          throw new ForbiddenException('Woreda Admin can only create users for their woreda');
+        }
+      }
+    } else if (currentUserRole === 'HOSPITAL_ADMIN') {
+      // HOSPITAL_ADMIN can create DOCTOR, NURSE, MIDWIFE, DISPATCHER, EMERGENCY_ADMIN, MOTHER
+      if (['SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN'].includes(role)) {
+        throw new ForbiddenException('Hospital Admin cannot create admin users');
+      }
+      
+      // Validate required fields and auto-assign woredaId and hospitalId from current user
+      if (['DOCTOR', 'NURSE', 'MIDWIFE', 'DISPATCHER', 'EMERGENCY_ADMIN', 'MOTHER'].includes(role)) {
+        // Auto-assign woredaId and hospitalId from current Hospital Admin
+        const autoWoredaId = currentUser.woredaId?.toString();
+        const autoHospitalId = currentUser.hospitalId?.toString();
+        
+        if (!autoWoredaId || !autoHospitalId) {
+          throw new BadRequestException('Hospital Admin must be assigned to a woreda and hospital');
+        }
+        
+        // Override provided IDs with current user's assigned IDs
+        createUserDto.woredaId = autoWoredaId;
+        createUserDto.hospitalId = autoHospitalId;
+      }
     }
 
-    // Proceed with normal creation
     return this.create(createUserDto);
   }
 
-  async findByEmail(email: string): Promise<User | null> {
-    return this.userModel.findOne({ email }).exec();
+  async findAll(): Promise<User[]> {
+    return this.userModel.find().exec();
   }
 
-  async findById(id: string): Promise<User | null> {
+  async findAllWithRoleFilter(currentUser: any): Promise<User[]> {
+    const { role, assignedRegion, woredaId, hospitalId } = currentUser;
+
+    if (role === 'SUPER_ADMIN') {
+      // SUPER_ADMIN can see all users
+      return this.userModel.find().exec();
+    } else if (role === 'SYSTEM_ADMIN') {
+      // SYSTEM_ADMIN can see all users in their assigned region
+      return this.userModel.find({ 
+        $or: [
+          { assignedRegion: assignedRegion },
+          { role: { $in: ['DOCTOR', 'NURSE', 'DISPATCHER', 'MOTHER'] } }
+        ]
+      }).exec();
+    } else if (role === 'WOREDA_ADMIN') {
+      // WOREDA_ADMIN can see all users in their woreda
+      return this.userModel.find({ 
+        $or: [
+          { woredaId: woredaId },
+          { hospitalId: { $in: await this.getHospitalsInWoreda(woredaId) } }
+        ]
+      }).exec();
+    } else if (role === 'HOSPITAL_ADMIN') {
+      // HOSPITAL_ADMIN can see all users in their hospital
+      return this.userModel.find({ hospitalId: hospitalId }).exec();
+    }
+
+    return [];
+  }
+
+  async findByRoleWithFilter(role: string, currentUser: any): Promise<User[]> {
+    const users = await this.userModel.find({ role }).exec();
+    
+    // Filter based on current user's permissions
+    if (currentUser.role === 'SUPER_ADMIN') {
+      return users;
+    } else if (currentUser.role === 'SYSTEM_ADMIN') {
+      return users.filter(user => 
+        user.assignedRegion === currentUser.assignedRegion || 
+        ['DOCTOR', 'NURSE', 'DISPATCHER', 'MOTHER'].includes(role)
+      );
+    } else if (currentUser.role === 'WOREDA_ADMIN') {
+      return users.filter(user => 
+        user.woredaId?.toString() === currentUser.woredaId?.toString()
+      );
+    } else if (currentUser.role === 'HOSPITAL_ADMIN') {
+      return users.filter(user => 
+        user.hospitalId?.toString() === currentUser.hospitalId?.toString()
+      );
+    }
+
+    return [];
+  }
+
+  async findById(id: string): Promise<User> {
     return this.userModel.findById(id).exec();
   }
 
-  async findAll(): Promise<User[]> {
-    return this.userModel
-      .find()
-      .select('-password')
-      .populate('hospitalId')
-      .populate('woredaId')
-      .exec();
+  async findByEmail(email: string): Promise<User> {
+    return this.userModel.findOne({ email }).exec();
   }
 
-  async findByRole(role: string): Promise<User[]> {
-    return this.userModel
-      .find({ role })
-      .select('-password')
-      .populate('hospitalId')
-      .populate('woredaId')
-      .exec();
-  }
-
-  async findAllWithRoleFilter(role: string, hospitalId?: string): Promise<User[]> {
-    if (role === 'HOSPITAL_ADMIN' && hospitalId) {
-      return this.userModel
-        .find({ hospitalId: new Types.ObjectId(hospitalId) })
-        .select('-password')
-        .populate('hospitalId')
-        .populate('woredaId')
-        .exec();
-    }
-    return this.userModel
-      .find()
-      .select('-password')
-      .populate('hospitalId')
-      .populate('woredaId')
-      .exec();
-  }
-
-  async findByRoleWithFilter(role: string, userRole: string, hospitalId?: string): Promise<User[]> {
-    const query: any = { role };
-    if (userRole === 'HOSPITAL_ADMIN' && hospitalId) {
-      query.hospitalId = new Types.ObjectId(hospitalId);
-    }
-    return this.userModel
-      .find(query)
-      .select('-password')
-      .populate('hospitalId')
-      .populate('woredaId')
-      .exec();
-  }
-
-  async findByIdWithRoleFilter(id: string, userRole: string, hospitalId?: string): Promise<User | null> {
-    const user = await this.userModel
-      .findById(id)
-      .select('-password')
-      .populate('hospitalId')
-      .populate('woredaId')
-      .exec();
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-    if (userRole === 'HOSPITAL_ADMIN' && hospitalId) {
-      if (user.hospitalId?.toString() !== hospitalId) {
-        throw new ForbiddenException('Forbidden - Cannot access this user');
-      }
-    }
-    return user;
-  }
-
-  async update(id: string, updateUserDto: CreateUserDto): Promise<User> {
-    const { email, password, role, hospitalId, woredaId, ...userData } = updateUserDto;
-
-    // Check if user exists
-    const existingUser = await this.userModel.findById(id);
-    if (!existingUser) {
-      throw new NotFoundException('User not found');
-    }
-
-    // Check if email is taken by another user
-    if (email && email !== existingUser.email) {
-      const emailTaken = await this.userModel.findOne({ email });
-      if (emailTaken) {
-        throw new ConflictException('Email already in use');
-      }
-    }
-
+  async update(id: string, updateData: Partial<CreateUserDto>): Promise<User> {
+    const { password, ...dataWithoutPassword } = updateData;
+    
+    console.log('Updating user with ID:', id);
+    console.log('Update data:', updateData);
+    
     // Hash password if provided
-    const updateData: any = { ...userData };
-    if (email) updateData.email = email;
-    if (role) updateData.role = role;
-    if (password) updateData.password = await bcrypt.hash(password, 10);
-    if (hospitalId) updateData.hospitalId = new Types.ObjectId(hospitalId);
-    if (woredaId) updateData.woredaId = new Types.ObjectId(woredaId);
-
-    return this.userModel.findByIdAndUpdate(id, updateData, { new: true }).select('-password').exec();
+    const finalUpdateData: any = { ...dataWithoutPassword };
+    if (password) {
+      finalUpdateData.password = await bcrypt.hash(password, 10);
+      console.log('Password hashed');
+    }
+    
+    console.log('Final update data:', finalUpdateData);
+    
+    const result = await this.userModel.findByIdAndUpdate(id, finalUpdateData, { new: true }).exec();
+    console.log('Update result:', result);
+    
+    return result;
   }
 
-  async updateWithRoleValidation(id: string, updateUserDto: CreateUserDto, creatorRole: string, creatorHospitalId?: string): Promise<User> {
-    const { role: newRole, hospitalId } = updateUserDto;
-
-    // Find the user to update
-    const userToUpdate = await this.userModel.findById(id);
-    if (!userToUpdate) {
-      throw new NotFoundException('User not found');
-    }
-
-    // Role-based update permissions
-    if (creatorRole === 'HOSPITAL_ADMIN') {
-      // Hospital Admin can only update workers for his own hospital
-      if (!['DOCTOR', 'NURSE', 'DISPATCHER'].includes(userToUpdate.role)) {
-        throw new BadRequestException('Hospital Admin can only update workers (DOCTOR, NURSE, DISPATCHER)');
-      }
-      if (userToUpdate.hospitalId?.toString() !== creatorHospitalId) {
-        throw new BadRequestException('Hospital Admin can only update workers in their own hospital');
-      }
-      // Ensure hospitalId in update matches
-      if (hospitalId && hospitalId !== creatorHospitalId) {
-        throw new BadRequestException('Cannot change hospital for workers');
-      }
-    }
-
-    return this.update(id, updateUserDto);
-  }
-
-  async delete(id: string): Promise<void> {
-    const result = await this.userModel.findByIdAndDelete(id).exec();
-    if (!result) {
-      throw new NotFoundException('User not found');
-    }
-  }
-
-  async deleteWithRoleValidation(id: string, creatorRole: string, creatorHospitalId?: string): Promise<void> {
-    // Find the user to delete
-    const userToDelete = await this.userModel.findById(id);
-    if (!userToDelete) {
-      throw new NotFoundException('User not found');
-    }
-
-    // Role-based delete permissions
-    if (creatorRole === 'HOSPITAL_ADMIN') {
-      // Hospital Admin can only delete workers for his own hospital
-      if (!['DOCTOR', 'NURSE', 'DISPATCHER'].includes(userToDelete.role)) {
-        throw new BadRequestException('Hospital Admin can only delete workers (DOCTOR, NURSE, DISPATCHER)');
-      }
-      if (userToDelete.hospitalId?.toString() !== creatorHospitalId) {
-        throw new BadRequestException('Hospital Admin can only delete workers in their own hospital');
-      }
-    }
-
-    return this.delete(id);
+  private async getHospitalsInWoreda(woredaId: string): Promise<Types.ObjectId[]> {
+    // This would need to be implemented to get hospitals in a woreda
+    // For now, return empty array
+    return [];
   }
 }

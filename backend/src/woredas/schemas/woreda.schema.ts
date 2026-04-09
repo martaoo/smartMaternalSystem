@@ -5,11 +5,17 @@ export type WoredaDocument = Woreda & Document;
 
 @Schema({ timestamps: true })
 export class Woreda {
-  @Prop({ required: true, unique: true })
+  @Prop({ required: true })
   name: string;
 
-  @Prop()
+  @Prop({ required: true })
+  city: string;
+
+  @Prop({ required: true })
   region: string;
 }
 
 export const WoredaSchema = SchemaFactory.createForClass(Woreda);
+
+// Create compound index for unique name + city combination
+WoredaSchema.index({ name: 1, city: 1 }, { unique: true });
