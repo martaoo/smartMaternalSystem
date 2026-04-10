@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '@/lib/api';
 import { AddUserForm } from './AddUserForm';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface User {
   _id: string;
@@ -17,7 +18,8 @@ interface User {
 }
 
 export function UserManagement() {
-  const [users, setUsers] = useState<User[]>([]);
+  const { user } = useAuth();
+  const [allUsers, setAllUsers] = useState<User[]>([]);
   const [hospitals, setHospitals] = useState<any[]>([]);
   const [woredas, setWoredas] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -36,11 +38,48 @@ export function UserManagement() {
   const fetchUsers = async () => {
     try {
       const response = await api.getUsers();
-      setUsers(Array.isArray(response) ? response : []);
+      setAllUsers(Array.isArray(response) ? response : []);
     } catch (err: any) {
       setError(err.message || 'Failed to fetch users');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Filter users based on current user's role and permissions
+  const getFilteredUsers = () => {
+    if (!user) return allUsers;
+    
+    switch (user.role) {
+      case 'SUPER_ADMIN':
+        // Super Admin can see all users
+        return allUsers;
+      
+      case 'SYSTEM_ADMIN':
+        // System Admin can only see users in their assigned region
+        return allUsers.filter(u => 
+          u.assignedRegion === user.assignedRegion ||
+          (u.woredaId && typeof u.woredaId === 'string' && 
+           woredas.some(w => w._id === u.woredaId))
+        );
+      
+      case 'WOREDA_ADMIN':
+        // Woreda Admin can only see users in their woreda
+        return allUsers.filter(u => 
+          (u.woredaId && typeof u.woredaId === 'string' && u.woredaId === user.woredaId) ||
+          (u.hospitalId && typeof u.hospitalId === 'string' && 
+           hospitals.some(h => h._id === u.hospitalId && h.woredaId === user.woredaId))
+        );
+      
+      case 'HOSPITAL_ADMIN':
+        // Hospital Admin can only see users in their hospital
+        return allUsers.filter(u => 
+          (u.hospitalId && typeof u.hospitalId === 'string' && u.hospitalId === user.hospitalId)
+        );
+      
+      default:
+        // Other roles can only see themselves
+        return allUsers.filter(u => u._id === user.id);
     }
   };
 
@@ -100,10 +139,47 @@ export function UserManagement() {
     return woreda ? woreda.name : woredaId;
   };
 
-  const filteredUsers = users.filter(user => {
-    const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         user.email.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesRole = !roleFilter || user.role === roleFilter;
+  // Check if current user can edit/delete a specific user
+  const canEditUser = (targetUser: User) => {
+    if (!user) return false;
+    
+    switch (user.role) {
+      case 'SUPER_ADMIN':
+        return true; // Super Admin can edit anyone
+      
+      case 'SYSTEM_ADMIN':
+        // Can edit users in their region
+        return targetUser.assignedRegion === user.assignedRegion ||
+               (targetUser.woredaId && typeof targetUser.woredaId === 'string' && 
+                woredas.some(w => w._id === targetUser.woredaId));
+      
+      case 'WOREDA_ADMIN':
+        // Can edit users in their woreda
+        return (targetUser.woredaId && typeof targetUser.woredaId === 'string' && targetUser.woredaId === user.woredaId) ||
+               (targetUser.hospitalId && typeof targetUser.hospitalId === 'string' && 
+                hospitals.some(h => h._id === targetUser.hospitalId && h.woredaId === user.woredaId));
+      
+      case 'HOSPITAL_ADMIN':
+        // Can edit users in their hospital
+        return (targetUser.hospitalId && typeof targetUser.hospitalId === 'string' && targetUser.hospitalId === user.hospitalId);
+      
+      default:
+        // Other roles can only edit themselves
+        return targetUser._id === user.id;
+    }
+  };
+
+  const canDeleteUser = (targetUser: User) => {
+    // Same logic as edit, but can't delete themselves
+    if (!user) return false;
+    return canEditUser(targetUser) && targetUser._id !== user.id;
+  };
+
+  // Get filtered users based on current user's role
+  const filteredUsers = getFilteredUsers().filter((userItem: User) => {
+    const matchesSearch = userItem.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         userItem.email.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesRole = !roleFilter || userItem.role === roleFilter;
     return matchesSearch && matchesRole;
   });
 
@@ -241,18 +317,25 @@ export function UserManagement() {
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                  <button
-                    onClick={() => handleEditUser(user)}
-                    className="text-blue-600 hover:text-blue-900 mr-3"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => handleDeleteUser(user._id)}
-                    className="text-red-600 hover:text-red-900"
-                  >
-                    Delete
-                  </button>
+                  {canEditUser(user) && (
+                    <button
+                      onClick={() => handleEditUser(user)}
+                      className="text-blue-600 hover:text-blue-900 mr-3"
+                    >
+                      Edit
+                    </button>
+                  )}
+                  {canDeleteUser(user) && (
+                    <button
+                      onClick={() => handleDeleteUser(user._id)}
+                      className="text-red-600 hover:text-red-900"
+                    >
+                      Delete
+                    </button>
+                  )}
+                  {!canEditUser(user) && !canDeleteUser(user) && (
+                    <span className="text-gray-400">No permissions</span>
+                  )}
                 </td>
               </tr>
             ))}

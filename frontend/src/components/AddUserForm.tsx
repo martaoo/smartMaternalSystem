@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { api } from '@/lib/api';
+import { useAuth } from '@/contexts/AuthContext';
 
 export interface UserForEdit {
   _id: string;
@@ -45,6 +46,7 @@ export function AddUserForm({
   hideHospitalSelect,
   fixedHospitalId,
 }: AddUserFormProps) {
+  const { user } = useAuth();
   const [formData, setFormData] = useState<AddUserFormValues>({
     email: '',
     password: '',
@@ -54,15 +56,87 @@ export function AddUserForm({
     woredaId: '',
     phoneNumber: '',
   });
-  const [hospitals, setHospitals] = useState<any[]>([]);
+  const [allHospitals, setAllHospitals] = useState<any[]>([]);
   const [woredas, setWoredas] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // Filter hospitals based on current user's role and permissions
+  const getFilteredHospitals = () => {
+    if (!user) return allHospitals;
+    
+    switch (user.role) {
+      case 'SUPER_ADMIN':
+        return allHospitals;
+      
+      case 'SYSTEM_ADMIN':
+        // System Admin can only see hospitals in their assigned region
+        return allHospitals.filter(hospital => 
+          hospital.woredaId && woredas.some(w => 
+            w._id === hospital.woredaId && 
+            (user.assignedRegion && w.region === user.assignedRegion)
+          )
+        );
+      
+      case 'WOREDA_ADMIN':
+        // Woreda Admin can only see hospitals in their woreda
+        return allHospitals.filter(hospital => 
+          hospital.woredaId === user.woredaId
+        );
+      
+      case 'HOSPITAL_ADMIN':
+        // Hospital Admin can only see their own hospital
+        return allHospitals.filter(hospital => 
+          hospital._id === user.hospitalId
+        );
+      
+      default:
+        // Other roles shouldn't be creating users with hospitals
+        return [];
+    }
+  };
+
+  // Filter woredas based on current user's role and permissions
+  const getFilteredWoredas = () => {
+    if (!user) return woredas;
+    
+    switch (user.role) {
+      case 'SUPER_ADMIN':
+        return woredas;
+      
+      case 'SYSTEM_ADMIN':
+        // System Admin can only see woredas in their assigned region
+        return woredas.filter(w => 
+          user.assignedRegion && w.region === user.assignedRegion
+        );
+      
+      case 'WOREDA_ADMIN':
+        // Woreda Admin can only see their own woreda
+        return woredas.filter(w => 
+          w._id === user.woredaId
+        );
+      
+      default:
+        // Other roles shouldn't be creating users with woredas
+        return [];
+    }
+  };
+
+  const [hospitals, setHospitals] = useState(getFilteredHospitals());
+  const [filteredWoredas, setFilteredWoredas] = useState(getFilteredWoredas());
+
   useEffect(() => {
-    api.getHospitals().then(setHospitals).catch(console.error);
+    api.getHospitals().then(setAllHospitals).catch(console.error);
     api.getWoredas().then(setWoredas).catch(console.error);
   }, []);
+
+  // Re-filter hospitals when woredas are loaded
+  useEffect(() => {
+    if (allHospitals.length > 0 && woredas.length > 0) {
+      setHospitals(getFilteredHospitals());
+      setFilteredWoredas(getFilteredWoredas());
+    }
+  }, [allHospitals, woredas, user?.assignedRegion]);
 
   // Auto-populate woreda when hospital is selected for hospital admin and staff roles
   useEffect(() => {
@@ -239,7 +313,7 @@ export function AddUserForm({
                 className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
               >
                 <option value="">Select Woreda</option>
-                {woredas.map((woreda: any) => (
+                {filteredWoredas.map((woreda: any) => (
                   <option key={woreda._id} value={woreda._id?.toString() ?? ''}>
                     {woreda.name}
                   </option>

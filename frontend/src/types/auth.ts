@@ -7,6 +7,9 @@ export interface User {
   role: UserRole;
   hospitalId?: string;
   woredaId?: string;
+  assignedRegion?: string;
+  phoneNumber?: string;
+  createdAt?: string;
 }
 
 export interface AuthState {

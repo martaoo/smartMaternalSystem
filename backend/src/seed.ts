@@ -11,8 +11,7 @@ async function bootstrap() {
     const usersService = app.get(UsersService);
     const woredasService = app.get(WoredasService);
 
-    // Create sample woredas (commented out - only create SUPER_ADMIN)
-    /*
+    // Create sample woredas
     const existingWoredas = await woredasService.findAll();
     let testWoreda: any = null;
     
@@ -40,7 +39,6 @@ async function bootstrap() {
       testWoreda = existingWoredas[0];
       console.log('Woredas already exist');
     }
-    */
 
     // Create/update super admin user
     const existingAdmin = await usersService.findByEmail('admin@maternal.gov.et');
@@ -70,8 +68,7 @@ async function bootstrap() {
       console.log('Role: SUPER_ADMIN');
     }
     
-    // Create sample system admin for Addis Ababa (commented out)
-    /*
+    // Create sample system admin for Addis Ababa
     const existingSystemAdmin = await usersService.findByEmail('addis.admin@maternal.gov.et');
     if (!existingSystemAdmin) {
       await usersService.create({
@@ -90,7 +87,6 @@ async function bootstrap() {
     } else {
       console.log('Addis Ababa system admin already exists');
     }
-    */
     
   } catch (error) {
     console.error('Error during seeding:', error.message);
