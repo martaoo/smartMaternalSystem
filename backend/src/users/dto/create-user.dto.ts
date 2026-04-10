@@ -43,14 +43,4 @@ export class CreateUserDto {
   @IsOptional()
   @IsString()
   phoneNumber?: string;
-
-  @ApiPropertyOptional({ example: 'Obstetrics', description: 'Department (for medical staff)' })
-  @ValidateIf(o => ['DOCTOR', 'NURSE', 'MIDWIFE'].includes(o.role))
-  @IsString()
-  department?: string;
-
-  @ApiPropertyOptional({ example: 'MD001234', description: 'License number (for medical staff)' })
-  @ValidateIf(o => ['DOCTOR', 'NURSE', 'MIDWIFE'].includes(o.role))
-  @IsString()
-  licenseNumber?: string;
 }

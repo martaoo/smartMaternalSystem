@@ -40,9 +40,33 @@ export class UsersService {
     return user.save();
   }
 
-  async createWithRoleValidation(createUserDto: CreateUserDto, currentUser: any): Promise<User> {
+  async update(id: string, updateUserDto: any): Promise<User> {
+    const user = await this.userModel.findById(id);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const { email, password, role, hospitalId, woredaId, assignedRegion, phoneNumber, ...userData } = updateUserDto;
+
+    // Update fields if provided
+    if (email) user.email = email;
+    if (password) user.password = await bcrypt.hash(password, 10);
+    if (role) user.role = role;
+    if (hospitalId) user.hospitalId = new Types.ObjectId(hospitalId);
+    if (woredaId) user.woredaId = new Types.ObjectId(woredaId);
+    if (assignedRegion) user.assignedRegion = assignedRegion;
+    if (phoneNumber) user.phoneNumber = phoneNumber;
+    if (userData.name) user.name = userData.name;
+
+    return user.save();
+  }
+
+  async createWithRoleValidation(createUserDto: any, currentUser: any): Promise<User> {
+    const { role, woredaId, hospitalId, assignedRegion } = createUserDto;
     const currentUserRole = currentUser.role;
-    const { role, assignedRegion, woredaId, hospitalId } = createUserDto;
+    
+    console.log('Creating user with data:', createUserDto);
+    console.log('Current user role:', currentUserRole);
 
     // Role-based creation permissions
     if (currentUserRole === 'SUPER_ADMIN') {
@@ -61,18 +85,38 @@ export class UsersService {
         }
       }
       if (role === 'HOSPITAL_ADMIN') {
-        if (!woredaId || !hospitalId) {
-          throw new BadRequestException('Hospital Admin must have both woredaId and hospitalId');
-        }
-        // Validate woreda exists
-        const woreda = await this.woredasService.findById(woredaId);
-        if (!woreda) {
-          throw new BadRequestException('Woreda not found');
+        if (!hospitalId) {
+          throw new BadRequestException('Hospital Admin must have a hospitalId');
         }
         // Validate hospital exists
         const hospital = await this.hospitalsService.findById(hospitalId);
         if (!hospital) {
           throw new BadRequestException('Hospital not found');
+        }
+        // Auto-assign woredaId from hospital
+        if (hospital.woredaId) {
+          createUserDto.woredaId = hospital.woredaId.toString();
+        } else {
+          throw new BadRequestException('Hospital must be assigned to a woreda');
+        }
+      } else if (['DOCTOR', 'NURSE', 'MIDWIFE', 'DISPATCHER', 'EMERGENCY_ADMIN', 'MOTHER'].includes(role)) {
+        console.log('Processing staff role:', role);
+        console.log('Hospital ID provided:', hospitalId);
+        if (!hospitalId) {
+          throw new BadRequestException('Staff must have a hospitalId');
+        }
+        // Validate hospital exists
+        const hospital = await this.hospitalsService.findById(hospitalId);
+        console.log('Found hospital:', hospital);
+        if (!hospital) {
+          throw new BadRequestException('Hospital not found');
+        }
+        // Auto-assign woredaId from hospital
+        if (hospital.woredaId) {
+          createUserDto.woredaId = hospital.woredaId.toString();
+          console.log('Auto-assigned woredaId:', createUserDto.woredaId);
+        } else {
+          throw new BadRequestException('Hospital must be assigned to a woreda');
         }
       }
     } else if (currentUserRole === 'SYSTEM_ADMIN') {
@@ -187,7 +231,90 @@ export class UsersService {
       }
     }
 
-    return this.create(createUserDto);
+    console.log('Final createUserDto before creating user:', createUserDto);
+    try {
+      return await this.create(createUserDto);
+    } catch (error) {
+      console.error('Error creating user:', error);
+      throw error;
+    }
+  }
+
+  async updateWithRoleValidation(id: string, updateUserDto: any, currentUser: any): Promise<User> {
+    const user = await this.userModel.findById(id);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Apply same validation logic as create
+    const { role, woredaId, hospitalId, assignedRegion } = updateUserDto;
+    const currentUserRole = currentUser.role;
+
+    // Role-based update permissions
+    if (currentUserRole === 'SUPER_ADMIN') {
+      // SUPER_ADMIN can update any user
+      return this.update(id, updateUserDto);
+    } else if (currentUserRole === 'SYSTEM_ADMIN') {
+      // SYSTEM_ADMIN can update users in their assigned region
+      if (user.assignedRegion !== currentUser.assignedRegion) {
+        throw new ForbiddenException('System Admin can only update users in their assigned region');
+      }
+      return this.update(id, updateUserDto);
+    } else if (currentUserRole === 'WOREDA_ADMIN') {
+      // WOREDA_ADMIN can update users in their woreda
+      if (user.woredaId?.toString() !== currentUser.woredaId?.toString()) {
+        throw new ForbiddenException('Woreda Admin can only update users in their woreda');
+      }
+      return this.update(id, updateUserDto);
+    } else if (currentUserRole === 'HOSPITAL_ADMIN') {
+      // HOSPITAL_ADMIN can update users in their hospital
+      if (user.hospitalId?.toString() !== currentUser.hospitalId?.toString()) {
+        throw new ForbiddenException('Hospital Admin can only update users in their hospital');
+      }
+      return this.update(id, updateUserDto);
+    }
+
+    throw new ForbiddenException('Insufficient permissions to update this user');
+  }
+
+  async removeWithRoleValidation(id: string, currentUser: any): Promise<any> {
+    const user = await this.userModel.findById(id);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Prevent users from deleting themselves
+    if (user._id.toString() === currentUser._id.toString()) {
+      throw new ForbiddenException('Cannot delete your own account');
+    }
+
+    const currentUserRole = currentUser.role;
+
+    // Role-based delete permissions
+    if (currentUserRole === 'SUPER_ADMIN') {
+      // SUPER_ADMIN can delete any user except themselves
+      return this.userModel.findByIdAndDelete(id);
+    } else if (currentUserRole === 'SYSTEM_ADMIN') {
+      // SYSTEM_ADMIN can delete users in their assigned region
+      if (user.assignedRegion !== currentUser.assignedRegion) {
+        throw new ForbiddenException('System Admin can only delete users in their assigned region');
+      }
+      return this.userModel.findByIdAndDelete(id);
+    } else if (currentUserRole === 'WOREDA_ADMIN') {
+      // WOREDA_ADMIN can delete users in their woreda
+      if (user.woredaId?.toString() !== currentUser.woredaId?.toString()) {
+        throw new ForbiddenException('Woreda Admin can only delete users in their woreda');
+      }
+      return this.userModel.findByIdAndDelete(id);
+    } else if (currentUserRole === 'HOSPITAL_ADMIN') {
+      // HOSPITAL_ADMIN can delete users in their hospital
+      if (user.hospitalId?.toString() !== currentUser.hospitalId?.toString()) {
+        throw new ForbiddenException('Hospital Admin can only delete users in their hospital');
+      }
+      return this.userModel.findByIdAndDelete(id);
+    }
+
+    throw new ForbiddenException('Insufficient permissions to delete this user');
   }
 
   async findAll(): Promise<User[]> {
@@ -254,27 +381,6 @@ export class UsersService {
 
   async findByEmail(email: string): Promise<User> {
     return this.userModel.findOne({ email }).exec();
-  }
-
-  async update(id: string, updateData: Partial<CreateUserDto>): Promise<User> {
-    const { password, ...dataWithoutPassword } = updateData;
-    
-    console.log('Updating user with ID:', id);
-    console.log('Update data:', updateData);
-    
-    // Hash password if provided
-    const finalUpdateData: any = { ...dataWithoutPassword };
-    if (password) {
-      finalUpdateData.password = await bcrypt.hash(password, 10);
-      console.log('Password hashed');
-    }
-    
-    console.log('Final update data:', finalUpdateData);
-    
-    const result = await this.userModel.findByIdAndUpdate(id, finalUpdateData, { new: true }).exec();
-    console.log('Update result:', result);
-    
-    return result;
   }
 
   private async getHospitalsInWoreda(woredaId: string): Promise<Types.ObjectId[]> {

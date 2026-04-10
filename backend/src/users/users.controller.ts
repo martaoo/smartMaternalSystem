@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, UseGuards, Request, Patch, Delete } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -21,6 +21,8 @@ export class UsersController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' })
   async create(@Body() createUserDto: CreateUserDto, @Request() req) {
+    console.log('Controller received request:', createUserDto);
+    console.log('Current user from request:', req.user);
     const currentUser = req.user;
     return this.usersService.createWithRoleValidation(createUserDto, currentUser);
   }
@@ -54,6 +56,29 @@ export class UsersController {
   async findByRole(@Param('role') role: string, @Request() req) {
     const currentUser = req.user;
     return this.usersService.findByRoleWithFilter(role, currentUser);
+  }
+
+  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN')
+  @Patch(':id')
+  @ApiOperation({ summary: 'Update user' })
+  @ApiResponse({ status: 200, description: 'User updated successfully' })
+  @ApiResponse({ status: 400, description: 'Bad Request' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' })
+  async update(@Param('id') id: string, @Body() updateUserDto: any, @Request() req) {
+    const currentUser = req.user;
+    return this.usersService.updateWithRoleValidation(id, updateUserDto, currentUser);
+  }
+
+  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN')
+  @Delete(':id')
+  @ApiOperation({ summary: 'Delete user' })
+  @ApiResponse({ status: 200, description: 'User deleted successfully' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' })
+  async remove(@Param('id') id: string, @Request() req) {
+    const currentUser = req.user;
+    return this.usersService.removeWithRoleValidation(id, currentUser);
   }
 }
 
