@@ -4,6 +4,30 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 
+const getDashboardForRole = (role: string): string => {
+  switch (role) {
+    case 'SUPER_ADMIN':
+      return '/moh-dashboard';
+    case 'SYSTEM_ADMIN':
+      return '/system-dashboard';
+    case 'WOREDA_ADMIN':
+      return '/woreda-dashboard';
+    case 'HOSPITAL_ADMIN':
+      return '/hospital-dashboard';
+    case 'DOCTOR':
+    case 'NURSE':
+    case 'MIDWIFE':
+      return '/clinic-dashboard';
+    case 'DISPATCHER':
+    case 'EMERGENCY_ADMIN':
+      return '/dispatch-dashboard';
+    case 'MOTHER':
+      return '/mother-dashboard';
+    default:
+      return '/';
+  }
+};
+
 export default function Home() {
   const { user, isLoading } = useAuth();
   const router = useRouter();
@@ -20,7 +44,16 @@ export default function Home() {
   }
 
   const handleDashboardClick = () => {
-    router.push('/auth');
+    console.log('Current user:', user);
+    console.log('User role:', user?.role);
+    if (user?.role) {
+      const dashboardPath = getDashboardForRole(user.role);
+      console.log('Dashboard path:', dashboardPath);
+      router.push(dashboardPath);
+    } else {
+      console.log('No user role, going to auth');
+      router.push('/auth');
+    }
   };
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
@@ -50,7 +83,7 @@ export default function Home() {
                       onClick={handleDashboardClick}
                       className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-4 rounded-lg hover:from-blue-700 hover:to-purple-700 transform transition-all duration-200 hover:scale-105 font-semibold shadow-lg"
                     >
-                      Login / Continue
+                      Go to Dashboard
                     </button>
                     <button 
                       onClick={() => {

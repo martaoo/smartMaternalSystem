@@ -29,8 +29,11 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
       if (rolesArray.length > 0 && !rolesArray.includes(user.role)) {
         // Redirect to appropriate dashboard based on user role
         switch (user.role) {
-          case 'MOH_ADMIN':
+          case 'SUPER_ADMIN':
             router.push('/moh-dashboard');
+            break;
+          case 'SYSTEM_ADMIN':
+            router.push('/system-dashboard');
             break;
           case 'WOREDA_ADMIN':
             router.push('/woreda-dashboard');
@@ -40,10 +43,15 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
             break;
           case 'DOCTOR':
           case 'NURSE':
+          case 'MIDWIFE':
             router.push('/clinic-dashboard');
             break;
           case 'DISPATCHER':
+          case 'EMERGENCY_ADMIN':
             router.push('/dispatch-dashboard');
+            break;
+          case 'MOTHER':
+            router.push('/mother-dashboard');
             break;
           default:
             router.push('/');

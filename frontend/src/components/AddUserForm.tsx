@@ -33,6 +33,7 @@ interface AddUserFormValues {
   role: string;
   hospitalId?: string;
   woredaId?: string;
+  assignedRegion?: string;
   phoneNumber?: string;
 }
 
@@ -53,8 +54,8 @@ export function AddUserForm({
     woredaId: '',
     phoneNumber: '',
   });
-  const [hospitals, setHospitals] = useState([]);
-  const [woredas, setWoredas] = useState([]);
+  const [hospitals, setHospitals] = useState<any[]>([]);
+  const [woredas, setWoredas] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -62,6 +63,16 @@ export function AddUserForm({
     api.getHospitals().then(setHospitals).catch(console.error);
     api.getWoredas().then(setWoredas).catch(console.error);
   }, []);
+
+  // Auto-populate woreda when hospital is selected for hospital admin and staff roles
+  useEffect(() => {
+    if (['HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'DISPATCHER', 'EMERGENCY_ADMIN'].includes(formData.role) && formData.hospitalId) {
+      const selectedHospital = hospitals.find((h: any) => h._id === formData.hospitalId);
+      if (selectedHospital && selectedHospital.woredaId) {
+        setFormData(prev => ({ ...prev, woredaId: selectedHospital.woredaId.toString() }));
+      }
+    }
+  }, [formData.hospitalId, formData.role, hospitals]);
 
   useEffect(() => {
     if (userToEdit) {
@@ -91,17 +102,28 @@ export function AddUserForm({
 
     try {
       const dataToSend: any = { ...formData };
-      if (!['HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'DISPATCHER'].includes(formData.role)) {
+      console.log('Form data being sent:', dataToSend);
+      console.log('Form role:', formData.role);
+
+      // Only include hospitalId for roles that need it
+      if (!['HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'DISPATCHER', 'EMERGENCY_ADMIN'].includes(formData.role)) {
         delete dataToSend.hospitalId;
       }
-      if (!['WOREDA_ADMIN', 'HOSPITAL_ADMIN'].includes(formData.role)) {
+      // Only include woredaId for roles that need it (only WOREDA_ADMIN)
+      if (!['WOREDA_ADMIN'].includes(formData.role)) {
         delete dataToSend.woredaId;
+      }
+      // Only include assignedRegion for SYSTEM_ADMIN
+      if (formData.role !== 'SYSTEM_ADMIN') {
+        delete dataToSend.assignedRegion;
       }
 
       // If hospital is fixed, ensure it's included even if not in form
       if (fixedHospitalId) {
         dataToSend.hospitalId = fixedHospitalId;
       }
+
+      console.log('Final data being sent:', dataToSend);
 
       if (userToEdit?._id) {
         await api.updateUser(userToEdit._id, dataToSend);
@@ -112,6 +134,8 @@ export function AddUserForm({
       onSuccess();
       onClose();
     } catch (err: any) {
+      console.error('Frontend error:', err);
+      console.error('Error response:', err.response);
       setError(err.message || 'Failed to save user');
     } finally {
       setLoading(false);
@@ -119,12 +143,15 @@ export function AddUserForm({
   };
 
   const defaultRoles = [
-    'MOH_ADMIN',
+    'SUPER_ADMIN',
+    'SYSTEM_ADMIN',
     'WOREDA_ADMIN',
     'HOSPITAL_ADMIN',
     'DOCTOR',
     'NURSE',
+    'MIDWIFE',
     'DISPATCHER',
+    'EMERGENCY_ADMIN',
     'MOTHER',
   ];
 
@@ -132,7 +159,7 @@ export function AddUserForm({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md">
+      <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-screen overflow-y-auto">
         <h2 className="text-xl font-bold mb-4">
           {userToEdit ? 'Edit User' : 'Add New User'}
         </h2>
@@ -184,7 +211,7 @@ export function AddUserForm({
               ))}
             </select>
           </div>
-          {!hideHospitalSelect && ['HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'DISPATCHER'].includes(formData.role) && (
+          {!hideHospitalSelect && ['HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'DISPATCHER', 'EMERGENCY_ADMIN'].includes(formData.role) && (
             <div>
               <label className="block text-sm font-medium text-gray-700">Hospital</label>
               <select
@@ -202,7 +229,7 @@ export function AddUserForm({
               </select>
             </div>
           )}
-          {['WOREDA_ADMIN', 'HOSPITAL_ADMIN'].includes(formData.role) && (
+          {['WOREDA_ADMIN'].includes(formData.role) && (
             <div>
               <label className="block text-sm font-medium text-gray-700">Woreda</label>
               <select
@@ -218,6 +245,19 @@ export function AddUserForm({
                   </option>
                 ))}
               </select>
+            </div>
+          )}
+          {formData.role === 'SYSTEM_ADMIN' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Assigned Region</label>
+              <input
+                type="text"
+                required
+                value={formData.assignedRegion || ''}
+                onChange={(e) => setFormData({ ...formData, assignedRegion: e.target.value })}
+                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                placeholder="e.g., Tigray, Addis Ababa"
+              />
             </div>
           )}
           <div>

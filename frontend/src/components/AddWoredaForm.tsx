@@ -11,6 +11,7 @@ interface AddWoredaFormProps {
 export function AddWoredaForm({ onClose, onSuccess }: AddWoredaFormProps) {
   const [formData, setFormData] = useState({
     name: '',
+    city: '',
     region: '',
   });
   const [loading, setLoading] = useState(false);
@@ -49,6 +50,17 @@ export function AddWoredaForm({ onClose, onSuccess }: AddWoredaFormProps) {
             />
           </div>
           <div>
+            <label className="block text-sm font-medium text-gray-700">City/Subcity</label>
+            <input
+              type="text"
+              required
+              value={formData.city}
+              onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+              placeholder="e.g., Bole, Kirkos, Mekelle"
+            />
+          </div>
+          <div>
             <label className="block text-sm font-medium text-gray-700">Region</label>
             <input
               type="text"
@@ -56,6 +68,7 @@ export function AddWoredaForm({ onClose, onSuccess }: AddWoredaFormProps) {
               value={formData.region}
               onChange={(e) => setFormData({ ...formData, region: e.target.value })}
               className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+              placeholder="e.g., Addis Ababa, Tigray"
             />
           </div>
           <div className="flex justify-end space-x-2">

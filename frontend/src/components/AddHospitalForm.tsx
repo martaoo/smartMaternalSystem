@@ -21,7 +21,18 @@ export function AddHospitalForm({ onClose, onSuccess }: AddHospitalFormProps) {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    api.getWoredas().then(setWoredas).catch(console.error);
+    const fetchWoredas = async () => {
+      try {
+        const response = await api.getWoredas();
+        console.log('Woredas response:', response); // Debug log
+        setWoredas(Array.isArray(response) ? response : []);
+      } catch (error) {
+        console.error('Error fetching woredas:', error);
+        setWoredas([]);
+      }
+    };
+    
+    fetchWoredas();
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -98,7 +109,7 @@ export function AddHospitalForm({ onClose, onSuccess }: AddHospitalFormProps) {
               <option value="">Select Woreda</option>
               {woredas.map((woreda: any) => (
                 <option key={woreda._id} value={woreda._id}>
-                  {woreda.name}
+                  {woreda.name}, {woreda.city}
                 </option>
               ))}
             </select>
