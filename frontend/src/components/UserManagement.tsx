@@ -56,12 +56,8 @@ export function UserManagement() {
         return allUsers;
       
       case 'SYSTEM_ADMIN':
-        // System Admin can only see users in their assigned region
-        return allUsers.filter(u => 
-          u.assignedRegion === user.assignedRegion ||
-          (u.woredaId && typeof u.woredaId === 'string' && 
-           woredas.some(w => w._id === u.woredaId))
-        );
+        // System Admin gets already filtered data from backend
+        return allUsers;
       
       case 'WOREDA_ADMIN':
         // Woreda Admin can only see users in their woreda
@@ -112,6 +108,12 @@ export function UserManagement() {
     setShowAddUser(true);
   };
 
+  const handleEditUserSuccess = () => {
+    setEditingUser(null);
+    setShowAddUser(false);
+    fetchUsers(); // Refresh the users list after edit
+  };
+
   const handleDeleteUser = async (userId: string) => {
     if (!window.confirm('Are you sure you want to delete this user?')) return;
     
@@ -139,19 +141,51 @@ export function UserManagement() {
     return woreda ? woreda.name : woredaId;
   };
 
+  const getWoredaFromHospital = (user: any) => {
+    if (!user.hospitalId) return '-';
+    
+    const hospital = hospitals.find(h => h._id === user.hospitalId);
+    if (hospital && hospital.woredaId) {
+      const woreda = woredas.find(w => w._id === hospital.woredaId._id);
+      if (woreda) {
+        return `${woreda.name} (${woreda.region})`;
+      }
+    }
+    
+    return '-';
+  };
+
   // Check if current user can edit/delete a specific user
   const canEditUser = (targetUser: User) => {
     if (!user) return false;
+    
+    // Debug logging for MOTHER role
+    if (targetUser.role === 'MOTHER') {
+      console.log('DEBUG MOTHER user:', targetUser);
+      console.log('DEBUG MOTHER fields:', Object.keys(targetUser));
+    }
     
     switch (user.role) {
       case 'SUPER_ADMIN':
         return true; // Super Admin can edit anyone
       
       case 'SYSTEM_ADMIN':
-        // Can edit users in their region
-        return targetUser.assignedRegion === user.assignedRegion ||
-               (targetUser.woredaId && typeof targetUser.woredaId === 'string' && 
-                woredas.some(w => w._id === targetUser.woredaId));
+        // System Admin can edit all users in their assigned region
+        if (!user.assignedRegion) return false;
+        
+        // Check if target user is in System Admin's region
+        const isInRegion = targetUser.assignedRegion === user.assignedRegion;
+        
+        // Check if target user has woreda in System Admin's region
+        const hasWoredaInRegion = targetUser.woredaId && 
+          woredas.some(w => w._id === targetUser.woredaId && w.region === user.assignedRegion);
+        
+        // Check if target user has hospital in System Admin's region
+        const hasHospitalInRegion = targetUser.hospitalId && 
+          hospitals.some(h => h._id === targetUser.hospitalId && 
+            h.woredaId && woredas.some(w => w._id === h.woredaId._id && w.region === user.assignedRegion));
+        
+        return isInRegion || hasWoredaInRegion || hasHospitalInRegion;
       
       case 'WOREDA_ADMIN':
         // Can edit users in their woreda
@@ -305,7 +339,7 @@ export function UserManagement() {
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="text-sm text-gray-500">
-                    {user.assignedRegion || getWoredaName(user.woredaId) || '-'}
+                    {user.assignedRegion || getWoredaFromHospital(user) || getWoredaName(user.woredaId) || '-'}
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">

@@ -23,15 +23,10 @@ export class WoredasController {
   @ApiResponse({ status: 403, description: 'Forbidden - Only SUPER_ADMIN or SYSTEM_ADMIN can create woredas' })
   async create(@Body() createWoredaDto: CreateWoredaDto, @Request() req) {
     const currentUser = req.user;
-    console.log('DEBUG Woredas Controller - currentUser:', currentUser);
-    console.log('DEBUG Woredas Controller - createWoredaDto:', createWoredaDto);
-    console.log('DEBUG Woredas Controller - currentUser.assignedRegion:', currentUser.assignedRegion);
-    console.log('DEBUG Woredas Controller - createWoredaDto.region:', createWoredaDto.region);
     
     // Validate that SYSTEM_ADMIN can only create woredas in their assigned region
     if (currentUser.role === 'SYSTEM_ADMIN') {
       if (createWoredaDto.region !== currentUser.assignedRegion) {
-        console.log('DEBUG Woredas Controller - Region mismatch!');
         throw new ForbiddenException('System Admin can only create woredas in their assigned region');
       }
     }

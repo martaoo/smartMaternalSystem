@@ -20,7 +20,41 @@ export function HospitalWoredaList({
   const { user } = useAuth();
   const [hospitals, setHospitals] = useState<any[]>([]);
   const [woredas, setWoredas] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [editingHospital, setEditingHospital] = useState<any>(null);
+  const [editingWoreda, setEditingWoreda] = useState<any>(null);
+
+  const handleEditHospital = (hospital: any) => {
+    setEditingHospital(hospital);
+  };
+
+  const handleDeleteHospital = async (hospital: any) => {
+    if (!window.confirm(`Are you sure you want to delete "${hospital.name}"?`)) return;
+    
+    try {
+      await api.deleteHospital(hospital._id);
+      setHospitals(prev => prev.filter(h => h._id !== hospital._id));
+    } catch (error) {
+      console.error('Failed to delete hospital:', error);
+      alert('Failed to delete hospital');
+    }
+  };
+
+  const handleEditWoreda = (woreda: any) => {
+    setEditingWoreda(woreda);
+  };
+
+  const handleDeleteWoreda = async (woreda: any) => {
+    if (!window.confirm(`Are you sure you want to delete "${woreda.name}"?`)) return;
+    
+    try {
+      await api.deleteWoreda(woreda._id);
+      setWoredas(prev => prev.filter(w => w._id !== woreda._id));
+    } catch (error) {
+      console.error('Failed to delete woreda:', error);
+      alert('Failed to delete woreda');
+    }
+  };
 
   useEffect(() => {
     // Use pre-filtered data if provided, otherwise fetch and filter
@@ -118,6 +152,7 @@ export function HospitalWoredaList({
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -133,6 +168,20 @@ export function HospitalWoredaList({
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-500">{hospital.location || '-'}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <button
+                          onClick={() => handleEditHospital(hospital)}
+                          className="text-blue-600 hover:text-blue-900 mr-3"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDeleteHospital(hospital)}
+                          className="text-red-600 hover:text-red-900"
+                        >
+                          Delete
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -155,6 +204,7 @@ export function HospitalWoredaList({
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Region</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -165,6 +215,20 @@ export function HospitalWoredaList({
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-500">{woreda.region || '-'}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <button
+                          onClick={() => handleEditWoreda(woreda)}
+                          className="text-blue-600 hover:text-blue-900 mr-3"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDeleteWoreda(woreda)}
+                          className="text-red-600 hover:text-red-900"
+                        >
+                          Delete
+                        </button>
                       </td>
                     </tr>
                   ))}

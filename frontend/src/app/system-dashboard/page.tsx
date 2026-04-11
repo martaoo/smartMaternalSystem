@@ -53,22 +53,10 @@ export default function SystemDashboard() {
       const woredas = Array.isArray(woredasResponse) ? woredasResponse : [];
       const hospitals = Array.isArray(hospitalsResponse) ? hospitalsResponse : [];
 
-      // Filter users in this system admin's assigned region
-      const usersInRegion = users.filter(u => 
-        u.assignedRegion === user?.assignedRegion || 
-        (u.woredaId && woredas.some(w => w._id === u.woredaId))
-      );
-
-      // Filter facilities for this system admin's assigned region
-      const regionalWoredas = woredas.filter(w => 
-        user?.assignedRegion && w.region === user.assignedRegion
-      );
-      
-      const regionalHospitals = hospitals.filter(h => 
-        h.woredaId && woredas.some(w => w._id === h.woredaId && 
-          (user?.assignedRegion && w.region === user.assignedRegion)
-        )
-      );
+      // Data is already filtered by backend based on user role and region
+      const usersInRegion = users;
+      const regionalWoredas = woredas;
+      const regionalHospitals = hospitals;
 
       // Store filtered facility data
       setFilteredWoredas(regionalWoredas);

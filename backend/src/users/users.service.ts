@@ -329,9 +329,17 @@ export class UsersService {
       return this.userModel.find().exec();
     } else if (role === 'SYSTEM_ADMIN') {
       // SYSTEM_ADMIN can see all users in their assigned region
+      // Get all woredas in this System Admin's region
+      const regionalWoredas = await this.woredasService.findByRegion(assignedRegion);
+      const regionalWoredaIds = regionalWoredas.map((w: any) => w.id);
+      
+      const regionalHospitals = await this.getHospitalsInWoredas(regionalWoredaIds);
+      
       return this.userModel.find({ 
         $or: [
           { assignedRegion: assignedRegion },
+          { woredaId: { $in: regionalWoredaIds } },
+          { hospitalId: { $in: regionalHospitals } },
           { role: { $in: ['DOCTOR', 'NURSE', 'DISPATCHER', 'MOTHER'] } }
         ]
       }).exec();
@@ -384,8 +392,24 @@ export class UsersService {
   }
 
   private async getHospitalsInWoreda(woredaId: string): Promise<Types.ObjectId[]> {
-    // This would need to be implemented to get hospitals in a woreda
-    // For now, return empty array
-    return [];
+    const hospitals = await this.hospitalsService.findByWoreda(woredaId);
+    return hospitals.map((h: any) => {
+      // Handle both populated and non-populated cases
+      if (h.woredaId && typeof h.woredaId === 'object') {
+        return h.woredaId.id || h.woredaId._id;
+      }
+      return h.woredaId || h._id;
+    });
+  }
+
+  private async getHospitalsInWoredas(woredaIds: Types.ObjectId[]): Promise<Types.ObjectId[]> {
+    const hospitals = await this.hospitalsService.findByWoredas(woredaIds);
+    return hospitals.map((h: any) => {
+      // Handle both populated and non-populated cases
+      if (h.woredaId && typeof h.woredaId === 'object') {
+        return h.woredaId.id || h.woredaId._id;
+      }
+      return h.woredaId || h._id;
+    });
   }
 }

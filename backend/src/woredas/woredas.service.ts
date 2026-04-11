@@ -41,6 +41,10 @@ export class WoredasService {
     return this.woredaModel.findById(id).exec();
   }
 
+  async findByRegion(region: string): Promise<Woreda[]> {
+    return this.woredaModel.find({ region }).exec();
+  }
+
   async findAllWithRoleFilter(currentUser: any): Promise<Woreda[]> {
     const { role, assignedRegion, woredaId } = currentUser;
 

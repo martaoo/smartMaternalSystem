@@ -71,16 +71,29 @@ export class HospitalsService {
     return this.hospitalModel.findById(id).exec();
   }
 
+  async findByWoreda(woredaId: string): Promise<Hospital[]> {
+    return this.hospitalModel.find({ woredaId }).exec();
+  }
+
+  async findByWoredas(woredaIds: Types.ObjectId[]): Promise<Hospital[]> {
+    return this.hospitalModel.find({ woredaId: { $in: woredaIds } }).populate('woredaId').exec();
+  }
+
   async findAllWithRoleFilter(currentUser: any): Promise<Hospital[]> {
     const { role, assignedRegion, woredaId, hospitalId } = currentUser;
 
     if (role === 'SUPER_ADMIN') {
       return this.hospitalModel.find().populate('woredaId').exec();
     } else if (role === 'SYSTEM_ADMIN') {
-      return this.hospitalModel.find().populate({
+      const hospitals = await this.hospitalModel.find().populate({
         path: 'woredaId',
         match: { region: assignedRegion }
       }).exec();
+      
+      // Filter out hospitals where woredaId is null (due to match not finding)
+      const filteredHospitals = hospitals.filter(h => h.woredaId !== null);
+      
+      return filteredHospitals;
     } else if (role === 'WOREDA_ADMIN') {
       return this.hospitalModel.find({ woredaId }).populate('woredaId').exec();
     } else if (role === 'HOSPITAL_ADMIN') {

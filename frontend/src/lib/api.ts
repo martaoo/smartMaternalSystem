@@ -71,6 +71,12 @@ export const api = {
       body: JSON.stringify(data),
     }).then(res => res.json()),
 
+  deleteHospital: (id: string) =>
+    fetch(`${API_BASE}/hospitals/${id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+    }).then(res => res.json()),
+
   // Woredas
   getWoredas: () =>
     fetch(`${API_BASE}/woredas`, {
@@ -85,5 +91,11 @@ export const api = {
         Authorization: `Bearer ${localStorage.getItem('token')}`,
       },
       body: JSON.stringify(data),
+    }).then(res => res.json()),
+
+  deleteWoreda: (id: string) =>
+    fetch(`${API_BASE}/woredas/${id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
     }).then(res => res.json()),
 };
