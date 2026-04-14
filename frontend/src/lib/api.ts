@@ -1,6 +1,16 @@
 'use client';
 
-const API_BASE = 'http://localhost:3001/api';
+export const API_BASE = 'http://localhost:3001/api';
+
+export async function handleResponse(response: Response) {
+  const text = await response.text();
+  const data = text ? JSON.parse(text) : null;
+  if (!response.ok) {
+    const message = data?.message || data?.error || response.statusText || 'Request failed';
+    throw new Error(message);
+  }
+  return data;
+}
 
 export const api = {
   // Auth
@@ -9,25 +19,25 @@ export const api = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(credentials),
-    }).then(res => res.json()),
+    }).then(handleResponse),
 
   register: (data: any) =>
     fetch(`${API_BASE}/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
-    }).then(res => res.json()),
+    }).then(handleResponse),
 
   // Users
   getUsers: () =>
     fetch(`${API_BASE}/users`, {
       headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-    }).then(res => res.json()),
+    }).then(handleResponse),
 
   getUser: (id: string) =>
     fetch(`${API_BASE}/users/${id}`, {
       headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-    }).then(res => res.json()),
+    }).then(handleResponse),
 
   createUser: (data: any) =>
     fetch(`${API_BASE}/users`, {
@@ -37,7 +47,7 @@ export const api = {
         Authorization: `Bearer ${localStorage.getItem('token')}`,
       },
       body: JSON.stringify(data),
-    }).then(res => res.json()),
+    }).then(handleResponse),
 
   updateUser: (id: string, data: any) =>
     fetch(`${API_BASE}/users/${id}`, {
@@ -47,19 +57,19 @@ export const api = {
         Authorization: `Bearer ${localStorage.getItem('token')}`,
       },
       body: JSON.stringify(data),
-    }).then(res => res.json()),
+    }).then(handleResponse),
 
   deleteUser: (id: string) =>
     fetch(`${API_BASE}/users/${id}`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-    }),
+    }).then(handleResponse),
 
   // Hospitals
   getHospitals: () =>
     fetch(`${API_BASE}/hospitals`, {
       headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-    }).then(res => res.json()),
+    }).then(handleResponse),
 
   createHospital: (data: any) =>
     fetch(`${API_BASE}/hospitals`, {
@@ -69,19 +79,13 @@ export const api = {
         Authorization: `Bearer ${localStorage.getItem('token')}`,
       },
       body: JSON.stringify(data),
-    }).then(res => res.json()),
-
-  deleteHospital: (id: string) =>
-    fetch(`${API_BASE}/hospitals/${id}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-    }).then(res => res.json()),
+    }).then(handleResponse),
 
   // Woredas
   getWoredas: () =>
     fetch(`${API_BASE}/woredas`, {
       headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-    }).then(res => res.json()),
+    }).then(handleResponse),
 
   createWoreda: (data: any) =>
     fetch(`${API_BASE}/woredas`, {
@@ -91,11 +95,5 @@ export const api = {
         Authorization: `Bearer ${localStorage.getItem('token')}`,
       },
       body: JSON.stringify(data),
-    }).then(res => res.json()),
-
-  deleteWoreda: (id: string) =>
-    fetch(`${API_BASE}/woredas/${id}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-    }).then(res => res.json()),
+    }).then(handleResponse),
 };

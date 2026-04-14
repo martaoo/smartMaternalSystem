@@ -13,7 +13,7 @@ const getDashboardForRole = (role: string): string => {
       return '/hospital-dashboard';
     case 'DOCTOR':
     case 'NURSE':
-      return '/clinic-dashboard';
+      return '/healthcare-dashboard';
     case 'DISPATCHER':
       return '/dispatch-dashboard';
     case 'WOREDA_ADMIN':

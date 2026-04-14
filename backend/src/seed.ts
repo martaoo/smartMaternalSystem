@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { UsersService } from './users/users.service';
+import { HospitalsService } from './hospitals/hospitals.service';
 import { WoredasService } from './woredas/woredas.service';
 import { UserRole } from './common/enums/user-role.enum';
 
@@ -9,87 +10,92 @@ async function bootstrap() {
   
   try {
     const usersService = app.get(UsersService);
+    const hospitalsService = app.get(HospitalsService);
     const woredasService = app.get(WoredasService);
 
-    // Create sample woredas
-    const existingWoredas = await woredasService.findAll();
-    let testWoreda: any = null;
+    // Create a test woreda
+    const woreda = await woredasService.create({
+      name: 'Test Woreda',
+      city: 'Bole',
+      region: 'Addis Ababa',
+    });
+
+    console.log('Test Woreda created');
+    console.log('Woreda ID:', (woreda as any)._id);
+
+    // Create a test hospital
+    const hospital = await hospitalsService.create({
+      name: 'Test General Hospital',
+      type: 'HOSPITAL',
+      location: '123 Main St, Addis Ababa',
+      contact: '+251911000000',
+      woredaId: (woreda as any)._id.toString(),
+    });
+
+    console.log('Test Hospital created');
+    console.log('Hospital ID:', (hospital as any)._id);
+
+    await usersService.create({
+      name: 'System Administrator',
+      email: 'admin@maternal.gov.et',
+      password: 'admin123', // Service will hash this automatically
+      role: UserRole.SUPER_ADMIN,
+      phoneNumber: '+251900000001',
+    });
+
+    console.log('System Admin created');
+    console.log('Email: admin@maternal.gov.et');
+    console.log('Password: admin123');
+    console.log('Role: SUPER_ADMIN');
+
+    // Create a test doctor
+    await usersService.create({
+      name: 'Test Doctor',
+      email: 'doctor@test.et',
+      password: 'doc123',
+      role: UserRole.DOCTOR,
+      hospitalId: (hospital as any)._id.toString(),
+      phoneNumber: '+251911123456',
+      department: 'Obstetrics',
+      licenseNumber: 'MD001234',
+    });
+
+    console.log('Test Doctor created');
+    console.log('Email: doctor@test.et');
+    console.log('Password: doc123');
     
-    if (existingWoredas.length === 0) {
-      testWoreda = await woredasService.create({
-        name: 'Bole Woreda 01',
-        city: 'Bole',
-        region: 'Addis Ababa',
-      });
-      
-      await woredasService.create({
-        name: 'Kirkos Woreda 01',
-        city: 'Kirkos',
-        region: 'Addis Ababa',
-      });
-      
-      await woredasService.create({
-        name: 'Arada Woreda 01',
-        city: 'Arada',
-        region: 'Addis Ababa',
-      });
-      
-      console.log('Sample woredas created successfully');
-    } else {
-      testWoreda = existingWoredas[0];
-      console.log('Woredas already exist');
-    }
+    // Create a test hospital admin
+    await usersService.create({
+      name: 'Hospital Administrator',
+      email: 'hospital@admin.et',
+      password: 'admin123', // Service will hash this automatically
+      role: UserRole.HOSPITAL_ADMIN,
+      hospitalId: (hospital as any)._id.toString(),
+      phoneNumber: '+251911000002',
+    });
 
-    // Create/update super admin user
-    const existingAdmin = await usersService.findByEmail('admin@maternal.gov.et');
-    if (!existingAdmin) {
-      await usersService.create({
-        name: 'Super Administrator',
-        email: 'admin@maternal.gov.et',
-        password: 'admin123',
-        role: UserRole.SUPER_ADMIN,
-      });
-
-      console.log('Super Admin created');
-      console.log('Email: admin@maternal.gov.et');
-      console.log('Password: admin123');
-      console.log('Role: SUPER_ADMIN');
-    } else {
-      // Update existing user to have SUPER_ADMIN role
-      await usersService.update((existingAdmin as any)._id.toString(), {
-        name: existingAdmin.name,
-        email: existingAdmin.email,
-        role: UserRole.SUPER_ADMIN,
-        // Don't update password to keep existing one
-      });
-      console.log('Updated existing user to SUPER_ADMIN role');
-      console.log('Email: admin@maternal.gov.et');
-      console.log('Password: admin123');
-      console.log('Role: SUPER_ADMIN');
-    }
+    console.log('Hospital Admin created');
+    console.log('Email: hospital@admin.et');
+    console.log('Password: admin123');
+    console.log('Hospital ID:', (hospital as any)._id.toString());
     
-    // Create sample system admin for Addis Ababa
-    const existingSystemAdmin = await usersService.findByEmail('addis.admin@maternal.gov.et');
-    if (!existingSystemAdmin) {
-      await usersService.create({
-        name: 'Addis Ababa System Admin',
-        email: 'addis.admin@maternal.gov.et',
-        password: 'admin123',
-        role: UserRole.SYSTEM_ADMIN,
-        assignedRegion: 'Addis Ababa',
-      });
-
-      console.log('Addis Ababa System Admin created');
-      console.log('Email: addis.admin@maternal.gov.et');
-      console.log('Password: admin123');
-      console.log('Role: SYSTEM_ADMIN');
-      console.log('Region: Addis Ababa');
-    } else {
-      console.log('Addis Ababa system admin already exists');
+    // Fix any hospital admin users without hospitalId
+    const hospitalAdmins = await usersService.findByRole('HOSPITAL_ADMIN');
+    for (const admin of hospitalAdmins) {
+      if (!admin.hospitalId) {
+        await usersService.update((admin as any)._id.toString(), {
+          name: admin.name,
+          email: admin.email,
+          password: '', // Empty password for update (won't change existing password)
+          role: admin.role as any,
+          hospitalId: (hospital as any)._id.toString(),
+        });
+        console.log(`Fixed hospital admin ${admin.email} - assigned to hospital`);
+      }
     }
     
   } catch (error) {
-    console.error('Error during seeding:', error.message);
+    console.error('Error creating admin:', error.message);
   } finally {
     await app.close();
   }

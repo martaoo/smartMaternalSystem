@@ -1,5 +1,6 @@
 import { IsEmail, IsEnum, IsString, MinLength, IsOptional, IsMongoId, ValidateIf, IsNotEmpty } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { UserRole } from '../../common/enums/user-role.enum';
 
 export class CreateUserDto {
   @ApiProperty({ example: 'John Doe', description: 'User full name' })
@@ -17,20 +18,34 @@ export class CreateUserDto {
   password: string;
 
   @ApiProperty({ 
-    enum: ['SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'DISPATCHER', 'EMERGENCY_ADMIN', 'MOTHER'],
-    example: 'SYSTEM_ADMIN',
+    enum: UserRole,
+    example: UserRole.SYSTEM_ADMIN,
     description: 'User role' 
   })
-  @IsEnum(['SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'DISPATCHER', 'EMERGENCY_ADMIN', 'MOTHER'])
-  role: string;
+  @IsEnum(UserRole)
+  role: UserRole;
+
+  @ApiPropertyOptional({ example: 'Obstetrics', description: 'Department name for healthcare workers' })
+  @IsOptional()
+  @IsString()
+  department?: string;
+
+  @ApiPropertyOptional({ example: 'MD001234', description: 'License number for doctors and nurses' })
+  @IsOptional()
+  @IsString()
+  licenseNumber?: string;
 
   @ApiPropertyOptional({ example: '507f1f77bcf86cd799439011', description: 'Associated hospital ID (for hospital staff - auto-assigned for Hospital Admin)' })
-  @IsOptional()
+  @ValidateIf(o => ['HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'DISPATCHER'].includes(o.role))
+  @IsString()
+  @IsNotEmpty()
   @IsMongoId()
   hospitalId?: string;
 
   @ApiPropertyOptional({ example: '507f1f77bcf86cd799439011', description: 'Associated woreda ID (for woreda staff - auto-assigned for Hospital Admin)' })
-  @IsOptional()
+  @ValidateIf(o => ['WOREDA_ADMIN', 'HOSPITAL_ADMIN'].includes(o.role))
+  @IsString()
+  @IsNotEmpty()
   @IsMongoId()
   woredaId?: string;
 

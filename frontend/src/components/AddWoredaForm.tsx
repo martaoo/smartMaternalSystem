@@ -1,8 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { api } from '@/lib/api';
-import { useAuth } from '@/contexts/AuthContext';
 
 interface AddWoredaFormProps {
   onClose: () => void;
@@ -10,21 +9,12 @@ interface AddWoredaFormProps {
 }
 
 export function AddWoredaForm({ onClose, onSuccess }: AddWoredaFormProps) {
-  const { user } = useAuth();
   const [formData, setFormData] = useState({
     name: '',
-    city: '',
     region: '',
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-
-  // Auto-fill region for System Admin
-  useEffect(() => {
-    if (user?.role === 'SYSTEM_ADMIN' && user?.assignedRegion) {
-      setFormData(prev => ({ ...prev, region: user.assignedRegion || '' }));
-    }
-  }, [user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,41 +49,14 @@ export function AddWoredaForm({ onClose, onSuccess }: AddWoredaFormProps) {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700">City/Subcity</label>
-            <input
-              type="text"
-              required
-              value={formData.city}
-              onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-              placeholder="e.g., Bole, Kirkos, Mekelle"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Region
-              {user?.role === 'SYSTEM_ADMIN' && (
-                <span className="ml-2 text-xs text-green-600 font-normal">
-                  (Auto-filled from your assigned region)
-                </span>
-              )}
-            </label>
+            <label className="block text-sm font-medium text-gray-700">Region</label>
             <input
               type="text"
               required
               value={formData.region}
               onChange={(e) => setFormData({ ...formData, region: e.target.value })}
-              className={`mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 ${
-                user?.role === 'SYSTEM_ADMIN' ? 'bg-gray-100 cursor-not-allowed' : ''
-              }`}
-              placeholder="e.g., Addis Ababa, Tigray"
-              readOnly={user?.role === 'SYSTEM_ADMIN'}
+              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
             />
-            {user?.role === 'SYSTEM_ADMIN' && (
-              <p className="mt-1 text-xs text-gray-500">
-                Region is automatically set to: {user.assignedRegion}
-              </p>
-            )}
           </div>
           <div className="flex justify-end space-x-2">
             <button

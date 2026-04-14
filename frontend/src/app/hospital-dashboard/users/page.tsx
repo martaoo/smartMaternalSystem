@@ -74,11 +74,7 @@ export default function HospitalUsersPage() {
             onSuccess={handleAddUserSuccess}
             allowedRoles={['DOCTOR', 'NURSE', 'DISPATCHER']}
             hideHospitalSelect={true}
-            fixedHospitalId={
-              typeof user?.hospitalId === 'string'
-                ? user.hospitalId
-                : (user?.hospitalId as any)?._id
-            }
+            fixedHospitalId={user?.hospitalId}
           />
         )}
       </div>

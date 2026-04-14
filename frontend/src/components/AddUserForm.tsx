@@ -1,8 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect } from 'react';
 import { api } from '@/lib/api';
-import { useAuth } from '@/contexts/AuthContext';
 
 export interface UserForEdit {
   _id: string;
@@ -34,7 +33,6 @@ interface AddUserFormValues {
   role: string;
   hospitalId?: string;
   woredaId?: string;
-  assignedRegion?: string;
   phoneNumber?: string;
 }
 
@@ -46,7 +44,6 @@ export function AddUserForm({
   hideHospitalSelect,
   fixedHospitalId,
 }: AddUserFormProps) {
-  const { user } = useAuth();
   const [formData, setFormData] = useState<AddUserFormValues>({
     email: '',
     password: '',
@@ -56,125 +53,15 @@ export function AddUserForm({
     woredaId: '',
     phoneNumber: '',
   });
-  const [allHospitals, setAllHospitals] = useState<any[]>([]);
-  const [woredas, setWoredas] = useState<any[]>([]);
+  const [hospitals, setHospitals] = useState([]);
+  const [woredas, setWoredas] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Filter hospitals based on current user's role and permissions
-  const getFilteredHospitals = () => {
-    console.log('DEBUG getFilteredHospitals - user:', user);
-    console.log('DEBUG getFilteredHospitals - allHospitals:', allHospitals.length, allHospitals);
-    console.log('DEBUG getFilteredHospitals - woredas:', woredas.length, woredas);
-    
-    if (!user) return allHospitals;
-    
-    switch (user.role) {
-      case 'SUPER_ADMIN':
-        console.log('DEBUG: Super Admin - returning all hospitals');
-        return allHospitals;
-      
-      case 'SYSTEM_ADMIN':
-        console.log('DEBUG: System Admin - filtering by region:', user.assignedRegion);
-        // System Admin can only see hospitals in their assigned region
-        const filtered = allHospitals.filter(hospital => {
-          console.log('DEBUG: Checking hospital:', hospital);
-          console.log('DEBUG: hospital.woredaId:', hospital.woredaId, 'type:', typeof hospital.woredaId);
-          
-          if (!hospital.woredaId) {
-            console.log('DEBUG: Hospital has no woredaId, skipping');
-            return false;
-          }
-          
-          const matchingWoreda = woredas.find(w => {
-            console.log('DEBUG: Comparing w._id:', w._id, 'type:', typeof w._id, 'with hospital.woredaId._id:', hospital.woredaId._id);
-            console.log('DEBUG: w.region:', w.region, 'vs user.assignedRegion:', user.assignedRegion);
-            return w._id === hospital.woredaId._id || w._id.toString() === hospital.woredaId._id.toString();
-          });
-          
-          const matches = matchingWoreda && (user.assignedRegion && matchingWoreda.region === user.assignedRegion);
-          console.log('DEBUG: Matching woreda:', matchingWoreda, 'matches:', matches);
-          return matches;
-        });
-        console.log('DEBUG: System Admin filtered hospitals:', filtered.length, filtered);
-        return filtered;
-      
-      case 'WOREDA_ADMIN':
-        console.log('DEBUG: Woreda Admin - filtering by woreda:', user.woredaId);
-        // Woreda Admin can only see hospitals in their woreda
-        const woredaFiltered = allHospitals.filter(hospital => 
-          hospital.woredaId === user.woredaId
-        );
-        console.log('DEBUG: Woreda Admin filtered hospitals:', woredaFiltered.length, woredaFiltered);
-        return woredaFiltered;
-      
-      case 'HOSPITAL_ADMIN':
-        console.log('DEBUG: Hospital Admin - filtering by hospital:', user.hospitalId);
-        // Hospital Admin can only see their own hospital
-        const hospitalFiltered = allHospitals.filter(hospital => 
-          hospital._id === user.hospitalId
-        );
-        console.log('DEBUG: Hospital Admin filtered hospitals:', hospitalFiltered.length, hospitalFiltered);
-        return hospitalFiltered;
-      
-      default:
-        console.log('DEBUG: Default case - returning empty array');
-        // Other roles shouldn't be creating users with hospitals
-        return [];
-    }
-  };
-
-  // Filter woredas based on current user's role and permissions
-  const getFilteredWoredas = () => {
-    if (!user) return woredas;
-    
-    switch (user.role) {
-      case 'SUPER_ADMIN':
-        return woredas;
-      
-      case 'SYSTEM_ADMIN':
-        // System Admin can only see woredas in their assigned region
-        return woredas.filter(w => 
-          user.assignedRegion && w.region === user.assignedRegion
-        );
-      
-      case 'WOREDA_ADMIN':
-        // Woreda Admin can only see their own woreda
-        return woredas.filter(w => 
-          w._id === user.woredaId
-        );
-      
-      default:
-        // Other roles shouldn't be creating users with woredas
-        return [];
-    }
-  };
-
-  const [hospitals, setHospitals] = useState(getFilteredHospitals());
-  const [filteredWoredas, setFilteredWoredas] = useState(getFilteredWoredas());
-
   useEffect(() => {
-    api.getHospitals().then(setAllHospitals).catch(console.error);
+    api.getHospitals().then(setHospitals).catch(console.error);
     api.getWoredas().then(setWoredas).catch(console.error);
   }, []);
-
-  // Re-filter hospitals when woredas are loaded
-  useEffect(() => {
-    if (allHospitals.length > 0 && woredas.length > 0) {
-      setHospitals(getFilteredHospitals());
-      setFilteredWoredas(getFilteredWoredas());
-    }
-  }, [allHospitals, woredas, user?.assignedRegion]);
-
-  // Auto-populate woreda when hospital is selected for hospital admin and staff roles
-  useEffect(() => {
-    if (['HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'DISPATCHER', 'EMERGENCY_ADMIN'].includes(formData.role) && formData.hospitalId) {
-      const selectedHospital = getFilteredHospitals().find((h: any) => h._id === formData.hospitalId);
-      if (selectedHospital && selectedHospital.woredaId) {
-        setFormData(prev => ({ ...prev, woredaId: selectedHospital.woredaId.toString() }));
-      }
-    }
-  }, [formData.hospitalId, formData.role, allHospitals, woredas, user]);
 
   useEffect(() => {
     if (userToEdit) {
@@ -204,36 +91,17 @@ export function AddUserForm({
 
     try {
       const dataToSend: any = { ...formData };
-      console.log('Form data being sent:', dataToSend);
-      console.log('Form role:', formData.role);
-
-      // For staff roles, set woredaId based on selected hospital
-      if (['HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'DISPATCHER', 'EMERGENCY_ADMIN'].includes(formData.role) && formData.hospitalId) {
-        const selectedHospital = getFilteredHospitals().find((h: any) => h._id === formData.hospitalId);
-        if (selectedHospital && selectedHospital.woredaId) {
-          dataToSend.woredaId = selectedHospital.woredaId._id || selectedHospital.woredaId;
-        }
-      }
-
-      // Only include hospitalId for roles that need it
-      if (!['HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'DISPATCHER', 'EMERGENCY_ADMIN'].includes(formData.role)) {
+      if (!['HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'DISPATCHER'].includes(formData.role)) {
         delete dataToSend.hospitalId;
       }
-      // Only include woredaId for roles that need it (WOREDA_ADMIN and staff roles)
-      if (!['WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'DISPATCHER', 'EMERGENCY_ADMIN'].includes(formData.role)) {
+      if (!['WOREDA_ADMIN', 'HOSPITAL_ADMIN'].includes(formData.role)) {
         delete dataToSend.woredaId;
-      }
-      // Only include assignedRegion for SYSTEM_ADMIN
-      if (formData.role !== 'SYSTEM_ADMIN') {
-        delete dataToSend.assignedRegion;
       }
 
       // If hospital is fixed, ensure it's included even if not in form
       if (fixedHospitalId) {
         dataToSend.hospitalId = fixedHospitalId;
       }
-
-      console.log('Final data being sent:', dataToSend);
 
       if (userToEdit?._id) {
         await api.updateUser(userToEdit._id, dataToSend);
@@ -244,8 +112,6 @@ export function AddUserForm({
       onSuccess();
       onClose();
     } catch (err: any) {
-      console.error('Frontend error:', err);
-      console.error('Error response:', err.response);
       setError(err.message || 'Failed to save user');
     } finally {
       setLoading(false);
@@ -253,15 +119,12 @@ export function AddUserForm({
   };
 
   const defaultRoles = [
-    'SUPER_ADMIN',
-    'SYSTEM_ADMIN',
+    'MOH_ADMIN',
     'WOREDA_ADMIN',
     'HOSPITAL_ADMIN',
     'DOCTOR',
     'NURSE',
-    'MIDWIFE',
     'DISPATCHER',
-    'EMERGENCY_ADMIN',
     'MOTHER',
   ];
 
@@ -269,7 +132,7 @@ export function AddUserForm({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-screen overflow-y-auto">
+      <div className="bg-white rounded-lg p-6 w-full max-w-md">
         <h2 className="text-xl font-bold mb-4">
           {userToEdit ? 'Edit User' : 'Add New User'}
         </h2>
@@ -321,7 +184,7 @@ export function AddUserForm({
               ))}
             </select>
           </div>
-          {!hideHospitalSelect && ['HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'DISPATCHER', 'EMERGENCY_ADMIN'].includes(formData.role) && (
+          {!hideHospitalSelect && ['HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'DISPATCHER'].includes(formData.role) && (
             <div>
               <label className="block text-sm font-medium text-gray-700">Hospital</label>
               <select
@@ -331,7 +194,7 @@ export function AddUserForm({
                 className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
               >
                 <option value="">Select Hospital</option>
-                {getFilteredHospitals().map((hospital: any) => (
+                {hospitals.map((hospital: any) => (
                   <option key={hospital._id} value={hospital._id?.toString() ?? ''}>
                     {hospital.name}
                   </option>
@@ -339,25 +202,7 @@ export function AddUserForm({
               </select>
             </div>
           )}
-          {['HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'DISPATCHER', 'EMERGENCY_ADMIN'].includes(formData.role) && formData.hospitalId && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Woreda/Region</label>
-              <input
-                type="text"
-                value={(() => {
-                  const selectedHospital = getFilteredHospitals().find((h: any) => h._id === formData.hospitalId);
-                  if (selectedHospital && selectedHospital.woredaId) {
-                    return `${selectedHospital.woredaId.name} (${selectedHospital.woredaId.region})`;
-                  }
-                  return '';
-                })()}
-                readOnly
-                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 bg-gray-50"
-                placeholder="Select a hospital to see woreda/region"
-              />
-            </div>
-          )}
-          {['WOREDA_ADMIN'].includes(formData.role) && (
+          {['WOREDA_ADMIN', 'HOSPITAL_ADMIN'].includes(formData.role) && (
             <div>
               <label className="block text-sm font-medium text-gray-700">Woreda</label>
               <select
@@ -367,25 +212,12 @@ export function AddUserForm({
                 className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
               >
                 <option value="">Select Woreda</option>
-                {filteredWoredas.map((woreda: any) => (
+                {woredas.map((woreda: any) => (
                   <option key={woreda._id} value={woreda._id?.toString() ?? ''}>
                     {woreda.name}
                   </option>
                 ))}
               </select>
-            </div>
-          )}
-          {formData.role === 'SYSTEM_ADMIN' && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Assigned Region</label>
-              <input
-                type="text"
-                required
-                value={formData.assignedRegion || ''}
-                onChange={(e) => setFormData({ ...formData, assignedRegion: e.target.value })}
-                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-                placeholder="e.g., Tigray, Addis Ababa"
-              />
             </div>
           )}
           <div>

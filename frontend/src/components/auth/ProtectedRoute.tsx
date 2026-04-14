@@ -44,7 +44,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
           case 'DOCTOR':
           case 'NURSE':
           case 'MIDWIFE':
-            router.push('/clinic-dashboard');
+            router.push('/healthcare-dashboard');
             break;
           case 'DISPATCHER':
           case 'EMERGENCY_ADMIN':

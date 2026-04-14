@@ -4,6 +4,10 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { HospitalsModule } from './hospitals/hospitals.module';
 import { WoredasModule } from './woredas/woredas.module';
+import { MothersModule } from './mothers/mothers.module';
+import { PregnancyModule } from './pregnancy/pregnancy.module';
+import { ChildrenModule } from './children/children.module';
+import { VaccinationsModule } from './vaccinations/vaccinations.module';
 import { AppController } from './app.controller';
 
 @Module({
@@ -13,6 +17,10 @@ import { AppController } from './app.controller';
     UsersModule,
     HospitalsModule,
     WoredasModule,
+    MothersModule,
+    PregnancyModule,
+    ChildrenModule,
+    VaccinationsModule,
   ],
   controllers: [AppController],
 })

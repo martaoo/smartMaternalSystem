@@ -1,4 +1,4 @@
-export type UserRole = 'SUPER_ADMIN' | 'SYSTEM_ADMIN' | 'WOREDA_ADMIN' | 'HOSPITAL_ADMIN' | 'DOCTOR' | 'NURSE' | 'MIDWIFE' | 'DISPATCHER' | 'EMERGENCY_ADMIN' | 'MOTHER';
+export type UserRole = 'MOH_ADMIN' | 'WOREDA_ADMIN' | 'HOSPITAL_ADMIN' | 'DOCTOR' | 'NURSE' | 'DISPATCHER' | 'MOTHER';
 
 export interface User {
   id: string;
@@ -7,9 +7,6 @@ export interface User {
   role: UserRole;
   hospitalId?: string;
   woredaId?: string;
-  assignedRegion?: string;
-  phoneNumber?: string;
-  createdAt?: string;
 }
 
 export interface AuthState {

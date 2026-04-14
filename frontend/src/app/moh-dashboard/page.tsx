@@ -1,132 +1,36 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { AddHospitalForm } from '@/components/AddHospitalForm';
 import { AddUserForm } from '@/components/AddUserForm';
 import { AddWoredaForm } from '@/components/AddWoredaForm';
-import { UserManagement } from '@/components/UserManagement';
-import { HospitalWoredaList } from '@/components/HospitalWoredaList';
 import { useAuth } from '@/contexts/AuthContext';
-import { api } from '@/lib/api';
 
 export default function MOHDashboard() {
   const { user, logout } = useAuth();
   const [showAddHospital, setShowAddHospital] = useState(false);
   const [showAddUser, setShowAddUser] = useState(false);
   const [showAddWoreda, setShowAddWoreda] = useState(false);
-  const [showAddSystemAdmin, setShowAddSystemAdmin] = useState(false);
-  
-  // Real data states
-  const [stats, setStats] = useState({
-    totalHospitals: 0,
-    totalUsers: 0,
-    totalWoredas: 0,
-    activeCases: 0,
-    alerts: 0
-  });
-  const [recentActivities, setRecentActivities] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetchDashboardData();
-  }, []);
-
-  const fetchDashboardData = async () => {
-    try {
-      setLoading(true);
-      
-      // Fetch all data in parallel
-      const [usersResponse, hospitalsResponse, woredasResponse] = await Promise.all([
-        api.getUsers(),
-        api.getHospitals(),
-        api.getWoredas()
-      ]);
-
-      const users = Array.isArray(usersResponse) ? usersResponse : [];
-      const hospitals = Array.isArray(hospitalsResponse) ? hospitalsResponse : [];
-      const woredas = Array.isArray(woredasResponse) ? woredasResponse : [];
-
-      // Calculate stats
-      const newStats = {
-        totalHospitals: hospitals.length,
-        totalUsers: users.length,
-        totalWoredas: woredas.length,
-        activeCases: users.filter(u => ['DOCTOR', 'NURSE', 'MIDWIFE'].includes(u.role)).length,
-        alerts: users.filter(u => u.role === 'EMERGENCY_ADMIN').length
-      };
-
-      // Generate recent activities from recent user creations
-      const activities = users
-        .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-        .slice(0, 5)
-        .map((user: any) => ({
-          id: user._id,
-          type: 'user_created',
-          message: `${user.name} (${user.role.replace('_', ' ')}) created`,
-          timestamp: user.createdAt,
-          color: getActivityColor(user.role)
-        }));
-
-      setStats(newStats);
-      setRecentActivities(activities);
-    } catch (error) {
-      console.error('Failed to fetch dashboard data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const getActivityColor = (role: string) => {
-    switch (role) {
-      case 'SUPER_ADMIN': return 'bg-purple-600';
-      case 'SYSTEM_ADMIN': return 'bg-blue-600';
-      case 'WOREDA_ADMIN': return 'bg-green-600';
-      case 'HOSPITAL_ADMIN': return 'bg-yellow-600';
-      case 'DOCTOR': return 'bg-red-600';
-      case 'NURSE': return 'bg-pink-600';
-      case 'MIDWIFE': return 'bg-indigo-600';
-      case 'DISPATCHER': return 'bg-orange-600';
-      case 'EMERGENCY_ADMIN': return 'bg-red-600';
-      case 'MOTHER': return 'bg-gray-600';
-      default: return 'bg-gray-600';
-    }
-  };
-
-  const formatTimeAgo = (timestamp: string) => {
-    const now = new Date();
-    const past = new Date(timestamp);
-    const diffInMinutes = Math.floor((now.getTime() - past.getTime()) / (1000 * 60));
-    
-    if (diffInMinutes < 1) return 'Just now';
-    if (diffInMinutes < 60) return `${diffInMinutes} minutes ago`;
-    if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)} hours ago`;
-    return `${Math.floor(diffInMinutes / 1440)} days ago`;
-  };
 
   const handleAddHospitalSuccess = () => {
-    fetchDashboardData();
+    // Refresh data or show success message
     alert('Hospital added successfully!');
   };
 
   const handleAddUserSuccess = () => {
-    fetchDashboardData();
+    // Refresh data or show success message
     alert('User added successfully!');
   };
 
-  const handleAddSystemAdminSuccess = () => {
-    fetchDashboardData();
-    alert('System Admin added successfully!');
-  };
-
   const handleAddWoredaSuccess = () => {
-    fetchDashboardData();
+    // Refresh data or show success message
     alert('Woreda added successfully!');
   };
 
   return (
-    <ProtectedRoute requiredRole="SUPER_ADMIN">
+    <ProtectedRoute requiredRole="MOH_ADMIN">
       <div className="min-h-screen bg-gray-50">
         {/* Header */}
         <header className="bg-white shadow-sm border-b border-gray-200">
@@ -139,8 +43,8 @@ export default function MOHDashboard() {
                   </svg>
                 </div>
                 <div>
-                  <h1 className="text-xl font-bold text-gray-900">Super Admin Dashboard</h1>
-                  <p className="text-sm text-gray-500">System Administration</p>
+                  <h1 className="text-xl font-bold text-gray-900">MOH Dashboard</h1>
+                  <p className="text-sm text-gray-500">Ministry of Health Administration</p>
                 </div>
               </div>
               <div className="flex items-center space-x-4">
@@ -170,9 +74,7 @@ export default function MOHDashboard() {
                   </div>
                   <div className="ml-4">
                     <p className="text-sm font-medium text-gray-600">Total Hospitals</p>
-                    <p className="text-2xl font-bold text-gray-900">
-                      {loading ? '...' : stats.totalHospitals}
-                    </p>
+                    <p className="text-2xl font-bold text-gray-900">24</p>
                   </div>
                 </div>
               </div>
@@ -186,9 +88,7 @@ export default function MOHDashboard() {
                   </div>
                   <div className="ml-4">
                     <p className="text-sm font-medium text-gray-600">Total Users</p>
-                    <p className="text-2xl font-bold text-gray-900">
-                      {loading ? '...' : stats.totalUsers}
-                    </p>
+                    <p className="text-2xl font-bold text-gray-900">156</p>
                   </div>
                 </div>
               </div>
@@ -201,10 +101,8 @@ export default function MOHDashboard() {
                     </svg>
                   </div>
                   <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Medical Staff</p>
-                    <p className="text-2xl font-bold text-gray-900">
-                      {loading ? '...' : stats.activeCases}
-                    </p>
+                    <p className="text-sm font-medium text-gray-600">Active Cases</p>
+                    <p className="text-2xl font-bold text-gray-900">89</p>
                   </div>
                 </div>
               </div>
@@ -217,10 +115,8 @@ export default function MOHDashboard() {
                     </svg>
                   </div>
                   <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Emergency Admins</p>
-                    <p className="text-2xl font-bold text-gray-900">
-                      {loading ? '...' : stats.alerts}
-                    </p>
+                    <p className="text-sm font-medium text-gray-600">Alerts</p>
+                    <p className="text-2xl font-bold text-gray-900">3</p>
                   </div>
                 </div>
               </div>
@@ -228,8 +124,17 @@ export default function MOHDashboard() {
 
             {/* Quick Actions */}
             <div className="bg-white rounded-lg shadow p-6 mb-8">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">System Administration</h2>
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <button 
+                  onClick={() => setShowAddHospital(true)}
+                  className="flex items-center justify-center px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200"
+                >
+                  <svg className="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                  Add Hospital
+                </button>
                 <button 
                   onClick={() => setShowAddUser(true)}
                   className="flex items-center justify-center px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200"
@@ -237,16 +142,7 @@ export default function MOHDashboard() {
                   <svg className="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
                   </svg>
-                  Create User
-                </button>
-                <button 
-                  onClick={() => setShowAddSystemAdmin(true)}
-                  className="flex items-center justify-center px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200"
-                >
-                  <svg className="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                  </svg>
-                  Create System Admin
+                  Add User
                 </button>
                 <button 
                   onClick={() => setShowAddWoreda(true)}
@@ -256,54 +152,42 @@ export default function MOHDashboard() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
-                  Create Woreda
+                  Add Woreda
                 </button>
-                <button 
-                  onClick={() => setShowAddHospital(true)}
-                  className="flex items-center justify-center px-4 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors duration-200"
-                >
+                <Link href="/moh-dashboard/users" className="flex items-center justify-center px-4 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors duration-200">
                   <svg className="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7v10l7-5-7-5z" />
                   </svg>
-                  Create Hospital
+                  View Users
+                </Link>
+                <button className="flex items-center justify-center px-4 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors duration-200">
+                  <svg className="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                  View Reports
                 </button>
               </div>
-            </div>
-
-            {/* User Management Section */}
-            <div className="bg-white rounded-lg shadow p-6 mb-8">
-              <UserManagement />
-            </div>
-
-            {/* Hospitals and Woredas Lists */}
-            <div className="bg-white rounded-lg shadow p-6 mb-8">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">System Facilities</h2>
-              <HospitalWoredaList showHospitals={true} showWoredas={true} />
             </div>
 
             {/* Recent Activity */}
             <div className="bg-white rounded-lg shadow p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h2>
               <div className="space-y-4">
-                {loading ? (
-                  <div className="flex items-center space-x-3">
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-pulse"></div>
-                    <p className="text-sm text-gray-400">Loading recent activities...</p>
-                  </div>
-                ) : recentActivities.length > 0 ? (
-                  recentActivities.map((activity) => (
-                    <div key={activity.id} className="flex items-center space-x-3">
-                      <div className={`w-2 h-2 ${activity.color} rounded-full`}></div>
-                      <p className="text-sm text-gray-600">{activity.message}</p>
-                      <p className="text-xs text-gray-400">{formatTimeAgo(activity.timestamp)}</p>
-                    </div>
-                  ))
-                ) : (
-                  <div className="flex items-center space-x-3">
-                    <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
-                    <p className="text-sm text-gray-400">No recent activities</p>
-                  </div>
-                )}
+                <div className="flex items-center space-x-3">
+                  <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
+                  <p className="text-sm text-gray-600">New hospital "St. Paul" registered</p>
+                  <span className="text-xs text-gray-400">2 hours ago</span>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <div className="w-2 h-2 bg-green-600 rounded-full"></div>
+                  <p className="text-sm text-gray-600">5 new doctors added to Black Lion Hospital</p>
+                  <span className="text-xs text-gray-400">4 hours ago</span>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <div className="w-2 h-2 bg-purple-600 rounded-full"></div>
+                  <p className="text-sm text-gray-600">Monthly report generated</p>
+                  <span className="text-xs text-gray-400">1 day ago</span>
+                </div>
               </div>
             </div>
           </div>
@@ -318,15 +202,7 @@ export default function MOHDashboard() {
       {showAddUser && (
         <AddUserForm 
           onClose={() => setShowAddUser(false)} 
-          onSuccess={handleAddUserSuccess}
-          allowedRoles={['SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'DISPATCHER', 'EMERGENCY_ADMIN', 'MOTHER']}
-        />
-      )}
-      {showAddSystemAdmin && (
-        <AddUserForm 
-          onClose={() => setShowAddSystemAdmin(false)} 
-          onSuccess={handleAddSystemAdminSuccess}
-          allowedRoles={['SYSTEM_ADMIN']}
+          onSuccess={handleAddUserSuccess} 
         />
       )}
       {showAddWoreda && (

@@ -5,23 +5,17 @@ import { User, AuthState, LoginCredentials, RegisterCredentials } from '@/types/
 
 const getDashboardForRole = (role: string): string => {
   switch (role) {
-    case 'SUPER_ADMIN':
+    case 'MOH_ADMIN':
       return '/moh-dashboard';
-    case 'SYSTEM_ADMIN':
-      return '/system-dashboard';
-    case 'WOREDA_ADMIN':
-      return '/woreda-dashboard';
     case 'HOSPITAL_ADMIN':
       return '/hospital-dashboard';
     case 'DOCTOR':
     case 'NURSE':
-    case 'MIDWIFE':
-      return '/clinic-dashboard';
+      return '/healthcare-dashboard';
     case 'DISPATCHER':
-    case 'EMERGENCY_ADMIN':
       return '/dispatch-dashboard';
-    case 'MOTHER':
-      return '/mother-dashboard';
+    case 'WOREDA_ADMIN':
+      return '/woreda-dashboard';
     default:
       return '/';
   }
@@ -80,7 +74,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (savedUser) {
       try {
         const user = JSON.parse(savedUser);
-        dispatch({ type: 'LOGIN_SUCCESS', payload: user });
+        // Ensure hospitalId and woredaId are strings
+        const normalizedUser: User = {
+          ...user,
+          hospitalId: user.hospitalId ? String(user.hospitalId) : undefined,
+          woredaId: user.woredaId ? String(user.woredaId) : undefined,
+        };
+        dispatch({ type: 'LOGIN_SUCCESS', payload: normalizedUser });
       } catch (error) {
         localStorage.removeItem('user');
       }
@@ -101,7 +101,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       const data = await response.json();
-      const user: User = data.user;
+      const user: User = {
+        id: data.user.id,
+        name: data.user.name,
+        email: data.user.email,
+        role: data.user.role,
+        hospitalId: data.user.hospitalId ? String(data.user.hospitalId) : undefined,
+        woredaId: data.user.woredaId ? String(data.user.woredaId) : undefined,
+      };
       
       localStorage.setItem('user', JSON.stringify(user));
       localStorage.setItem('token', data.access_token);

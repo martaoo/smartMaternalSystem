@@ -9,59 +9,23 @@ export class WoredasService {
   constructor(@InjectModel(Woreda.name) private woredaModel: Model<WoredaDocument>) {}
 
   async create(createWoredaDto: CreateWoredaDto): Promise<Woreda> {
-    console.log('Creating woreda with data:', createWoredaDto);
-    
-    const existingWoreda = await this.woredaModel.findOne({ 
-      name: createWoredaDto.name,
-      city: createWoredaDto.city 
-    });
+    const existingWoreda = await this.woredaModel.findOne({ name: createWoredaDto.name });
     if (existingWoreda) {
-      console.log('Woreda already exists:', existingWoreda);
-      throw new ConflictException('Woreda with this name and city already exists');
+      throw new ConflictException('Woreda with this name already exists');
     }
 
     const createdWoreda = new this.woredaModel(createWoredaDto);
-    console.log('Woreda to save:', createdWoreda);
-    
-    try {
-      const result = await createdWoreda.save();
-      console.log('Woreda saved successfully:', result);
-      return result;
-    } catch (error) {
-      console.error('Error saving woreda:', error);
-      throw error;
-    }
+    return createdWoreda.save();
   }
 
   async findAll(): Promise<Woreda[]> {
     return this.woredaModel.find().exec();
   }
 
-  async findById(id: string): Promise<Woreda> {
-    return this.woredaModel.findById(id).exec();
-  }
-
-  async findByRegion(region: string): Promise<Woreda[]> {
-    return this.woredaModel.find({ region }).exec();
-  }
-
-  async findAllWithRoleFilter(currentUser: any): Promise<Woreda[]> {
-    const { role, assignedRegion, woredaId } = currentUser;
-
-    if (role === 'SUPER_ADMIN') {
-      // SUPER_ADMIN can see all woredas
-      return this.woredaModel.find().exec();
-    } else if (role === 'SYSTEM_ADMIN') {
-      // SYSTEM_ADMIN can see all woredas in their assigned region
-      return this.woredaModel.find({ region: assignedRegion }).exec();
-    } else if (role === 'WOREDA_ADMIN') {
-      // WOREDA_ADMIN can see only their assigned woreda
-      return this.woredaModel.find({ _id: woredaId }).exec();
-    } else if (role === 'HOSPITAL_ADMIN') {
-      // HOSPITAL_ADMIN can see only their woreda (where their hospital is located)
+  async findAllWithRoleFilter(role: string, woredaId?: string): Promise<Woreda[]> {
+    if (role === 'HOSPITAL_ADMIN' && woredaId) {
       return this.woredaModel.find({ _id: woredaId }).exec();
     }
-
-    return [];
+    return this.woredaModel.find().exec();
   }
 }
