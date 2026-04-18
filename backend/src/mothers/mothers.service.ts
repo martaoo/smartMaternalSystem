@@ -9,21 +9,24 @@ export class MothersService {
   constructor(@InjectModel(Mother.name) private motherModel: Model<MotherDocument>) {}
 
   async create(createMotherDto: CreateMotherDto, userRole: string, userHospitalId?: string, userWoredaId?: string): Promise<Mother> {
-    // Validate hospital assignment based on user role
+    // Automatically use the user's hospital for hospital staff
+    let healthCenterId: string;
     if (userRole === 'HOSPITAL_ADMIN' || userRole === 'DOCTOR' || userRole === 'NURSE' || userRole === 'MIDWIFE') {
-      // Hospital staff can only create mothers for their hospital
-      if (createMotherDto.healthCenter !== userHospitalId) {
-        throw new BadRequestException('You can only register mothers for your health center');
+      if (!userHospitalId) {
+        throw new BadRequestException('You must be assigned to a hospital to register mothers');
       }
+      healthCenterId = userHospitalId;
+    } else {
+      // For other roles, they should specify the hospital (if needed)
+      throw new BadRequestException('Only hospital staff can register mothers');
     }
 
     // Add woredaId based on user's woreda if applicable
     const motherData = {
       ...createMotherDto,
       woredaId: userWoredaId ? new Types.ObjectId(userWoredaId) : undefined,
-      healthCenter: new Types.ObjectId(createMotherDto.healthCenter),
-      assignedHealthWorker: createMotherDto.assignedHealthWorker ? 
-        new Types.ObjectId(createMotherDto.assignedHealthWorker) : undefined,
+      healthCenter: new Types.ObjectId(healthCenterId),
+      registeredBy: createMotherDto.registeredBy || 'Unknown',
     };
 
     const mother = new this.motherModel(motherData);

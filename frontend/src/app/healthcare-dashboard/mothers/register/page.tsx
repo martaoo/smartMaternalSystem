@@ -4,68 +4,113 @@ import { useState, useEffect } from 'react';
 import { mothersApi } from '@/lib/healthcare-api';
 import { api } from '@/lib/api';
 
-interface MotherFormData {
+interface FormData {
   name: string;
   phone: string;
   age: string;
   address: string;
-  healthCenter: string;
   emergencyContact: string;
   medicalHistory: string;
   expectedDeliveryDate: string;
   gravida: string;
   para: string;
   lmp: string;
-  assignedHealthWorker: string;
 }
 
 export default function RegisterMother() {
-  const [formData, setFormData] = useState<MotherFormData>({
+  const [formData, setFormData] = useState<FormData>({
     name: '',
     phone: '',
     age: '',
     address: '',
-    healthCenter: '',
     emergencyContact: '',
     medicalHistory: '',
     expectedDeliveryDate: '',
     gravida: '',
     para: '',
     lmp: '',
-    assignedHealthWorker: '',
   });
 
-  const [hospitals, setHospitals] = useState<any[]>([]);
-  const [healthWorkers, setHealthWorkers] = useState<any[]>([]);
+  const [currentUser, setCurrentUser] = useState<any>(null);
+
+  const [userHospital, setUserHospital] = useState<any>(null);
+  const [availableHospitals, setAvailableHospitals] = useState<any[]>([]);
+  const [showHospitalFallback, setShowHospitalFallback] = useState(false);
+  const [useFallback, setUseFallback] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
   useEffect(() => {
-    fetchHospitals();
-    fetchHealthWorkers();
+    getCurrentUser();
   }, []);
 
-  const fetchHospitals = async () => {
+  const getCurrentUser = async () => {
     try {
-      const data = await api.getHospitals();
-      setHospitals(data);
+      // Get user info from localStorage
+      const userStr = localStorage.getItem('user');
+      console.log('=== USER DEBUG START ===');
+      console.log('Raw user string:', userStr);
+      
+      if (userStr) {
+        const user = JSON.parse(userStr);
+        console.log('Parsed user object:', user);
+        console.log('User keys:', Object.keys(user));
+        console.log('User hospitalId:', user.hospitalId);
+        console.log('User hospitalId type:', typeof user.hospitalId);
+        
+        // Check for alternative field names
+        console.log('Checking alternative field names:');
+        console.log('- hospital:', user.hospital);
+        console.log('- healthCenterId:', user.healthCenterId);
+        console.log('- assignedHospital:', user.assignedHospital);
+        console.log('- hospitalId (string):', String(user.hospitalId));
+        
+        setCurrentUser(user);
+        
+        // Create hospital object from user data if hospital name is available
+        if (user.hospitalId && user.hospitalName) {
+          console.log('Using hospital from user data:', user.hospitalName);
+          const hospitalFromUser = {
+            _id: user.hospitalId,
+            name: user.hospitalName
+          };
+          setUserHospital(hospitalFromUser);
+        } else {
+          console.log('Hospital name not in user data, trying API...');
+          setUseFallback(true);
+          
+          // Try to fetch hospitals as fallback
+          try {
+            const hospitalData = await api.getHospitals();
+            console.log('All hospitals from API:', hospitalData);
+            setAvailableHospitals(hospitalData);
+            
+            // Find user's hospital
+            const foundHospital = hospitalData.find((h: any) => h._id === user.hospitalId);
+            console.log('Found user hospital:', foundHospital);
+            setUserHospital(foundHospital);
+            
+            if (!foundHospital) {
+              console.warn('Hospital not found for ID:', user.hospitalId);
+              setShowHospitalFallback(true);
+            }
+          } catch (hospitalErr) {
+            console.error('Error fetching hospitals:', hospitalErr);
+            setShowHospitalFallback(true);
+          }
+        }
+      } else {
+        console.warn('No user data found in localStorage');
+        setShowHospitalFallback(true);
+      }
+      console.log('=== USER DEBUG END ===');
     } catch (err) {
-      console.error('Error fetching hospitals:', err);
+      console.error('Error getting current user:', err);
+      setShowHospitalFallback(true);
     }
   };
 
-  const fetchHealthWorkers = async () => {
-    try {
-      const data = await api.getUsers();
-      const healthcareWorkers = data.filter((user: any) => 
-        ['DOCTOR', 'NURSE', 'MIDWIFE'].includes(user.role)
-      );
-      setHealthWorkers(healthcareWorkers);
-    } catch (err) {
-      console.error('Error fetching health workers:', err);
-    }
-  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -73,6 +118,14 @@ export default function RegisterMother() {
       ...prev,
       [name]: value
     }));
+  };
+
+  const handleHospitalSelect = (hospitalId: string) => {
+    const selectedHospital = availableHospitals.find(h => h._id === hospitalId);
+    if (selectedHospital) {
+      setUserHospital(selectedHospital);
+      setShowHospitalFallback(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -86,7 +139,7 @@ export default function RegisterMother() {
         age: parseInt(formData.age),
         gravida: formData.gravida ? parseInt(formData.gravida) : undefined,
         para: formData.para ? parseInt(formData.para) : undefined,
-        assignedHealthWorker: formData.assignedHealthWorker || undefined,
+        registeredBy: currentUser?.name || 'Unknown',
       };
 
       await mothersApi.create(motherData);
@@ -96,14 +149,12 @@ export default function RegisterMother() {
         phone: '',
         age: '',
         address: '',
-        healthCenter: '',
         emergencyContact: '',
         medicalHistory: '',
         expectedDeliveryDate: '',
         gravida: '',
         para: '',
         lmp: '',
-        assignedHealthWorker: '',
       });
     } catch (err: any) {
       setError(err.message || 'Failed to register mother');
@@ -225,24 +276,37 @@ export default function RegisterMother() {
                 </div>
 
                 <div>
-                  <label htmlFor="healthCenter" className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     Health Center *
                   </label>
-                  <select
-                    id="healthCenter"
-                    name="healthCenter"
-                    value={formData.healthCenter}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="">Select Health Center</option>
-                    {hospitals.map((hospital) => (
-                      <option key={hospital._id} value={hospital._id}>
-                        {hospital.name}
-                      </option>
-                    ))}
-                  </select>
+                  {showHospitalFallback ? (
+                    <div>
+                      <select
+                        value={userHospital?._id || ''}
+                        onChange={(e) => handleHospitalSelect(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      >
+                        <option value="">Select Health Center</option>
+                        {availableHospitals.map((hospital) => (
+                          <option key={hospital._id} value={hospital._id}>
+                            {hospital.name}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="text-xs text-orange-600 mt-1">
+                        Your assigned hospital was not found. Please select your health center.
+                      </p>
+                    </div>
+                  ) : (
+                    <div>
+                      <div className="w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg">
+                        {userHospital ? userHospital.name : currentUser ? 'Hospital not found' : 'Loading user data...'}
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {userHospital ? (useFallback ? 'Selected from available hospitals' : 'Automatically assigned from your profile') : 'Please check your user profile'}
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 <div className="md:col-span-2">
@@ -281,23 +345,13 @@ export default function RegisterMother() {
                 </div>
 
                 <div>
-                  <label htmlFor="assignedHealthWorker" className="block text-sm font-medium text-gray-700 mb-2">
-                    Assigned Health Worker
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Registered By
                   </label>
-                  <select
-                    id="assignedHealthWorker"
-                    name="assignedHealthWorker"
-                    value={formData.assignedHealthWorker}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="">Select Health Worker</option>
-                    {healthWorkers.map((worker) => (
-                      <option key={worker._id} value={worker._id}>
-                        {worker.name} - {worker.role}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg">
+                    {currentUser ? `${currentUser.name} - ${currentUser.role}` : 'Loading...'}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">Automatically recorded for transparency</p>
                 </div>
 
                 <div className="md:col-span-2">

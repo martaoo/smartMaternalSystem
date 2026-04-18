@@ -26,6 +26,9 @@ export class Mother {
   @Prop({ default: 'ACTIVE' })
   status: 'ACTIVE' | 'DELIVERED' | 'INACTIVE';
 
+  @Prop()
+  registeredBy?: string;
+
   @Prop({ type: Types.ObjectId, ref: 'User' })
   assignedHealthWorker?: Types.ObjectId;
 

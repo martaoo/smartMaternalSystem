@@ -72,7 +72,7 @@ export default function HospitalUsersPage() {
           <AddUserForm
             onClose={() => setShowAddUser(false)}
             onSuccess={handleAddUserSuccess}
-            allowedRoles={['DOCTOR', 'NURSE', 'DISPATCHER']}
+            allowedRoles={['DOCTOR', 'NURSE', 'MIDWIFE', 'DISPATCHER']}
             hideHospitalSelect={true}
             fixedHospitalId={user?.hospitalId}
           />
