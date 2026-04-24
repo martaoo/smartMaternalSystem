@@ -20,7 +20,7 @@ export class CreateMotherDto {
   @IsString()
   address: string;
 
-
+ email?: string;
   @ApiPropertyOptional({ example: '+251911234568', description: 'Emergency contact number' })
   @IsOptional()
   @IsString()
