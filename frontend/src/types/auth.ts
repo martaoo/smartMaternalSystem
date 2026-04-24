@@ -1,8 +1,12 @@
+export type UserRole = 'MOH_ADMIN' | 'WOREDA_ADMIN' | 'HOSPITAL_ADMIN' | 'DOCTOR' | 'NURSE' | 'MIDWIFE' | 'DISPATCHER' | 'MOTHER';
+
 export interface User {
   id: string;
   email: string;
   name: string;
-  role: 'ambulance' | 'midwife' | 'wered' | 'admin';
+  role: UserRole;
+  hospitalId?: string;
+  woredaId?: string;
 }
 
 export interface AuthState {
@@ -20,5 +24,5 @@ export interface RegisterCredentials {
   email: string;
   password: string;
   name: string;
-  role: 'ambulance' | 'midwife' | 'wered';
+  role: UserRole;
 }
