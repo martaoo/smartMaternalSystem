@@ -68,7 +68,7 @@ export class PregnancyService {
 
   async findById(id: string, userRole: string, userHospitalId?: string, userWoredaId?: string): Promise<Pregnancy> {
     const pregnancy = await this.pregnancyModel.findById(id)
-      .populate('motherId', 'name phone age address healthCenter')
+      .populate('motherId', 'name phone age address healthCenter woredaId')
       .populate('healthWorkerId', 'name email role phone')
       .populate('hospitalId', 'name type address')
       .exec();
@@ -77,9 +77,34 @@ export class PregnancyService {
       throw new NotFoundException('Pregnancy record not found');
     }
 
-    // Check access permissions
+    console.log('=== PREGNANCY FIND DEBUG ===');
+    console.log('Pregnancy ID:', id);
+    console.log('User role:', userRole);
+    console.log('User hospitalId:', userHospitalId);
+    console.log('Pregnancy hospitalId:', pregnancy.hospitalId?.toString());
+    console.log('Mother healthCenter:', (pregnancy.motherId as any)?.healthCenter?.toString());
+
+    // Check access permissions with fallback logic
     const filtered = await this.filterPregnanciesByRole([pregnancy], userRole, userHospitalId, userWoredaId);
+    
     if (filtered.length === 0) {
+      // Fallback: Check if user can access the mother (more permissive)
+      if (userRole === 'HOSPITAL_ADMIN' || userRole === 'DOCTOR' || userRole === 'NURSE' || userRole === 'MIDWIFE') {
+        const mother = pregnancy.motherId as any;
+        if (mother && mother.healthCenter) {
+          const motherHospitalId = mother.healthCenter.toString();
+          const userHospitalIdStr = userHospitalId?.toString();
+          
+          console.log('Fallback check - Mother hospital:', motherHospitalId);
+          console.log('Fallback check - User hospital:', userHospitalIdStr);
+          
+          if (motherHospitalId === userHospitalIdStr) {
+            console.log('Access granted via mother hospital match');
+            return pregnancy;
+          }
+        }
+      }
+      
       throw new NotFoundException('Pregnancy record not found or access denied');
     }
 
@@ -156,21 +181,65 @@ export class PregnancyService {
     userHospitalId?: string, 
     userWoredaId?: string
   ): Promise<Pregnancy[]> {
+    console.log('=== PREGNANCY FILTER DEBUG ===');
+    console.log('User role:', userRole);
+    console.log('User hospitalId:', userHospitalId);
+    console.log('User hospitalId type:', typeof userHospitalId);
+    console.log('Pregnancies to filter:', pregnancies.length);
+    
     if (userRole === 'SUPER_ADMIN' || userRole === 'SYSTEM_ADMIN') {
+      console.log('Admin access granted - returning all pregnancies');
       return pregnancies;
     }
 
     if (userRole === 'HOSPITAL_ADMIN' || userRole === 'DOCTOR' || userRole === 'NURSE' || userRole === 'MIDWIFE') {
-      return pregnancies.filter(p => p.hospitalId.toString() === userHospitalId);
+      if (!userHospitalId) {
+        console.log('No user hospitalId provided for hospital staff');
+        return [];
+      }
+      
+      const filtered = pregnancies.filter(p => {
+        let pregnancyHospitalId: string;
+        
+        // Handle both ObjectId and populated object cases
+        if (p.hospitalId) {
+          if (typeof p.hospitalId === 'object' && p.hospitalId._id) {
+            // Populated object case
+            pregnancyHospitalId = p.hospitalId._id.toString();
+          } else {
+            // ObjectId case
+            pregnancyHospitalId = p.hospitalId.toString();
+          }
+        } else {
+          console.log('Pregnancy has no hospitalId');
+          return false;
+        }
+        
+        const userHospitalIdStr = userHospitalId.toString();
+        const matches = pregnancyHospitalId === userHospitalIdStr;
+        
+        console.log('Pregnancy hospitalId:', pregnancyHospitalId);
+        console.log('Pregnancy hospitalId raw:', p.hospitalId);
+        console.log('User hospitalId:', userHospitalIdStr);
+        console.log('Match:', matches);
+        
+        return matches;
+      });
+      
+      console.log('Filtered pregnancies count:', filtered.length);
+      return filtered;
     }
 
     if (userRole === 'WOREDA_ADMIN') {
       // Filter by woreda through mother relationship
-      return pregnancies.filter(p => 
+      const filtered = pregnancies.filter(p => 
         p.motherId && (p.motherId as any).woredaId?.toString() === userWoredaId
       );
+      console.log('Woreda admin filtered pregnancies count:', filtered.length);
+      return filtered;
     }
 
+    console.log('No access granted for role:', userRole);
     return [];
   }
 }

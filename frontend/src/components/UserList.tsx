@@ -221,7 +221,7 @@ export function UserList({ showOrgColumns = true, onError }: UserListProps) {
           userToEdit={editingUser}
           allowedRoles={
             currentUser?.role === 'HOSPITAL_ADMIN'
-              ? ['DOCTOR', 'NURSE', 'MIDWIFE', 'DISPATCHER']
+              ? ['DOCTOR', 'NURSE', 'DISPATCHER']
               : undefined
           }
           hideHospitalSelect={currentUser?.role === 'HOSPITAL_ADMIN'}

@@ -54,12 +54,25 @@ export default function MotherDetail() {
       setLoading(true);
       setError(null);
 
+      console.log('=== MOTHER DETAIL DEBUG ===');
+      console.log('Fetching data for motherId:', motherId);
+
       const [motherData, pregnancyData, childrenData] = await Promise.all([
         mothersApi.getById(motherId),
-        pregnancyApi.getByMotherId(motherId).catch(() => []),
+        pregnancyApi.getByMotherId(motherId)
+          .then(data => {
+            console.log('Pregnancy data received:', data);
+            console.log('Pregnancy data length:', Array.isArray(data) ? data.length : 'Not an array');
+            return data;
+          })
+          .catch(err => {
+            console.error('Error fetching pregnancy data:', err);
+            return [];
+          }),
         childrenApi.getByMotherId(motherId).catch(() => [])
       ]);
 
+      console.log('Final pregnancy history:', pregnancyData);
       setMother(motherData);
       setPregnancyHistory(pregnancyData);
       setChildren(childrenData);
@@ -265,7 +278,7 @@ export default function MotherDetail() {
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-lg font-semibold text-gray-900">Pregnancy History</h2>
                 <a
-                  href={`/healthcare-dashboard/pregnancy/new`}
+                  href={`/healthcare-dashboard/pregnancy/new/${motherId}`}
                   className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
                 >
                   New Visit

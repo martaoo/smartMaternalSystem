@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { mothersApi, pregnancyApi, childrenApi, vaccinationsApi } from '@/lib/healthcare-api';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface DashboardStats {
   mothers: number;
@@ -14,6 +16,8 @@ interface DashboardStats {
 }
 
 export default function HealthcareDashboard() {
+  const { logout } = useAuth();
+  const router = useRouter();
   const [stats, setStats] = useState<DashboardStats>({
     mothers: 0,
     activePregnancies: 0,
@@ -68,6 +72,11 @@ export default function HealthcareDashboard() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleLogout = () => {
+    logout();
+    router.push('/auth');
   };
 
   const StatCard = ({ title, value, color, icon }: { title: string; value: number; color: string; icon: string }) => (
@@ -130,10 +139,7 @@ export default function HealthcareDashboard() {
                 Refresh
               </button>
               <button
-                onClick={() => {
-                  localStorage.removeItem('token');
-                  window.location.href = '/login';
-                }}
+                onClick={handleLogout}
                 className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
               >
                 Logout

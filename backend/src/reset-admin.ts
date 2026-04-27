@@ -16,7 +16,7 @@ async function bootstrap() {
       await usersService.update((existingAdmin as any)._id.toString(), {
         name: existingAdmin.name,
         email: existingAdmin.email,
-        role: UserRole.SUPER_ADMIN,
+        role: UserRole.MOH_ADMIN,
         password: 'admin123', // This will be hashed by the service
       });
 

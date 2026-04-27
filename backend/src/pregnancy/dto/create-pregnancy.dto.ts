@@ -122,4 +122,9 @@ export class CreatePregnancyDto {
   @IsOptional()
   @IsString()
   emergencyReason?: string;
+
+  @ApiPropertyOptional({ example: 'O+', description: 'Mother blood type' })
+  @IsOptional()
+  @IsEnum(['A+', 'A-', 'B+', 'B-', 'O+', 'O-'])
+  bloodType?: 'A+' | 'A-' | 'B+' | 'B-' | 'O+' | 'O-';
 }
