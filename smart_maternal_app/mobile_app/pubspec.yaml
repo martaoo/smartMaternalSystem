@@ -66,6 +66,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/images/
+    - assets/images/danger_sign/
     - assets/images/nutrition/
 
   # To add assets to your application, add an assets section, like this:
