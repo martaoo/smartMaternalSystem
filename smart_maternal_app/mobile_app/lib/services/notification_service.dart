@@ -47,6 +47,7 @@ class NotificationService {
     return result ?? false;
   }
 
+  // Appointment day reminder (morning of appointment)
   Future<void> scheduleAppointmentReminder({
     required int id,
     required String title,

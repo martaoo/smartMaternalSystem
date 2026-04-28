@@ -1,13 +1,12 @@
 import '../../data/mock_mother_repository.dart';
-import '../../models/mother_entities.dart';
 import '../models/vaccination_status.dart';
 
 class VaccinationMockService {
-  static List<VaccinationRecord> getRecords() {
+  static List<dynamic> getRecords() {
     return MockMotherRepository.getVaccinations();
   }
 
-  static VaccinationStatus getStatus(VaccinationRecord record) {
+  static VaccinationStatus getStatus(dynamic record) {
     if (record.completed) {
       return VaccinationStatus.completed;
     }
@@ -20,19 +19,19 @@ class VaccinationMockService {
     return VaccinationStatus.upcoming;
   }
 
-  static int getCompletedCount(List<VaccinationRecord> records) {
+  static int getCompletedCount(List<dynamic> records) {
     return records.where((r) => getStatus(r) == VaccinationStatus.completed).length;
   }
 
-  static int getUpcomingCount(List<VaccinationRecord> records) {
+  static int getUpcomingCount(List<dynamic> records) {
     return records.where((r) => getStatus(r) == VaccinationStatus.upcoming).length;
   }
 
-  static int getMissedCount(List<VaccinationRecord> records) {
+  static int getMissedCount(List<dynamic> records) {
     return records.where((r) => getStatus(r) == VaccinationStatus.missed).length;
   }
 
-  static VaccinationRecord? getNextVaccine(List<VaccinationRecord> records) {
+  static dynamic getNextVaccine(List<dynamic> records) {
     final upcoming = records.where((r) => getStatus(r) == VaccinationStatus.upcoming).toList()
       ..sort((a, b) => a.dueDate.compareTo(b.dueDate));
     return upcoming.isEmpty ? null : upcoming.first;
@@ -50,7 +49,23 @@ class VaccinationMockService {
     );
   }
 
-  static Future<void> markCompleted(String id) async {
-    await MockMotherRepository.markVaccinationCompleted(id);
+  static Future<void> markCompleted(String id, {DateTime? administeredDate, String? note}) async {
+    await MockMotherRepository.markVaccinationCompleted(
+      id,
+      administeredDate: administeredDate,
+      note: note,
+    );
+  }
+
+  static Future<void> markMissed(String id) async {
+    await MockMotherRepository.markVaccinationCompleted(id, note: 'Missed appointment');
+  }
+
+  static Future<void> reschedule(String id, DateTime newDate) async {
+    // Implementation for rescheduling vaccination
+  }
+
+  static Future<void> cancel(String id) async {
+    // Implementation for canceling vaccination
   }
 }

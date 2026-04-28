@@ -1,119 +1,341 @@
-import '../models/mother_entities.dart';
+import '../../../models/profile_models.dart';
+import '../models/mother_entities.dart' hide MotherProfile;
 
 class MockMotherRepository {
-  static MotherProfile profile = const MotherProfile(
-    id: 'MTH-1001',
-    name: 'Bezawit',
-    phone: '+251900000000',
-    pregnancyWeek: 28,
-    trimester: 'Third Trimester',
-    riskLevel: 'Low',
-    nextVisit: 'May 12, 2026',
+  // ==================== HEALTH FACILITY ====================
+  static final HealthFacility healthFacility = HealthFacility(
+    facilityName: 'Adama Health Center',
+    serialNumber: 'SN-2024-001',
+    cardNumber: 'MCH-12345',
+    region: 'Oromia',
+    zone: 'East Shewa',
+    wereda: 'Adama',
+    houseNumber: '123',
+    phoneNumber: '+251 911 234567',
   );
 
+  // ==================== INFANTS ====================
+  static final List<InfantProfile> infants = [
+    InfantProfile(
+      name: 'Meron Alemu',
+      dateOfBirth: DateTime(2022, 6, 10),
+      sex: 'Female',
+      birthWeight: 3.2,
+      birthHeight: 49.0,
+      birthHour: 14,
+      fatherName: 'Alemu Bekele',
+      imagePath: null,
+    ),
+  ];
+
+  // ==================== PROFILE using YOUR actual MotherProfile model ====================
+  static final MotherProfile profile = MotherProfile(
+    name: 'Bezawit Alemu',
+    birthDate: DateTime(1996, 3, 15),
+    phoneNumber: '+251 911 234567',
+    healthFacility: healthFacility,
+    infants: infants,
+    imagePath: null,
+    pregnancyWeek: 28,
+    trimester: 'Second Trimester',
+    riskLevel: 'Low',
+    nextVisit: 'April 25, 2024',
+  );
+
+  static MotherProfile getMotherProfile() {
+    return profile;
+  }
+
+  // ==================== APPOINTMENTS ====================
   static final List<MotherAppointment> _appointments = [
     MotherAppointment(
-      id: 'A-1',
+      id: 'APT-001',
       title: 'ANC Visit - Week 28',
-      dateTime: DateTime.now().add(const Duration(days: 2)),
+      dateTime: DateTime.now().add(const Duration(days: 3)),
+      status: 'upcoming',
+      type: 'ANC',
       facility: 'Adama Health Center',
       provider: 'Dr. Tigist Bekele',
-      status: 'upcoming',
+      notes: 'Bring your ANC card',
       isHighRisk: false,
     ),
     MotherAppointment(
-      id: 'A-2',
-      title: 'Ultrasound Follow-up',
-      dateTime: DateTime.now().add(const Duration(days: 9)),
+      id: 'APT-002',
+      title: 'Ultrasound Scan',
+      dateTime: DateTime.now().add(const Duration(days: 10)),
+      status: 'upcoming',
+      type: 'Ultrasound',
       facility: 'Adama Hospital',
       provider: 'Dr. Yonas Desta',
-      status: 'upcoming',
+      notes: 'Full bladder required',
       isHighRisk: false,
     ),
     MotherAppointment(
-      id: 'A-3',
-      title: 'ANC Visit - Week 24',
-      dateTime: DateTime.now().subtract(const Duration(days: 7)),
+      id: 'APT-003',
+      title: 'Blood Test',
+      dateTime: DateTime.now().add(const Duration(days: 5)),
+      status: 'upcoming',
+      type: 'Lab',
+      facility: 'Adama Health Center Lab',
+      provider: 'Lab Technician',
+      notes: 'Fasting required',
+      isHighRisk: false,
+    ),
+    MotherAppointment(
+      id: 'APT-004',
+      title: 'First ANC Registration',
+      dateTime: DateTime.now().subtract(const Duration(days: 45)),
+      status: 'completed',
+      type: 'ANC',
       facility: 'Adama Health Center',
       provider: 'Dr. Tigist Bekele',
-      status: 'missed',
+      notes: 'Initial registration completed',
+      isHighRisk: false,
+    ),
+    MotherAppointment(
+      id: 'APT-005',
+      title: 'ANC Visit - Week 20',
+      dateTime: DateTime.now().subtract(const Duration(days: 20)),
+      status: 'completed',
+      type: 'ANC',
+      facility: 'Adama Health Center',
+      provider: 'Dr. Tigist Bekele',
+      notes: 'Everything normal',
       isHighRisk: false,
     ),
   ];
 
+  // ==================== CHILD GROWTH RECORDS ====================
   static final List<ChildGrowthRecord> growthRecords = [
-    ChildGrowthRecord(date: DateTime.now().subtract(const Duration(days: 60)), weightKg: 3.1, heightCm: 50.0),
-    ChildGrowthRecord(date: DateTime.now().subtract(const Duration(days: 30)), weightKg: 4.2, heightCm: 54.0),
-    ChildGrowthRecord(date: DateTime.now().subtract(const Duration(days: 7)), weightKg: 5.1, heightCm: 58.0),
+    ChildGrowthRecord(
+      date: DateTime.now().subtract(const Duration(days: 60)),
+      weightKg: 3.1,
+      heightCm: 50.0,
+    ),
+    ChildGrowthRecord(
+      date: DateTime.now().subtract(const Duration(days: 30)),
+      weightKg: 4.2,
+      heightCm: 54.0,
+    ),
+    ChildGrowthRecord(
+      date: DateTime.now().subtract(const Duration(days: 7)),
+      weightKg: 5.1,
+      heightCm: 58.0,
+    ),
   ];
 
-  static final DateTime _childBirthDate = DateTime.now().subtract(const Duration(days: 100));
-
-  static final List<VaccinationRecord> _vaccinations = <VaccinationRecord>[
-    _record('V-1', 'Day 1', 'BCG (Tuberculosis)', 1, completed: true, note: 'Given at birth'),
-    _record('V-2', 'Day 1', 'OPV-0 (Polio)', 1, completed: true),
-    _record('V-3', 'Day 1', 'Hepatitis B', 1, completed: true, note: 'Given per local policy'),
-    _record('V-4', 'Day 7', 'Follow-up check', 7, completed: true),
-    _record('V-5', 'Day 45', 'Pentavalent 1 (DTP-HepB-Hib)', 45, completed: true),
-    _record('V-6', 'Day 45', 'OPV-1 (Polio)', 45, completed: true),
-    _record('V-7', 'Day 45', 'PCV-1 (Pneumococcal)', 45, completed: false),
-    _record('V-8', 'Day 45', 'Rotavirus-1', 45, completed: true),
-    _record('V-9', '3 Months', 'Pentavalent 2', 75, completed: false),
-    _record('V-10', '3 Months', 'OPV-2', 75, completed: false),
-    _record('V-11', '3 Months', 'PCV-2', 75, completed: false),
-    _record('V-12', '3 Months', 'Rotavirus-2', 75, completed: false),
-    _record('V-13', '6 Months', 'Pentavalent 3', 180, completed: false),
-    _record('V-14', '6 Months', 'OPV-3', 180, completed: false),
-    _record('V-15', '6 Months', 'PCV-3', 180, completed: false),
-    _record('V-16', '6 Months', 'IPV (Injectable Polio)', 180, completed: false),
-    _record('V-17', '1 Year', 'Measles (MCV-1)', 365, completed: false),
-    _record('V-18', '1 Year', 'Vitamin A (supplement)', 365, completed: false),
-    _record('V-19', '1 Year 6 Months', 'Measles 2 (MCV-2)', 548, completed: false),
-    _record('V-20', '1 Year 6 Months', 'DTP Booster', 548, completed: false),
-    _record('V-21', '2 Years', 'Vitamin A (follow-up)', 730, completed: false),
-    _record('V-22', '2 Years', 'Growth and health monitoring', 730, completed: false),
-    _record('V-23', '2 Years 6 Months', 'Booster check (if needed)', 913, completed: false),
-    _record('V-24', '2 Years 6 Months', 'Nutrition and development review', 913, completed: false),
-    _record('V-25', '5 Years', 'DTP Booster', 1826, completed: false),
-    _record('V-26', '5 Years', 'OPV Booster', 1826, completed: false),
-    _record('V-27', '5 Years', 'School readiness check', 1826, completed: false),
+  // ==================== VACCINATIONS ====================
+  static final List<VaccinationRecord> _vaccinations = [
+    VaccinationRecord(
+      id: 'VAC-001',
+      vaccine: 'BCG',
+      dueDate: DateTime.now().subtract(const Duration(days: 30)),
+      administeredDate: DateTime.now().subtract(const Duration(days: 28)),
+      completed: true,
+      ageLabel: 'Dose 1',
+      note: 'Administered by Nurse Mekdes',
+    ),
+    VaccinationRecord(
+      id: 'VAC-002',
+      vaccine: 'Polio (OPV)',
+      dueDate: DateTime.now().subtract(const Duration(days: 15)),
+      administeredDate: DateTime.now().subtract(const Duration(days: 14)),
+      completed: true,
+      ageLabel: 'Dose 1',
+      note: 'Administered by Nurse Mekdes',
+    ),
+    VaccinationRecord(
+      id: 'VAC-003',
+      vaccine: 'Pentavalent',
+      dueDate: DateTime.now().add(const Duration(days: 7)),
+      administeredDate: null,
+      completed: false,
+      ageLabel: 'Dose 1',
+      note: null,
+    ),
+    VaccinationRecord(
+      id: 'VAC-004',
+      vaccine: 'Rotavirus',
+      dueDate: DateTime.now().add(const Duration(days: 14)),
+      administeredDate: null,
+      completed: false,
+      ageLabel: 'Dose 1',
+      note: null,
+    ),
+    VaccinationRecord(
+      id: 'VAC-005',
+      vaccine: 'Measles',
+      dueDate: DateTime.now().add(const Duration(days: 90)),
+      administeredDate: null,
+      completed: false,
+      ageLabel: 'Dose 1',
+      note: null,
+    ),
   ];
 
+  // ==================== GETTER METHODS ====================
   static List<VaccinationRecord> getVaccinations() {
     final copy = List<VaccinationRecord>.from(_vaccinations);
     copy.sort((a, b) => a.dueDate.compareTo(b.dueDate));
     return copy;
   }
 
-  static Future<void> updateMotherProfile({
-    required String name,
-    required String phone,
-    required String riskLevel,
+  static List<VaccinationRecord> getUpcomingVaccinations() {
+    return _vaccinations
+        .where((v) => !v.completed)
+        .toList()
+      ..sort((a, b) => a.dueDate.compareTo(b.dueDate));
+  }
+
+  static List<VaccinationRecord> getCompletedVaccinations() {
+    return _vaccinations
+        .where((v) => v.completed)
+        .toList()
+      ..sort((a, b) => b.dueDate.compareTo(a.dueDate));
+  }
+
+  static List<MotherAppointment> getAppointments() {
+    final copy = List<MotherAppointment>.from(_appointments);
+    copy.sort((a, b) => a.dateTime.compareTo(b.dateTime));
+    return copy;
+  }
+
+  static List<MotherAppointment> getUpcomingAppointments() {
+    return _appointments
+        .where((a) => a.status == 'upcoming')
+        .toList()
+      ..sort((a, b) => a.dateTime.compareTo(b.dateTime));
+  }
+
+  static List<MotherAppointment> getPastAppointments() {
+    return _appointments
+        .where((a) => a.status == 'completed' || a.status == 'missed')
+        .toList()
+      ..sort((a, b) => b.dateTime.compareTo(a.dateTime));
+  }
+
+  static List<ChildGrowthRecord> getGrowthRecords() {
+    return List<ChildGrowthRecord>.from(growthRecords)
+      ..sort((a, b) => a.date.compareTo(b.date));
+  }
+
+  // ==================== APPOINTMENT MANAGEMENT METHODS ====================
+  static Future<void> bookAppointment({
+    required String title,
+    required String type,
+    int? week,
+    required DateTime dateTime,
+    required String facility,
+    required String provider,
+    String? notes,
   }) async {
-    profile = MotherProfile(
-      id: profile.id,
-      name: name,
-      phone: phone,
-      pregnancyWeek: profile.pregnancyWeek,
-      trimester: profile.trimester,
-      riskLevel: riskLevel,
-      nextVisit: profile.nextVisit,
+    _appointments.add(
+      MotherAppointment(
+        id: 'APT-${DateTime.now().millisecondsSinceEpoch}',
+        title: title,
+        type: type,
+        week: week,
+        dateTime: dateTime,
+        facility: facility,
+        provider: provider,
+        status: 'upcoming',
+        notes: notes,
+        isHighRisk: false,
+      ),
     );
   }
 
-  static Future<void> markVaccinationCompleted(String id, {DateTime? administeredDate}) async {
+  static Future<void> rescheduleAppointment(String id, DateTime dateTime) async {
+    final index = _appointments.indexWhere((a) => a.id == id);
+    if (index != -1) {
+      final appointment = _appointments[index];
+      _appointments[index] = MotherAppointment(
+        id: appointment.id,
+        title: appointment.title,
+        type: appointment.type,
+        week: appointment.week,
+        dateTime: dateTime,
+        facility: appointment.facility,
+        provider: appointment.provider,
+        status: 'rescheduled',
+        notes: appointment.notes,
+        isHighRisk: appointment.isHighRisk,
+      );
+    }
+  }
+
+  static Future<void> cancelAppointment(String id) async {
+    final index = _appointments.indexWhere((a) => a.id == id);
+    if (index != -1) {
+      final appointment = _appointments[index];
+      _appointments[index] = MotherAppointment(
+        id: appointment.id,
+        title: appointment.title,
+        type: appointment.type,
+        week: appointment.week,
+        dateTime: appointment.dateTime,
+        facility: appointment.facility,
+        provider: appointment.provider,
+        status: 'cancelled',
+        notes: appointment.notes,
+        isHighRisk: appointment.isHighRisk,
+      );
+    }
+  }
+
+  static Future<void> markAppointmentCompleted(String id) async {
+    final index = _appointments.indexWhere((a) => a.id == id);
+    if (index != -1) {
+      final appointment = _appointments[index];
+      _appointments[index] = MotherAppointment(
+        id: appointment.id,
+        title: appointment.title,
+        type: appointment.type,
+        week: appointment.week,
+        dateTime: appointment.dateTime,
+        facility: appointment.facility,
+        provider: appointment.provider,
+        status: 'completed',
+        notes: appointment.notes,
+        isHighRisk: appointment.isHighRisk,
+      );
+    }
+  }
+
+  static Future<void> markAppointmentMissed(String id) async {
+    final index = _appointments.indexWhere((a) => a.id == id);
+    if (index != -1) {
+      final appointment = _appointments[index];
+      _appointments[index] = MotherAppointment(
+        id: appointment.id,
+        title: appointment.title,
+        type: appointment.type,
+        week: appointment.week,
+        dateTime: appointment.dateTime,
+        facility: appointment.facility,
+        provider: appointment.provider,
+        status: 'missed',
+        notes: appointment.notes,
+        isHighRisk: appointment.isHighRisk,
+      );
+    }
+  }
+
+  // ==================== VACCINATION MANAGEMENT METHODS ====================
+  static Future<void> markVaccinationCompleted(String id, {DateTime? administeredDate, String? note}) async {
     final index = _vaccinations.indexWhere((v) => v.id == id);
-    if (index == -1) return;
-    final old = _vaccinations[index];
-    _vaccinations[index] = VaccinationRecord(
-      id: old.id,
-      vaccine: old.vaccine,
-      ageLabel: old.ageLabel,
-      dueDate: old.dueDate,
-      completed: true,
-      administeredDate: administeredDate ?? DateTime.now(),
-      note: old.note,
-    );
+    if (index != -1) {
+      final vaccination = _vaccinations[index];
+      _vaccinations[index] = VaccinationRecord(
+        id: vaccination.id,
+        vaccine: vaccination.vaccine,
+        ageLabel: vaccination.ageLabel,
+        dueDate: vaccination.dueDate,
+        completed: true,
+        administeredDate: administeredDate ?? DateTime.now(),
+        note: note ?? vaccination.note,
+      );
+    }
   }
 
   static Future<void> addVaccinationRecord({
@@ -123,88 +345,42 @@ class MockMotherRepository {
   }) async {
     _vaccinations.add(
       VaccinationRecord(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        id: 'VAC-${DateTime.now().millisecondsSinceEpoch}',
         vaccine: vaccine,
         ageLabel: 'Custom',
         dueDate: dueDate,
         completed: false,
+        administeredDate: null,
         note: note,
       ),
     );
   }
 
-  static VaccinationRecord _record(
-    String id,
-    String ageLabel,
-    String vaccine,
-    int dueAfterBirthDays, {
-    required bool completed,
-    String? note,
-  }) {
-    final dueDate = _childBirthDate.add(Duration(days: dueAfterBirthDays));
-    return VaccinationRecord(
-      id: id,
-      vaccine: vaccine,
-      ageLabel: ageLabel,
-      dueDate: dueDate,
-      completed: completed,
-      administeredDate: completed ? dueDate : null,
-      note: note,
-    );
+  // ==================== TD VACCINATION METHODS ====================
+  static Map<String, DateTime?> getTdDates({required bool pregnant}) {
+    return {
+      'TD1': DateTime.now().subtract(const Duration(days: 60)),
+      'TD2': DateTime.now().subtract(const Duration(days: 32)),
+      'TD3': null,
+      'TD4': null,
+      'TD5': null,
+    };
   }
 
-  static List<MotherAppointment> getAppointments() {
-    final copy = List<MotherAppointment>.from(_appointments);
-    copy.sort((a, b) => a.dateTime.compareTo(b.dateTime));
-    return copy;
-  }
-
-  static Future<void> bookAppointment({
-    required String title,
-    required DateTime dateTime,
-    required String facility,
-    required String provider,
+  static Future<void> setTdDate({
+    required bool pregnant,
+    required String doseKey,
+    required DateTime dateGiven,
   }) async {
-    _appointments.add(
-      MotherAppointment(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        title: title,
-        dateTime: dateTime,
-        facility: facility,
-        provider: provider,
-        status: 'upcoming',
-        isHighRisk: profile.riskLevel.toLowerCase() == 'high',
-      ),
-    );
+    // TD date setting logic would go here
   }
 
-  static Future<void> rescheduleAppointment(String id, DateTime dateTime) async {
-    final index = _appointments.indexWhere((a) => a.id == id);
-    if (index == -1) return;
-    final old = _appointments[index];
-    _appointments[index] = MotherAppointment(
-      id: old.id,
-      title: old.title,
-      dateTime: dateTime,
-      facility: old.facility,
-      provider: old.provider,
-      status: 'rescheduled',
-      isHighRisk: old.isHighRisk,
-    );
-  }
-
-  static Future<void> cancelAppointment(String id) async {
-    final index = _appointments.indexWhere((a) => a.id == id);
-    if (index == -1) return;
-    final old = _appointments[index];
-    _appointments[index] = MotherAppointment(
-      id: old.id,
-      title: old.title,
-      dateTime: old.dateTime,
-      facility: old.facility,
-      provider: old.provider,
-      status: 'cancelled',
-      isHighRisk: old.isHighRisk,
-    );
+  // ==================== PROFILE MANAGEMENT ====================
+  static Future<void> updateMotherProfile({
+    required String name,
+    required String phone,
+    required String riskLevel,
+  }) async {
+    // Update logic would go here
   }
 }

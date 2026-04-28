@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'mother_appointments_screen.dart';
 import 'mother_child_growth_screen.dart';
 import 'mother_dashboard_screen.dart';
-import 'mother_profile_screen.dart';
 import 'mother_vaccination_screen.dart';
+import '../../../screens/profile/profile_screen.dart';
 
 class MotherShellScreen extends StatefulWidget {
   const MotherShellScreen({super.key});
@@ -25,12 +25,12 @@ class _MotherShellScreenState extends State<MotherShellScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final pages = [
+    final List<Widget> pages = [
       MotherDashboardScreen(onNavigate: (index) => setState(() => _currentIndex = index)),
       const MotherAppointmentsScreen(),
       const MotherChildGrowthScreen(),
       const MotherVaccinationScreen(),
-      const MotherProfileScreen(),
+      const ProfileScreen(),
     ];
 
     return Scaffold(

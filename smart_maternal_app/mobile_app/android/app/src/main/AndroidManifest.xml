@@ -6,6 +6,8 @@
     <!-- For Android 13 (API level 33) and above -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     
+
+    
     <application
         android:label="maternal"
         android:name="${applicationName}"

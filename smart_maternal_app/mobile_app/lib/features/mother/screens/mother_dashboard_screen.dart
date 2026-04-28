@@ -13,106 +13,384 @@ class MotherDashboardScreen extends StatefulWidget {
 
 class _MotherDashboardScreenState extends State<MotherDashboardScreen> {
   bool _expandedTip = false;
+  int _selectedQuickAction = -1;
 
   @override
   Widget build(BuildContext context) {
     final profile = MockMotherRepository.profile;
     final greeting = _greeting();
 
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0xFFFFF5F7), Color(0xFFFFFFFF)],
+    return Scaffold(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: RadialGradient(
+            center: Alignment.topCenter,
+            radius: 1.5,
+            colors: [AppColors.backgroundLight, AppColors.backgroundWhite],
+          ),
         ),
-      ),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            TweenAnimationBuilder<double>(
-              duration: const Duration(milliseconds: 550),
-              curve: Curves.easeOutCubic,
-              tween: Tween(begin: 0.96, end: 1),
-              builder: (context, value, child) => Transform.scale(scale: value, child: child),
-              child: _buildHeroHeader(profile, greeting),
+        child: CustomScrollView(
+          slivers: [
+            // Hero Header - INCREASED SIZE
+            SliverToBoxAdapter(
+              child: TweenAnimationBuilder<double>(
+                duration: const Duration(milliseconds: 600),
+                curve: Curves.easeOutCubic,
+                tween: Tween(begin: 0, end: 1),
+                builder: (context, value, child) {
+                  return Transform.translate(
+                    offset: Offset(0, 50 * (1 - value)),
+                    child: Opacity(opacity: value, child: child),
+                  );
+                },
+                child: _buildHeroHeader(profile, greeting),
+              ),
             ),
-            const SizedBox(height: 16),
-            _buildPregnancyStatusCard(profile),
-            const SizedBox(height: 16),
-            _buildQuickActions(context),
-            const SizedBox(height: 16),
-            _buildHealthSnapshot(),
-            const SizedBox(height: 16),
-            _buildAIAlertCard(profile.riskLevel),
-            const SizedBox(height: 12),
-            _buildSmartTip(profile.pregnancyWeek),
+            
+            const SliverToBoxAdapter(child: SizedBox(height: 24)),
+            
+            // Stats Cards Row
+            SliverToBoxAdapter(
+              child: TweenAnimationBuilder<double>(
+                duration: const Duration(milliseconds: 700),
+                curve: Curves.easeOutCubic,
+                tween: Tween(begin: 0, end: 1),
+                builder: (context, value, child) {
+                  return Transform.scale(scale: value, child: child);
+                },
+                child: _buildStatsRow(profile),
+              ),
+            ),
+            
+            const SliverToBoxAdapter(child: SizedBox(height: 24)),
+            
+            // Quick Actions
+            SliverToBoxAdapter(
+              child: TweenAnimationBuilder<double>(
+                duration: const Duration(milliseconds: 800),
+                curve: Curves.easeOutCubic,
+                tween: Tween(begin: 0, end: 1),
+                builder: (context, value, child) {
+                  return Transform.translate(
+                    offset: Offset(0, 30 * (1 - value)),
+                    child: Opacity(opacity: value, child: child),
+                  );
+                },
+                child: _buildQuickActions(context),
+              ),
+            ),
+            
+            const SliverToBoxAdapter(child: SizedBox(height: 24)),
+            
+            // Health Metrics Section
+            SliverToBoxAdapter(
+              child: TweenAnimationBuilder<double>(
+                duration: const Duration(milliseconds: 900),
+                curve: Curves.easeOutCubic,
+                tween: Tween(begin: 0, end: 1),
+                builder: (context, value, child) {
+                  return Transform.translate(
+                    offset: Offset(0, 30 * (1 - value)),
+                    child: Opacity(opacity: value, child: child),
+                  );
+                },
+                child: _buildHealthMetricsSection(),
+              ),
+            ),
+            
+            const SliverToBoxAdapter(child: SizedBox(height: 24)),
+            
+            // AI Assistant Card
+            SliverToBoxAdapter(
+              child: TweenAnimationBuilder<double>(
+                duration: const Duration(milliseconds: 1000),
+                curve: Curves.easeOutCubic,
+                tween: Tween(begin: 0, end: 1),
+                builder: (context, value, child) {
+                  return Transform.translate(
+                    offset: Offset(0, 30 * (1 - value)),
+                    child: Opacity(opacity: value, child: child),
+                  );
+                },
+                child: _buildAIAlertCard('Low'),
+              ),
+            ),
+            
+            const SliverToBoxAdapter(child: SizedBox(height: 16)),
+            
+            // Smart Tip Card
+            SliverToBoxAdapter(
+              child: TweenAnimationBuilder<double>(
+                duration: const Duration(milliseconds: 1100),
+                curve: Curves.easeOutCubic,
+                tween: Tween(begin: 0, end: 1),
+                builder: (context, value, child) {
+                  return Transform.translate(
+                    offset: Offset(0, 30 * (1 - value)),
+                    child: Opacity(opacity: value, child: child),
+                  );
+                },
+                child: _buildSmartTip(28),
+              ),
+            ),
+            
+            const SliverToBoxAdapter(child: SizedBox(height: 100)),
           ],
         ),
       ),
     );
   }
 
+  // ==================== LARGER HERO HEADER (400px height) ====================
   Widget _buildHeroHeader(profile, String greeting) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(24),
-      child: SizedBox(
-        height: 250,
+    return Container(
+      margin: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(40),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primaryBrown.withOpacity(0.4),
+            blurRadius: 25,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(40),
         child: Stack(
-          fit: StackFit.expand,
           children: [
-            Image.asset(
-              'assets/images/pregnant_mother2.jpg',
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Container(
-                color: const Color(0xFFF8BBD0),
-                alignment: Alignment.center,
-                child: const Icon(Icons.pregnant_woman, color: Colors.white, size: 90),
+            // Background Image - FULL SIZE
+            SizedBox(
+              height: 480, // Increased from 420 to 480 for more image space
+              width: double.infinity,
+              child: Image.asset(
+                'assets/images/pregnant_mother2.jpg',
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [AppColors.primaryBrown, AppColors.primaryDarkBrown],
+                    ),
+                  ),
+                  child: const Center(
+                    child: Icon(Icons.pregnant_woman, color: Colors.white, size: 100),
+                  ),
+                ),
               ),
             ),
+            // Gradient Overlay - RICHER
             Container(
-              decoration: const BoxDecoration(
+              height: 480,
+              decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.bottomCenter,
                   end: Alignment.topCenter,
-                  colors: [Color(0xCC880E4F), Color(0x779C27B0), Color(0x22000000)],
+                  colors: [
+                    AppColors.darkBrown.withOpacity(0.95),
+                    AppColors.primaryBrown.withOpacity(0.7),
+                    Colors.transparent,
+                    Colors.transparent,
+                  ],
+                  stops: const [0.0, 0.3, 0.6, 1.0],
+                ),
+              ),
+            ),
+            // Decorative Elements - MORE ELEGANT
+            Positioned(
+              top: -50,
+              right: -50,
+              child: Container(
+                width: 200,
+                height: 200,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.08),
+                  shape: BoxShape.circle,
                 ),
               ),
             ),
             Positioned(
-              left: 18,
-              right: 18,
-              bottom: 18,
+              top: 100,
+              right: 30,
+              child: Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  color: AppColors.honeyGold.withOpacity(0.15),
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ),
+            Positioned(
+              bottom: -60,
+              left: -60,
+              child: Container(
+                width: 220,
+                height: 220,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.06),
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ),
+            Positioned(
+              bottom: 150,
+              left: 20,
+              child: Container(
+                width: 50,
+                height: 50,
+                decoration: BoxDecoration(
+                  color: AppColors.secondaryBrown.withOpacity(0.2),
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ),
+            // Content - REPOSITIONED AND ENHANCED
+            Positioned(
+              left: 24,
+              right: 24,
+              bottom: 40, // Moved down to make more room for text
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Premium Badge - MOVED TO TOP
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.25),
-                      borderRadius: BorderRadius.circular(999),
+                      gradient: const LinearGradient(
+                        colors: [AppColors.honeyGold, AppColors.accentBrown],
+                      ),
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.honeyGold.withOpacity(0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
                     ),
-                    child: const Text(
-                      'My Maternal Journey',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.star, color: Colors.white, size: 12),
+                        SizedBox(width: 4),
+                        Text(
+                          'PREMIUM',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 10,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 12),
+                  // Greeting with larger font
                   Text(
-                    '$greeting, ${profile.name}',
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 24),
+                    '$greeting,',
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 18,
+                      letterSpacing: 1,
+                      shadows: [Shadow(color: Colors.black26, blurRadius: 4)],
+                    ),
                   ),
-                  const SizedBox(height: 5),
+                  const SizedBox(height: 6),
+                  // Name - LARGER
                   Text(
-                    'Week ${profile.pregnancyWeek} • ${profile.trimester}',
-                    style: const TextStyle(color: Colors.white70, fontSize: 13),
+                    profile.name,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 32, // Reduced from 38 to prevent overflow
+                      letterSpacing: -0.5,
+                      shadows: [
+                        Shadow(
+                          color: Colors.black38,
+                          blurRadius: 12,
+                          offset: Offset(0, 3),
+                        ),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Next ANC: ${profile.nextVisit}',
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                  const SizedBox(height: 16),
+                  // Info Card - MORE COMPREHENSIVE
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.18),
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(color: Colors.white.withOpacity(0.25), width: 1.5),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            _buildEnhancedInfoChip(
+                              icon: Icons.calendar_today,
+                              label: 'Week ${profile.pregnancyWeek}',
+                              color: AppColors.honeyGold,
+                            ),
+                            const SizedBox(width: 8),
+                            _buildEnhancedInfoChip(
+                              icon: Icons.favorite,
+                              label: '2nd Trim', // Much shorter to prevent overflow
+                              color: AppColors.secondaryBrown,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [AppColors.successGreen, AppColors.successGreen.withOpacity(0.8)],
+                            ),
+                            borderRadius: BorderRadius.circular(20),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.successGreen.withOpacity(0.4),
+                                blurRadius: 8,
+                              ),
+                            ],
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.check_circle, color: Colors.white, size: 14),
+                              SizedBox(width: 4),
+                              Text(
+                                'Next: ANC',
+                                style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  // Additional Info Row - NEW
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      children: [
+                        _buildMiniInfo('Due Date', 'Aug 15', Icons.event),
+                        const SizedBox(width: 16),
+                        _buildMiniInfo('Baby Size', 'Eggplant', Icons.child_care),
+                        const SizedBox(width: 16),
+                        _buildMiniInfo('Est. Weight', '1.2 kg', Icons.monitor_weight),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -123,208 +401,558 @@ class _MotherDashboardScreenState extends State<MotherDashboardScreen> {
     );
   }
 
-  Widget _buildPregnancyStatusCard(profile) {
-    final progress = (profile.pregnancyWeek / 40).clamp(0, 1).toDouble();
-    final riskColor = profile.riskLevel.toLowerCase() == 'high' ? Colors.red : Colors.green;
-
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Row(
-              children: [
-                Icon(Icons.favorite, color: AppColors.primaryDarkPink),
-                SizedBox(width: 8),
-                Text('Pregnancy Progress', style: TextStyle(fontWeight: FontWeight.bold)),
-              ],
-            ),
-            const SizedBox(height: 10),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(999),
-              child: LinearProgressIndicator(
-                value: progress,
-                minHeight: 9,
-                color: AppColors.primaryDarkPink,
-                backgroundColor: const Color(0xFFFCE4EC),
-              ),
-            ),
-            const SizedBox(height: 10),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Week ${profile.pregnancyWeek}/40'),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: riskColor.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Text(
-                    '${profile.riskLevel} Risk',
-                    style: TextStyle(color: riskColor, fontWeight: FontWeight.w600),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
+  Widget _buildEnhancedInfoChip({required IconData icon, required String label, required Color color}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 16),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+          ),
+        ],
       ),
     );
   }
 
+  Widget _buildMiniInfo(String label, String value, IconData icon) {
+    return Expanded(
+      child: Row(
+        children: [
+          Icon(icon, color: Colors.white70, size: 14),
+          const SizedBox(width: 6),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(color: Colors.white54, fontSize: 10),
+              ),
+              Text(
+                value,
+                style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ==================== STATS ROW ====================
+  Widget _buildStatsRow(profile) {
+    final stats = [
+      _StatItem('Next ANC Visit', profile.nextVisit, Icons.calendar_month, AppColors.secondaryBrown),
+      _StatItem('Baby\'s Heartbeat', '142 bpm', Icons.favorite, AppColors.successGreen),
+      _StatItem('Est. Due Date', 'Aug 15, 2024', Icons.event, AppColors.medicalTeal),
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        children: stats.asMap().entries.map((entry) {
+          final index = entry.key;
+          final stat = entry.value;
+          return Expanded(
+            child: TweenAnimationBuilder<double>(
+              duration: Duration(milliseconds: 400 + (index * 100)),
+              curve: Curves.easeOutBack,
+              tween: Tween(begin: 0, end: 1),
+              builder: (context, scale, child) {
+                return Transform.scale(scale: scale, child: child);
+              },
+              child: Container(
+                margin: EdgeInsets.only(
+                  left: index == 0 ? 0 : 8,
+                  right: index == stats.length - 1 ? 0 : 8,
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Colors.white, stat.color.withOpacity(0.08)],
+                  ),
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: stat.color.withOpacity(0.15),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                  border: Border.all(color: stat.color.withOpacity(0.2)),
+                ),
+                child: Column(
+                  children: [
+                    Icon(stat.icon, color: stat.color, size: 26),
+                    const SizedBox(height: 8),
+                    Text(
+                      stat.value,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: stat.color,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      stat.label,
+                      style: const TextStyle(fontSize: 10, color: AppColors.textSecondary),
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  // ==================== QUICK ACTIONS ====================
   Widget _buildQuickActions(BuildContext context) {
     final actions = [
-      _ActionItem('Appointments', Icons.calendar_month, const Color(0xFF64B5F6), () => widget.onNavigate?.call(1)),
-      _ActionItem('Child Growth', Icons.monitor_weight, const Color(0xFF66BB6A), () => widget.onNavigate?.call(2)),
-      _ActionItem('Vaccination', Icons.vaccines, const Color(0xFF9C27B0), () => widget.onNavigate?.call(3)),
-      _ActionItem(
-        'Danger Signs',
-        Icons.warning_amber_rounded,
-        const Color(0xFFD84315),
-        () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const MotherDangerSignsScreen()),
-        ),
+      _ActionItem('Appointments', Icons.calendar_month, AppColors.secondaryBrown, 
+          Colors.blue.shade50, () => widget.onNavigate?.call(1)),
+      _ActionItem('Child Growth', Icons.monitor_weight, AppColors.childGrowth,
+          Colors.green.shade50, () => widget.onNavigate?.call(2)),
+      _ActionItem('Vaccination', Icons.vaccines, AppColors.vaccinationBlue,
+          Colors.purple.shade50, () => widget.onNavigate?.call(3)),
+      _ActionItem('Danger Signs', Icons.warning_amber_rounded, AppColors.warningOrange,
+          Colors.red.shade50, () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const MotherDangerSignsScreen()),
+          )),
+      _ActionItem('Profile', Icons.person, AppColors.slateBrown,
+          Colors.grey.shade50, () => widget.onNavigate?.call(4)),
+      _ActionItem('Reports', Icons.bar_chart, AppColors.medicalTeal,
+          Colors.teal.shade50, () {
+            // Show reports dialog or navigate to reports screen
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Reports feature coming soon!'),
+                backgroundColor: AppColors.medicalTeal,
+                duration: Duration(seconds: 2),
+              ),
+            );
+          }),
+    ];
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: Text(
+              'Quick Actions',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 20,
+                color: AppColors.textPrimary,
+              ),
+            ),
+          ),
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: actions.length,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3, 
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+              childAspectRatio: 1.0, // Perfect square aspect ratio
+            ),
+            itemBuilder: (context, index) {
+              final a = actions[index];
+              return GestureDetector(
+                onTap: a.onTap,
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [a.bgColor, Colors.white],
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: a.color.withOpacity(0.3), width: 1.5),
+                    boxShadow: [
+                      BoxShadow(
+                        color: a.color.withOpacity(0.2),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [a.color, a.color.withOpacity(0.7)],
+                          ),
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: a.color.withOpacity(0.4),
+                              blurRadius: 8,
+                            ),
+                          ],
+                        ),
+                        child: Icon(a.icon, color: Colors.white, size: 24),
+                      ),
+                      const SizedBox(height: 8),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: Text(
+                          a.title,
+                          style: TextStyle(
+                            color: a.color,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 11,
+                          ),
+                          textAlign: TextAlign.center,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
       ),
-      _ActionItem('Profile', Icons.person, const Color(0xFF607D8B), () => widget.onNavigate?.call(4)),
+    );
+  }
+
+  // ==================== HEALTH METRICS SECTION ====================
+  Widget _buildHealthMetricsSection() {
+    final metrics = [
+      _MetricData('Blood Pressure', '118/76', 'Normal', Icons.favorite, AppColors.successGreen),
+      _MetricData('Weight', '64 kg', '+0.5 kg', Icons.monitor_weight, AppColors.secondaryBrown),
+      _MetricData('Baby Heartbeat', '142 bpm', 'Healthy', Icons.favorite_border, AppColors.medicalTeal),
+      _MetricData('Blood Sugar', '92 mg/dL', 'Normal', Icons.science, AppColors.successGreen),
     ];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Quick Actions',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: AppColors.textPrimary),
-        ),
-        const SizedBox(height: 10),
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: actions.length,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            crossAxisSpacing: 10,
-            mainAxisSpacing: 10,
-            childAspectRatio: 1.6,
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+          child: Row(
+            children: [
+              Icon(Icons.health_and_safety, color: AppColors.primaryBrown, size: 24),
+              SizedBox(width: 8),
+              Text(
+                'Health Metrics',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 20,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ],
           ),
-          itemBuilder: (context, index) {
-            final a = actions[index];
-            return InkWell(
-              onTap: a.onTap,
-              borderRadius: BorderRadius.circular(16),
-              child: Container(
+        ),
+        SizedBox(
+          height: 130,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: metrics.length,
+            itemBuilder: (context, index) {
+              final m = metrics[index];
+              return Container(
+                width: 160,
+                margin: EdgeInsets.only(right: index == metrics.length - 1 ? 0 : 12),
+                padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [
-                      a.color.withOpacity(0.18),
-                      Colors.white.withOpacity(0.88),
-                    ],
+                    colors: [Colors.white, m.color.withOpacity(0.05)],
                   ),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: a.color.withOpacity(0.2)),
+                  borderRadius: BorderRadius.circular(20),
                   boxShadow: [
                     BoxShadow(
-                      color: a.color.withOpacity(0.15),
-                      blurRadius: 10,
+                      color: m.color.withOpacity(0.15),
+                      blurRadius: 8,
                       offset: const Offset(0, 4),
                     ),
                   ],
+                  border: Border.all(color: m.color.withOpacity(0.2)),
                 ),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(a.icon, color: a.color),
-                    const SizedBox(width: 8),
-                    Text(a.title, style: TextStyle(color: a.color, fontWeight: FontWeight.w600)),
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: m.color.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Icon(m.icon, color: m.color, size: 24),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            m.label,
+                            style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            m.value,
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: m.color,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            m.status,
+                            style: const TextStyle(fontSize: 10, color: AppColors.textLight),
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
-              ),
-            );
-          },
+              );
+            },
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildHealthSnapshot() {
-    return Card(
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: const [
-            _MetricTile(label: 'BP', value: '118/76'),
-            _MetricTile(label: 'Weight', value: '64 kg'),
-            _MetricTile(label: 'FHR', value: '142 bpm'),
-          ],
-        ),
-      ),
-    );
-  }
-
+  // ==================== AI ALERT CARD ====================
   Widget _buildAIAlertCard(String riskLevel) {
     final isHighRisk = riskLevel.toLowerCase() == 'high';
-    return Card(
-      elevation: 1.5,
-      color: isHighRisk ? const Color(0xFFFFEBEE) : const Color(0xFFE8F5E9),
-      child: ListTile(
-        leading: Icon(isHighRisk ? Icons.warning_amber : Icons.check_circle, color: isHighRisk ? Colors.red : Colors.green),
-        title: Text(isHighRisk ? 'Risk Alert' : 'AI Guidance'),
-        subtitle: Text(
-          isHighRisk
-              ? 'High-risk signs detected. Please book an urgent visit.'
-              : 'You are on track. Keep your ANC visits and daily hydration.',
+    
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: isHighRisk
+                ? [const Color(0xFFFFF0F0), const Color(0xFFFFE0E0)]
+                : [const Color(0xFFF0FFF0), const Color(0xFFE0FFE0)],
+          ),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: isHighRisk ? AppColors.warningOrange : AppColors.successGreen,
+            width: 2,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: (isHighRisk ? AppColors.warningOrange : AppColors.successGreen).withOpacity(0.2),
+              blurRadius: 15,
+              offset: const Offset(0, 6),
+            ),
+          ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildSmartTip(int week) {
-    return Card(
-      elevation: 1.5,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () => setState(() => _expandedTip = !_expandedTip),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 240),
-          curve: Curves.easeInOut,
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Row(
             children: [
-              Row(
-                children: [
-                  const Icon(Icons.lightbulb, color: Color(0xFFFFB300)),
-                  const SizedBox(width: 8),
-                  const Expanded(
-                    child: Text(
-                      'Smart Tip',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: isHighRisk
+                        ? [AppColors.warningOrange, AppColors.warningOrange.withOpacity(0.7)]
+                        : [AppColors.successGreen, AppColors.successGreen.withOpacity(0.7)],
                   ),
-                  Icon(_expandedTip ? Icons.expand_less : Icons.expand_more),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text('Week $week: Try light walking daily and sleep on your left side.'),
-              if (_expandedTip) ...[
-                const SizedBox(height: 8),
-                const Text(
-                  'Also drink enough water, avoid heavy lifting, and contact your provider if you feel unusual pain.',
-                  style: TextStyle(color: AppColors.textSecondary),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: (isHighRisk ? AppColors.warningOrange : AppColors.successGreen).withOpacity(0.4),
+                      blurRadius: 12,
+                    ),
+                  ],
                 ),
-              ],
+                child: Icon(
+                  isHighRisk ? Icons.warning_amber_rounded : Icons.auto_awesome,
+                  color: Colors.white,
+                  size: 32,
+                ),
+              ),
+              const SizedBox(width: 18),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isHighRisk ? '⚠️ Risk Alert' : '🤖 AI Health Assistant',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: isHighRisk ? AppColors.warningOrange : AppColors.successGreen,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      isHighRisk
+                          ? 'High-risk signs detected. Please book an urgent visit immediately.'
+                          : '✅ You\'re on track! Continue your ANC visits and stay hydrated.',
+                      style: const TextStyle(fontSize: 13, height: 1.4, color: AppColors.textSecondary),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  // ==================== SMART TIP CARD ====================
+  Widget _buildSmartTip(int week) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        child: Card(
+          elevation: 0,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          color: Colors.white,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(24),
+            onTap: () => setState(() => _expandedTip = !_expandedTip),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [AppColors.honeyGold, AppColors.honeyGold.withOpacity(0.7)],
+                          ),
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.honeyGold.withOpacity(0.3),
+                              blurRadius: 8,
+                            ),
+                          ],
+                        ),
+                        child: const Icon(Icons.lightbulb, color: Colors.white, size: 24),
+                      ),
+                      const SizedBox(width: 16),
+                      const Expanded(
+                        child: Text(
+                          'Smart Tip for Week',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                      ),
+                      AnimatedRotation(
+                        duration: const Duration(milliseconds: 300),
+                        turns: _expandedTip ? 0.5 : 0,
+                        child: Icon(
+                          Icons.chevron_right,
+                          color: AppColors.accentBrown,
+                          size: 28,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [AppColors.honeyGold.withOpacity(0.1), Colors.white],
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Row(
+                      children: [
+                        Text(
+                          'Week $week',
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.honeyGold,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Text(
+                            'Try light walking daily and sleep on your left side for better blood flow.',
+                            style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (_expandedTip) ...[
+                    const SizedBox(height: 20),
+                    const Divider(color: AppColors.lightBrown),
+                    const SizedBox(height: 16),
+                    _buildTipItem('💧', 'Drink at least 8 glasses of water daily'),
+                    const SizedBox(height: 12),
+                    _buildTipItem('🏋️', 'Avoid heavy lifting and strenuous activities'),
+                    const SizedBox(height: 12),
+                    _buildTipItem('🍎', 'Eat iron-rich foods like spinach and lentils'),
+                    const SizedBox(height: 12),
+                    _buildTipItem('📞', 'Contact your provider if you feel unusual pain'),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTipItem(String emoji, String text) {
+    return Row(
+      children: [
+        Text(emoji, style: const TextStyle(fontSize: 20)),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            text,
+            style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+          ),
+        ),
+        Icon(Icons.check_circle, color: AppColors.successGreen.withOpacity(0.6), size: 18),
+      ],
     );
   }
 
@@ -336,28 +964,30 @@ class _MotherDashboardScreenState extends State<MotherDashboardScreen> {
   }
 }
 
-class _MetricTile extends StatelessWidget {
+// ==================== HELPER CLASSES ====================
+
+class _StatItem {
   final String label;
   final String value;
-  const _MetricTile({required this.label, required this.value});
+  final IconData icon;
+  final Color color;
+  _StatItem(this.label, this.value, this.icon, this.color);
+}
 
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-        const SizedBox(height: 4),
-        Text(label, style: const TextStyle(color: AppColors.textSecondary)),
-      ],
-    );
-  }
+class _MetricData {
+  final String label;
+  final String value;
+  final String status;
+  final IconData icon;
+  final Color color;
+  _MetricData(this.label, this.value, this.status, this.icon, this.color);
 }
 
 class _ActionItem {
   final String title;
   final IconData icon;
   final Color color;
+  final Color bgColor;
   final VoidCallback onTap;
-
-  _ActionItem(this.title, this.icon, this.color, this.onTap);
+  _ActionItem(this.title, this.icon, this.color, this.bgColor, this.onTap);
 }

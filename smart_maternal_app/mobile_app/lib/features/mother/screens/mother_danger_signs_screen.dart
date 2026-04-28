@@ -640,6 +640,13 @@ const List<_DangerSignItem> _motherSigns = [
 
 const List<_DangerSignItem> _childSigns = [
   _DangerSignItem(
+    title: 'Umbilical cord infection',
+    detail: 'If the baby\'s umbilical cord stump becomes red, swollen, has pus, or is bleeding, take the baby to a health clinic immediately.',
+    imagePath: 'assets/images/danger_sign/baby-umbilical-cord-infection.jpg',
+    icon: Icons.healing,
+    color: Color(0xFFD32F2F),
+  ),
+  _DangerSignItem(
     title: 'Yellow body/eyes',
     detail: 'Yellow skin or eyes can mean jaundice; the baby needs quick evaluation.',
     imagePath: 'assets/images/danger_sign/danger_child_jaundice.jpg',
@@ -649,35 +656,35 @@ const List<_DangerSignItem> _childSigns = [
   _DangerSignItem(
     title: 'Shaking (መንቀጥቀጥ)',
     detail: 'Repeated shaking can be a serious sign. Go to a facility immediately.',
-    imagePath: null,
+    imagePath: 'assets/images/danger_sign/baby-danger-shaking.jpg',
     icon: Icons.vibration,
     color: Color(0xFF00897B),
   ),
   _DangerSignItem(
     title: 'Difficulty breathing',
     detail: 'Fast breathing, chest in-drawing, or noisy breathing is an emergency.',
-    imagePath: null,
+    imagePath: 'assets/images/danger_sign/baby-breathing-difficulty.jpg',
     icon: Icons.air,
     color: Color(0xFF1565C0),
   ),
   _DangerSignItem(
     title: 'Not moving as normal',
     detail: 'If the baby is weak or not moving normally, seek care immediately.',
-    imagePath: null,
+    imagePath: 'assets/images/danger_sign/baby-lethargic-fainting.jpg',
     icon: Icons.accessibility_new,
     color: Color(0xFF455A64),
   ),
   _DangerSignItem(
     title: 'Not active / very sleepy',
     detail: 'If your baby does not wake or feed well, this can be dangerous.',
-    imagePath: null,
+    imagePath: 'assets/images/danger_sign/baby-not-active-sleepy.jpg',
     icon: Icons.bedtime,
     color: Color(0xFF5E35B1),
   ),
   _DangerSignItem(
     title: 'Fever or cold body',
     detail: 'Very hot or cold body temperature in newborns needs urgent treatment.',
-    imagePath: null,
+    imagePath: 'assets/images/danger_sign/baby-fever-cold.jpg',
     icon: Icons.thermostat,
     color: Color(0xFF00838F),
   ),

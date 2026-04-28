@@ -21,20 +21,26 @@ class MotherProfile {
 class MotherAppointment {
   final String id;
   final String title;
+  final String type; // ANC, PNC, Ultrasound, Lab Test, Consultation
+  final int? week; // Gestational week
   final DateTime dateTime;
   final String facility;
   final String provider;
   final String status; // upcoming, completed, missed, cancelled, rescheduled
   final bool isHighRisk;
+  final String? notes;
 
   const MotherAppointment({
     required this.id,
     required this.title,
+    required this.type,
+    this.week,
     required this.dateTime,
     required this.facility,
     required this.provider,
     required this.status,
     required this.isHighRisk,
+    this.notes,
   });
 }
 
