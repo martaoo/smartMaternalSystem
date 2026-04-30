@@ -19,21 +19,21 @@ export class ReferralsController {
 
   // ────────────── DOCTOR ──────────────
 @Post()
-@Roles(UserRole.DOCTOR,UserRole.LIAISON_OFFICER)
+@Roles(UserRole.DOCTOR, UserRole.LIAISON_OFFICER, UserRole.NURSE, UserRole.MIDWIFE)
 async createReferral(@Body() dto: CreateReferralDto, @Req() req) {
   // 1. Extract info from the JWT (req.user)
   // Ensure your AuthGuard/Strategy populates these fields
   const userId = req.user.id || req.user._id || req.user.sub;
-  const hospitalId = req.user.hospitalId; 
+  const hospitalId = req.user.hospitalId;
   const doctorName = req.user.fullName || req.user.name;
+  const userRole = req.user.role;
 
   if (!userId || !hospitalId) {
     throw new BadRequestException('User identification or Hospital ID missing from token');
   }
 
-  // 2. Pass BOTH userId and hospitalId to the service
-  // We also pass doctorName so the notification system has it immediately
-  return this.referralsService.createReferral(dto, userId, hospitalId, doctorName);
+  // 2. Pass userId, hospitalId, doctorName, and userRole to the service
+  return this.referralsService.createReferral(dto, userId, hospitalId, doctorName, userRole);
 }
 @Post('system')
 @Roles(UserRole.SYSTEM_ADMIN)
@@ -42,7 +42,7 @@ async createSystemReferral(@Body() dto, @Req() req) {
 }
 // ────────────── LIAISON OFFICER / DOCTOR ──────────────
 @Patch(':id/send')
-@Roles(UserRole.LIAISON_OFFICER, UserRole.DOCTOR)
+@Roles(UserRole.LIAISON_OFFICER, UserRole.DOCTOR, UserRole.NURSE, UserRole.MIDWIFE)
 async finalizeAndSend(
   @Param('id') id: string,
   @Body('targetHospitalId') targetHospitalId: string,
@@ -63,7 +63,7 @@ async finalizeAndSend(
 }
 @Get('incoming')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(UserRole.LIAISON_OFFICER, UserRole.HOSPITAL_APPROVER,UserRole.HOSPITAL_ADMIN)
+@Roles(UserRole.LIAISON_OFFICER, UserRole.HOSPITAL_APPROVER, UserRole.HOSPITAL_ADMIN, UserRole.DOCTOR, UserRole.NURSE, UserRole.MIDWIFE)
 async getIncoming(@Req() req) {
   // req.user is populated by the JwtStrategy after verifying the token
   const hospitalId = req.user.hospitalId; 
@@ -76,7 +76,15 @@ async getIncoming(@Req() req) {
 }
   // ────────────── RECEIVING HOSPITAL / LIAISON ──────────────
   @Patch(':id/respond')
-  @Roles(UserRole.HOSPITAL_APPROVER,UserRole.LIAISON_OFFICER)
+  @Roles(
+    UserRole.HOSPITAL_APPROVER,
+    UserRole.LIAISON_OFFICER,
+    UserRole.HOSPITAL_ADMIN,
+    UserRole.DOCTOR,
+    UserRole.NURSE,
+    UserRole.MIDWIFE,
+    UserRole.SPECIALIST,
+  )
   async respondToReferral(
     @Param('id') id: string,
     @Body() dto: RespondReferralDto,
@@ -95,17 +103,16 @@ async getIncoming(@Req() req) {
     return this.referralsService.gateCheckIn(dto, req.user.id);
   }
 
-  // ────────────── SPECIALIST ──────────────
+  // ────────────── SPECIALIST / NURSE / MIDWIFE ──────────────
   @Post('unlock')
-  @Roles(UserRole.DOCTOR,UserRole.LIAISON_OFFICER)
+  @Roles(UserRole.DOCTOR, UserRole.LIAISON_OFFICER, UserRole.NURSE, UserRole.MIDWIFE)
   async unlockReferral(@Body() dto: UnlockReferralDto, @Req() req) {
     return this.referralsService.unlockReferral(dto, req.user.id,req.user.hospitalId);
   }
 
-  // ────────────── SPECIALIST FEEDBACK ──────────────
-  // ────────────── SPECIALIST FEEDBACK ──────────────
+  // ────────────── SPECIALIST / NURSE / MIDWIFE FEEDBACK ──────────────
   @Patch(':id/complete')
-  @Roles(UserRole.DOCTOR,UserRole.LIAISON_OFFICER)
+  @Roles(UserRole.DOCTOR, UserRole.LIAISON_OFFICER, UserRole.NURSE, UserRole.MIDWIFE)
   async submitFeedback(
     @Param('id') id: string,
     @Body() dto: SubmitFeedbackDto, // Use the DTO directly
@@ -114,7 +121,7 @@ async getIncoming(@Req() req) {
     return this.referralsService.submitFeedback(id, dto.feedbackNote, req.user.id);
   }
   @Get('liaison/outbox')
-  @Roles(UserRole.LIAISON_OFFICER, UserRole.DOCTOR,UserRole.HOSPITAL_ADMIN)
+  @Roles(UserRole.LIAISON_OFFICER, UserRole.DOCTOR, UserRole.HOSPITAL_ADMIN, UserRole.NURSE, UserRole.MIDWIFE)
   async getLiaisonOutbox(@Req() req) {
     const hospitalId = req.user.hospitalId;
     if (!hospitalId) {
@@ -124,7 +131,7 @@ async getIncoming(@Req() req) {
   }
 
   @Get('specialist/queue')
-  @Roles(UserRole.LIAISON_OFFICER, UserRole.DOCTOR,UserRole.SPECIALIST)
+  @Roles(UserRole.LIAISON_OFFICER, UserRole.DOCTOR,UserRole.SPECIALIST, UserRole.NURSE, UserRole.MIDWIFE)
   async getSpecialistQueue(@Req() req) {
     /**
      * req.user is usually populated by your Passport JWT Strategy.
@@ -139,7 +146,7 @@ async getIncoming(@Req() req) {
     return await this.referralsService.getSpecialistQueue(hospitalId);
   }
   @Get(':id')
-  @Roles(UserRole.LIAISON_OFFICER, UserRole.DOCTOR,UserRole.SPECIALIST)
+  @Roles(UserRole.LIAISON_OFFICER, UserRole.DOCTOR,UserRole.SPECIALIST, UserRole.NURSE, UserRole.MIDWIFE)
 async getOne(@Param('id') id: string, @Req() req) {
   // req.user.hospitalId comes from your AuthGuard
   return this.referralsService.getReferralById(id, req.user.hospitalId);
@@ -163,5 +170,11 @@ async getDashboard(@Param('type') type: 'inbound' | 'outbound', @Req() req) {
       hospitalId,
       type,
     );
+  }
+
+  @Get('admin/stats')
+  @Roles(UserRole.MOH_ADMIN, UserRole.SYSTEM_ADMIN, UserRole.HOSPITAL_ADMIN)
+  async getAdminStats() {
+    return this.referralsService.getAdminReferralStats();
   }
 } // Don't forget the closing bracket for the class!

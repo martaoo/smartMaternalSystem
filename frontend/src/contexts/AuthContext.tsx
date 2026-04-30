@@ -5,14 +5,24 @@ import { User, AuthState, LoginCredentials, RegisterCredentials } from '@/types/
 
 const getDashboardForRole = (role: string): string => {
   switch (role) {
+    case 'SUPER_ADMIN':
     case 'MOH_ADMIN':
       return '/moh-dashboard';
+    case 'SYSTEM_ADMIN':
+      return '/system-dashboard';
     case 'HOSPITAL_ADMIN':
       return '/hospital-dashboard';
     case 'DOCTOR':
     case 'NURSE':
     case 'MIDWIFE':
       return '/healthcare-dashboard';
+    case 'LIAISON_OFFICER':
+      return '/liaison-dashboard';
+    case 'SPECIALIST':
+    case 'HOSPITAL_APPROVER':
+      return '/receiving-dashboard';
+    case 'GATEKEEPER':
+      return '/gate-dashboard';
     case 'DISPATCHER':
       return '/dispatch-dashboard';
     case 'WOREDA_ADMIN':
@@ -91,7 +101,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (credentials: LoginCredentials) => {
     dispatch({ type: 'LOGIN_START' });
     try {
-      const response = await fetch('http://localhost:3001/api/auth/login', {
+      const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(credentials),
@@ -110,9 +120,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         hospitalId: data.user.hospitalId ? String(data.user.hospitalId) : undefined,
         woredaId: data.user.woredaId ? String(data.user.woredaId) : undefined,
       };
-      
+
+      // Store both user and access token from API response
       localStorage.setItem('user', JSON.stringify(user));
-      localStorage.setItem('token', data.access_token);
+      if (data.access_token) {
+        localStorage.setItem('token', data.access_token);
+      }
       dispatch({ type: 'LOGIN_SUCCESS', payload: user });
     } catch (error) {
       dispatch({ type: 'LOGIN_FAILURE', payload: error instanceof Error ? error.message : 'Login failed' });
@@ -122,7 +135,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const register = async (credentials: RegisterCredentials) => {
     dispatch({ type: 'REGISTER_START' });
     try {
-      const response = await fetch('http://localhost:3001/api/auth/register', {
+      const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(credentials),
@@ -150,6 +163,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = () => {
     localStorage.removeItem('user');
+    localStorage.removeItem('token');
+    fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
     dispatch({ type: 'LOGOUT' });
   };
 

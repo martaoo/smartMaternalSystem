@@ -31,7 +31,7 @@ export class ReferralsService {
     private readonly hospitalModel: Model<HospitalDocument>,
 
     private readonly notificationService: NotificationService,
-    private readonly motherService: MothersService, // Using MothersService instead of PatientsService
+    private readonly motherService: MothersService, 
   ) {}
 
   // 1. CREATE REFERRAL (Doctor → DRAFT)
@@ -39,7 +39,8 @@ export class ReferralsService {
   dto: CreateReferralDto, 
   doctorId: string, 
   hospitalId: string, 
-  doctorName: string
+  doctorName: string,
+  userRole: string = 'DOCTOR'
 ): Promise<Referral> {
 
   const { mother: motherData, ...referralData } = dto;
@@ -50,7 +51,7 @@ export class ReferralsService {
   if (dto.motherId) {
     mother = await this.motherService.findById(
       dto.motherId,
-      'DOCTOR',
+      userRole,
       hospitalId
     );
 
@@ -76,7 +77,7 @@ export class ReferralsService {
         {
           ...motherData
         },
-        'DOCTOR',
+        userRole,
         hospitalId
       );
     }
@@ -92,6 +93,9 @@ export class ReferralsService {
   }
 
   // ✅ CREATE REFERRAL
+  const actorLabel =
+    userRole === 'NURSE' || userRole === 'MIDWIFE' ? 'Nurse/Midwife' : 'Doctor';
+
   const referral = await this.referralModel.create({
     ...referralData,
     fromHospital: hospitalId,
@@ -104,7 +108,7 @@ export class ReferralsService {
       {
         status: ReferralStatus.DRAFT,
         actor: doctorId,
-        note: `Referral drafted by Dr. ${doctorName}`,
+        note: `Referral drafted by ${actorLabel} ${doctorName}`,
         timestamp: new Date(),
       },
     ],
@@ -158,7 +162,7 @@ async createSystemReferral(data: {
     activityLog: [
       {
         status: ReferralStatus.PENDING,
-        actor: 'SYSTEM',
+        actor: null, // Use null for SYSTEM actions
         note: `Auto referral triggered: ${data.reason}`,
         timestamp: new Date(),
       },
@@ -455,7 +459,7 @@ async createSystemReferral(data: {
         $push: {
           activityLog: {
             status: ReferralStatus.EXPIRED,
-            actor: 'SYSTEM',
+            actor: null, // Use null for SYSTEM actions
             note: 'Referral expired automatically',
             timestamp: now,
           },
@@ -533,5 +537,31 @@ async createSystemReferral(data: {
     }
 
     return referral;
+  }
+
+  async getAdminReferralStats() {
+    const [total, draft, pending, accepted, checkedIn, completed, rejected, expired] =
+      await Promise.all([
+        this.referralModel.countDocuments({}),
+        this.referralModel.countDocuments({ status: ReferralStatus.DRAFT }),
+        this.referralModel.countDocuments({ status: ReferralStatus.PENDING }),
+        this.referralModel.countDocuments({ status: ReferralStatus.ACCEPTED }),
+        this.referralModel.countDocuments({ status: ReferralStatus.CHECKED_IN }),
+        this.referralModel.countDocuments({ status: ReferralStatus.COMPLETED }),
+        this.referralModel.countDocuments({ status: ReferralStatus.REJECTED }),
+        this.referralModel.countDocuments({ status: ReferralStatus.EXPIRED }),
+      ]);
+
+    return {
+      total,
+      draft,
+      pending,
+      accepted,
+      checkedIn,
+      completed,
+      rejected,
+      expired,
+      active: draft + pending + accepted + checkedIn,
+    };
   }
 }

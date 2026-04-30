@@ -15,6 +15,7 @@ interface FormData {
   gravida: string;
   para: string;
   lmp: string;
+  bloodType: string;
 }
 
 export default function RegisterMother() {
@@ -29,6 +30,7 @@ export default function RegisterMother() {
     gravida: '',
     para: '',
     lmp: '',
+    bloodType: '',
   });
 
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -155,6 +157,7 @@ export default function RegisterMother() {
         gravida: '',
         para: '',
         lmp: '',
+        bloodType: '',
       });
     } catch (err: any) {
       setError(err.message || 'Failed to register mother');
@@ -416,6 +419,27 @@ export default function RegisterMother() {
                     onChange={handleInputChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
+                </div>
+
+                <div>
+                  <label htmlFor="bloodType" className="block text-sm font-medium text-gray-700 mb-2">
+                    Blood Type
+                  </label>
+                  <select
+                    id="bloodType"
+                    name="bloodType"
+                    value={formData.bloodType}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">Select Blood Type</option>
+                    <option value="A+">A+</option>
+                    <option value="A-">A-</option>
+                    <option value="B+">B+</option>
+                    <option value="B-">B-</option>
+                    <option value="O+">O+</option>
+                    <option value="O-">O-</option>
+                  </select>
                 </div>
 
                 <div>

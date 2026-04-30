@@ -58,6 +58,9 @@ export class Mother {
 
   @Prop()
   lmp?: Date; // Last Menstrual Period
+
+  @Prop({ enum: ['A+', 'A-', 'B+', 'B-', 'O+', 'O-'] })
+  bloodType?: 'A+' | 'A-' | 'B+' | 'B-' | 'O+' | 'O-';
 }
 
 export const MotherSchema = SchemaFactory.createForClass(Mother);
