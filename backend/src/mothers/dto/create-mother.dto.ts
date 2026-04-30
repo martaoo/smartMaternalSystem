@@ -54,6 +54,11 @@ woredaId: string;
   @IsDateString()
   lmp?: string;
 
+  @ApiPropertyOptional({ example: 'O+', description: 'Mother blood type' })
+  @IsOptional()
+  @IsEnum(['A+', 'A-', 'B+', 'B-', 'O+', 'O-'])
+  bloodType?: 'A+' | 'A-' | 'B+' | 'B-' | 'O+' | 'O-';
+
   @ApiPropertyOptional({ example: 'Dr. Sarah Johnson - Nurse', description: 'Name and role of person who registered the mother' })
   @IsOptional()
   @IsString()

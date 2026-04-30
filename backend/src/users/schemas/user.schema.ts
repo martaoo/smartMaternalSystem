@@ -17,7 +17,7 @@ export class User {
   @Prop({ 
     required: true, 
     enum: [
-      'SUPER_ADMIN',
+      'MOH_ADMIN',
       'SYSTEM_ADMIN',
       'WOREDA_ADMIN',
       'HOSPITAL_ADMIN',

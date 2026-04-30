@@ -28,7 +28,7 @@ interface PregnancyRecord {
   riskLevel: 'LOW' | 'MODERATE' | 'HIGH';
   emergency: boolean;
   visitDate: string;
-  createdBy: {
+  healthWorkerId?: {
     name: string;
     role: string;
   };
@@ -154,7 +154,7 @@ export default function MotherPregnancyHistory() {
             </div>
             <div className="flex items-center space-x-4">
               <a
-                href={`/healthcare-dashboard/pregnancy/new`}
+                href={`/healthcare-dashboard/pregnancy/new/${motherId}`}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
                 New Visit
@@ -284,8 +284,8 @@ export default function MotherPregnancyHistory() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         <div>
-                          <div>{record.createdBy.name}</div>
-                          <div className="text-xs text-gray-500">{record.createdBy.role}</div>
+                          <div>{record.healthWorkerId?.name || 'Unknown'}</div>
+                          <div className="text-xs text-gray-500">{record.healthWorkerId?.role || 'Unknown'}</div>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">

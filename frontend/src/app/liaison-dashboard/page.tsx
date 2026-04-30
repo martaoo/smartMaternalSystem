@@ -14,7 +14,7 @@ export default function LiaisonDashboardPage() {
   const outbox = useOutboxReferrals()
 
   return (
-    <ProtectedRoute requiredRole={["LIAISON_OFFICER", "DOCTOR", "HOSPITAL_ADMIN"]}>
+    <ProtectedRoute requiredRole={["LIAISON_OFFICER", "DOCTOR", "NURSE", "MIDWIFE", "HOSPITAL_ADMIN"]}>
       <div className="min-h-screen bg-slate-50">
         <div className="mx-auto max-w-6xl p-6 space-y-6">
           <div className="flex items-center justify-between">
