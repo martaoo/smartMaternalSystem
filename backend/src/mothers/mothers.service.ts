@@ -88,11 +88,21 @@ export class MothersService {
 
     // Check access permissions
     if (userRole === 'HOSPITAL_ADMIN' || userRole === 'DOCTOR' || userRole === 'NURSE' || userRole === 'MIDWIFE') {
-      if (mother.healthCenter._id.toString() !== userHospitalId) {
+      const motherHealthCenterId =
+        typeof mother.healthCenter === 'object' && mother.healthCenter !== null && '_id' in mother.healthCenter
+          ? (mother.healthCenter as any)._id?.toString()
+          : (mother.healthCenter as any)?.toString();
+
+      if (userHospitalId && motherHealthCenterId !== String(userHospitalId)) {
         throw new NotFoundException('Mother not found or access denied');
       }
     } else if (userRole === 'WOREDA_ADMIN') {
-      if (mother.woredaId._id.toString() !== userWoredaId) {
+      const motherWoredaId =
+        typeof mother.woredaId === 'object' && mother.woredaId !== null && '_id' in mother.woredaId
+          ? (mother.woredaId as any)._id?.toString()
+          : (mother.woredaId as any)?.toString();
+
+      if (userWoredaId && motherWoredaId !== String(userWoredaId)) {
         throw new NotFoundException('Mother not found or access denied');
       }
     }

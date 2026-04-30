@@ -20,9 +20,9 @@ import { CreateMotherDto } from '@/mothers/dto/create-mother.dto';
 // CREATE REFERRAL DTO
 // ─────────────────────────────────────────
 export class CreateReferralDto {
+  @IsOptional()
   @IsMongoId()
-  @IsNotEmpty()
-  fromHospital: string;
+  fromHospital?: string;
 
   @IsOptional()
   @IsMongoId()
@@ -34,9 +34,9 @@ export class CreateReferralDto {
   @Type(() => CreateMotherDto)
   mother?: CreateMotherDto; // Correctly typed for new mother creation
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  doctorName: string;
+  doctorName?: string;
 
   @IsString()
   @IsNotEmpty()

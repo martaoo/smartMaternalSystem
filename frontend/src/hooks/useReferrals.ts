@@ -65,7 +65,13 @@ export function useSendReferral() {
 export function useRespondReferral() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: { response: "ACCEPT" | "REJECT"; note?: string } }) =>
+    mutationFn: ({
+      id,
+      payload,
+    }: {
+      id: string
+      payload: { status: "ACCEPTED" | "REJECTED"; justification?: string; appointmentDate?: string }
+    }) =>
       respondReferral(id, payload),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["referrals"] }),
   })
