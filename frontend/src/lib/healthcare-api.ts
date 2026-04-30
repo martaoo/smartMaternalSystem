@@ -167,6 +167,13 @@ export const childrenApi = {
       headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
     }).then(handleResponse),
 
+  // Verify child registration
+  verify: (id: string) =>
+    fetch(`${API_BASE}/children/${id}/verify`, {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+    }).then(handleResponse),
+
   // Search children
   search: (query: string) =>
     fetch(`${API_BASE}/children/search?q=${encodeURIComponent(query)}`, {

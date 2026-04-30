@@ -39,14 +39,29 @@ async function bootstrap() {
       name: 'System Administrator',
       email: 'admin@maternal.gov.et',
       password: 'admin123', // Service will hash this automatically
-      role: UserRole.SUPER_ADMIN,
+      role: UserRole.SYSTEM_ADMIN,
+      assignedRegion: 'Addis Ababa',
       phoneNumber: '+251900000001',
     });
 
     console.log('System Admin created');
     console.log('Email: admin@maternal.gov.et');
     console.log('Password: admin123');
-    console.log('Role: SUPER_ADMIN');
+    console.log('Role: SYSTEM_ADMIN');
+
+    await usersService.create({
+      name: 'Regional System Admin',
+      email: 'system@admin.et',
+      password: 'admin123', // Service will hash this automatically
+      role: UserRole.SYSTEM_ADMIN,
+      assignedRegion: 'Addis Ababa',
+      phoneNumber: '+251900000010',
+    });
+
+    console.log('Regional System Admin created');
+    console.log('Email: system@admin.et');
+    console.log('Password: admin123');
+    console.log('Role: SYSTEM_ADMIN');
 
     // Create a test doctor
     await usersService.create({

@@ -15,6 +15,9 @@ export class CreateMotherDto {
   @Min(15)
   @Max(50)
   age: number;
+  @ApiProperty({ example: '664f1c2a8a3e2f0012345678', description: 'Woreda ID' })
+@IsMongoId()
+woredaId: string;
 
   @ApiProperty({ example: 'Addis Ababa, Bole, Street 123', description: 'Home address' })
   @IsString()
@@ -55,4 +58,7 @@ export class CreateMotherDto {
   @IsOptional()
   @IsString()
   registeredBy?: string;
+  @ApiProperty({ example: '664f1c2a8a3e2f0098765432', description: 'Health Center ID' })
+@IsMongoId()
+healthCenter: string;
 }

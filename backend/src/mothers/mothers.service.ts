@@ -8,52 +8,64 @@ import { CreateMotherDto } from './dto/create-mother.dto';
 export class MothersService {
   constructor(@InjectModel(Mother.name) private motherModel: Model<MotherDocument>) {}
 
- async create(
-  createMotherDto: CreateMotherDto,
-  userRole: string,
-  userHospitalId?: string,
-  userWoredaId?: string
-): Promise<Mother> {
-
-  let healthCenterId: string;
-
-  if (
-    userRole === 'HOSPITAL_ADMIN' ||
-    userRole === 'DOCTOR' ||
-    userRole === 'NURSE' ||
-    userRole === 'MIDWIFE'
-  ) {
-    if (!userHospitalId) {
+  async create(
+    createMotherDto: CreateMotherDto,
+    userRole: string,
+    userHospitalId?: string,
+    userWoredaId?: string
+  ): Promise<Mother> {
+  
+    let healthCenterId: string;
+  
+    if (
+      userRole === 'HOSPITAL_ADMIN' ||
+      userRole === 'DOCTOR' ||
+      userRole === 'NURSE' ||
+      userRole === 'MIDWIFE'
+    ) {
+      if (!userHospitalId) {
+        throw new BadRequestException(
+          'You must be assigned to a hospital to register mothers'
+        );
+      }
+      healthCenterId = userHospitalId;
+    } else {
       throw new BadRequestException(
-        'You must be assigned to a hospital to register mothers'
+        'Only hospital staff can register mothers'
       );
     }
-    healthCenterId = userHospitalId;
-  } else {
-    throw new BadRequestException(
-      'Only hospital staff can register mothers'
-    );
+  
+    const motherData = {
+      name: createMotherDto.name,
+      phone: createMotherDto.phone,
+      age: createMotherDto.age,
+      address: createMotherDto.address,
+      emergencyContact: createMotherDto.emergencyContact,
+      medicalHistory: createMotherDto.medicalHistory,
+      expectedDeliveryDate: createMotherDto.expectedDeliveryDate,
+      gravida: createMotherDto.gravida,
+      para: createMotherDto.para,
+      lmp: createMotherDto.lmp,
+      registeredBy: createMotherDto.registeredBy || 'System',
+      
+      // ✅ FIX: Use woredaId from DTO if userWoredaId is not available
+      woredaId: userWoredaId 
+        ? new Types.ObjectId(userWoredaId) 
+        : (createMotherDto.woredaId ? new Types.ObjectId(createMotherDto.woredaId) : undefined),
+      
+      healthCenter: new Types.ObjectId(healthCenterId),
+    };
+  
+    console.log('=== SERVICE CREATE DEBUG ===');
+    console.log('User role:', userRole);
+    console.log('User hospitalId:', userHospitalId);
+    console.log('User woredaId:', userWoredaId);
+    console.log('DTO woredaId:', createMotherDto.woredaId);
+    console.log('Final motherData:', JSON.stringify(motherData, null, 2));
+  
+    const mother = new this.motherModel(motherData);
+    return mother.save();
   }
-
-  const motherData = {
-    ...createMotherDto,
-
-    // ✅ ensure consistency with referral flow
-    woredaId: userWoredaId
-      ? new Types.ObjectId(userWoredaId)
-      : undefined,
-
-    healthCenter: new Types.ObjectId(healthCenterId),
-
-    registeredBy: createMotherDto.registeredBy || 'System',
-
-    // OPTIONAL: if your schema supports email
-    email: (createMotherDto as any).email || undefined,
-  };
-
-  const mother = new this.motherModel(motherData);
-  return mother.save();
-}
   async findAll(userRole: string, userHospitalId?: string, userWoredaId?: string): Promise<Mother[]> {
     let query: any = {};
 
