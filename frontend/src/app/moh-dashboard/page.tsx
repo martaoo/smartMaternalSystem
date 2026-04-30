@@ -6,13 +6,28 @@ import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { AddHospitalForm } from '@/components/AddHospitalForm';
 import { AddUserForm } from '@/components/AddUserForm';
 import { AddWoredaForm } from '@/components/AddWoredaForm';
+import { UserManagement } from '@/components/UserManagement';
 import { useAuth } from '@/contexts/AuthContext';
+import { referralsApi } from '@/lib/healthcare-api';
+
+interface ReferralStats {
+  total: number;
+  active: number;
+  pending: number;
+  completed: number;
+}
 
 export default function MOHDashboard() {
   const { user, logout } = useAuth();
   const [showAddHospital, setShowAddHospital] = useState(false);
   const [showAddUser, setShowAddUser] = useState(false);
   const [showAddWoreda, setShowAddWoreda] = useState(false);
+  const [referralStats, setReferralStats] = useState<ReferralStats>({
+    total: 0,
+    active: 0,
+    pending: 0,
+    completed: 0,
+  });
 
   const handleAddHospitalSuccess = () => {
     // Refresh data or show success message
@@ -29,8 +44,26 @@ export default function MOHDashboard() {
     alert('Woreda added successfully!');
   };
 
+  React.useEffect(() => {
+    const loadStats = async () => {
+      try {
+        const stats = await referralsApi.getAdminStats();
+        setReferralStats({
+          total: stats?.total ?? 0,
+          active: stats?.active ?? 0,
+          pending: stats?.pending ?? 0,
+          completed: stats?.completed ?? 0,
+        });
+      } catch (error) {
+        console.error('Failed to load referral stats', error);
+      }
+    };
+
+    loadStats();
+  }, []);
+
   return (
-    <ProtectedRoute requiredRole="MOH_ADMIN">
+    <ProtectedRoute requiredRole={['MOH_ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMIN']}>
       <div className="min-h-screen bg-gray-50">
         {/* Header */}
         <header className="bg-white shadow-sm border-b border-gray-200">
@@ -73,8 +106,8 @@ export default function MOHDashboard() {
                     </svg>
                   </div>
                   <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Total Hospitals</p>
-                    <p className="text-2xl font-bold text-gray-900">24</p>
+                    <p className="text-sm font-medium text-gray-600">Total Referrals</p>
+                    <p className="text-2xl font-bold text-gray-900">{referralStats.total}</p>
                   </div>
                 </div>
               </div>
@@ -87,8 +120,8 @@ export default function MOHDashboard() {
                     </svg>
                   </div>
                   <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Total Users</p>
-                    <p className="text-2xl font-bold text-gray-900">156</p>
+                    <p className="text-sm font-medium text-gray-600">Active Referrals</p>
+                    <p className="text-2xl font-bold text-gray-900">{referralStats.active}</p>
                   </div>
                 </div>
               </div>
@@ -101,8 +134,8 @@ export default function MOHDashboard() {
                     </svg>
                   </div>
                   <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Active Cases</p>
-                    <p className="text-2xl font-bold text-gray-900">89</p>
+                    <p className="text-sm font-medium text-gray-600">Pending Referrals</p>
+                    <p className="text-2xl font-bold text-gray-900">{referralStats.pending}</p>
                   </div>
                 </div>
               </div>
@@ -115,8 +148,8 @@ export default function MOHDashboard() {
                     </svg>
                   </div>
                   <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Alerts</p>
-                    <p className="text-2xl font-bold text-gray-900">3</p>
+                    <p className="text-sm font-medium text-gray-600">Completed Referrals</p>
+                    <p className="text-2xl font-bold text-gray-900">{referralStats.completed}</p>
                   </div>
                 </div>
               </div>
@@ -160,13 +193,17 @@ export default function MOHDashboard() {
                   </svg>
                   View Users
                 </Link>
-                <button className="flex items-center justify-center px-4 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors duration-200">
+                <Link href="/system-dashboard" className="flex items-center justify-center px-4 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors duration-200">
                   <svg className="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                   </svg>
-                  View Reports
-                </button>
+                  Open System Admin
+                </Link>
               </div>
+            </div>
+
+            <div className="bg-white rounded-lg shadow p-6 mb-8">
+              <UserManagement />
             </div>
 
             {/* Recent Activity */}

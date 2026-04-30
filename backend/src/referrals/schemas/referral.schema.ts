@@ -28,7 +28,13 @@ export class Referral {
   assignedSpecialist?: string;
 
   // ─────────────────────────────────────────
-  // PATIENT (PUBLIC DATA)
+  // MOTHER INTEGRATION (MATERNAL SYSTEM)
+  // ─────────────────────────────────────────
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Pregnancy' })
+  pregnancyId?: string;
+
+  // ─────────────────────────────────────────
+  // PATIENT (PUBLIC DATA) - Kept for compatibility
   // ─────────────────────────────────────────
   @Prop({ required: true })
   patientName: string;
@@ -123,7 +129,7 @@ targetDepartment: string;
   })
   activityLog: {
     status: ReferralStatus;
-    actor: string;
+    actor: string | Types.ObjectId | null;
     timestamp: Date;
     note?: string;
   }[];

@@ -71,6 +71,8 @@ export default function ReferralDetailsPage() {
     <ProtectedRoute
       requiredRole={[
         "DOCTOR",
+        "NURSE",
+        "MIDWIFE",
         "LIAISON_OFFICER",
         "HOSPITAL_ADMIN",
         "HOSPITAL_APPROVER",
@@ -112,7 +114,10 @@ export default function ReferralDetailsPage() {
             </CardContent>
           </Card>
 
-          {(user?.role === "LIAISON_OFFICER" || user?.role === "DOCTOR") && (
+          {(user?.role === "LIAISON_OFFICER" ||
+            user?.role === "DOCTOR" ||
+            user?.role === "NURSE" ||
+            user?.role === "MIDWIFE") && (
             <Card>
               <CardHeader>
                 <CardTitle>Finalize & Send</CardTitle>
@@ -153,7 +158,7 @@ export default function ReferralDetailsPage() {
                   disabled={respond.isPending}
                   onClick={async () => {
                     try {
-                      await respond.mutateAsync({ id, payload: { response: "ACCEPT" } })
+                      await respond.mutateAsync({ id, payload: { status: "ACCEPTED" } })
                       toast.success("Accepted")
                       referral.refetch()
                     } catch (err: any) {
@@ -168,7 +173,10 @@ export default function ReferralDetailsPage() {
                   disabled={respond.isPending}
                   onClick={async () => {
                     try {
-                      await respond.mutateAsync({ id, payload: { response: "REJECT" } })
+                      await respond.mutateAsync({
+                        id,
+                        payload: { status: "REJECTED", justification: "Rejected by receiving hospital" },
+                      })
                       toast.success("Rejected")
                       referral.refetch()
                     } catch (err: any) {
@@ -182,7 +190,10 @@ export default function ReferralDetailsPage() {
             </Card>
           )}
 
-          {(user?.role === "DOCTOR" || user?.role === "LIAISON_OFFICER") && (
+          {(user?.role === "DOCTOR" ||
+            user?.role === "NURSE" ||
+            user?.role === "MIDWIFE" ||
+            user?.role === "LIAISON_OFFICER") && (
             <Card>
               <CardHeader>
                 <CardTitle>Attach Files</CardTitle>
@@ -199,7 +210,10 @@ export default function ReferralDetailsPage() {
             </Card>
           )}
 
-          {(user?.role === "DOCTOR" || user?.role === "LIAISON_OFFICER") && (
+          {(user?.role === "DOCTOR" ||
+            user?.role === "NURSE" ||
+            user?.role === "MIDWIFE" ||
+            user?.role === "LIAISON_OFFICER") && (
             <Card>
               <CardHeader>
                 <CardTitle>Submit Feedback (Complete)</CardTitle>

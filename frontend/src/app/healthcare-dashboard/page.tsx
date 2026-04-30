@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { mothersApi, pregnancyApi, childrenApi, vaccinationsApi } from '@/lib/healthcare-api';
 import { useAuth } from '@/contexts/AuthContext';
+import { incomingReferrals, outboxReferrals, createReferral } from '@/services/referrals';
 
 interface DashboardStats {
   mothers: number;
@@ -13,6 +14,9 @@ interface DashboardStats {
   upcomingVaccinations: number;
   overdueVaccinations: number;
   followUpNeeded: number;
+  sentReferrals: number;
+  incomingReferrals: number;
+  pendingReferrals: number;
 }
 
 export default function HealthcareDashboard() {
@@ -26,6 +30,9 @@ export default function HealthcareDashboard() {
     upcomingVaccinations: 0,
     overdueVaccinations: 0,
     followUpNeeded: 0,
+    sentReferrals: 0,
+    incomingReferrals: 0,
+    pendingReferrals: 0,
   });
 
   const [loading, setLoading] = useState(true);
@@ -47,7 +54,9 @@ export default function HealthcareDashboard() {
         childrenStats,
         upcomingVaccinations,
         overdueVaccinations,
-        followUpNeeded
+        followUpNeeded,
+        sentReferrals,
+        incomingReferralsData
       ] = await Promise.all([
         mothersApi.getAll().catch(() => []),
         pregnancyApi.getStats().catch(() => ({ total: 0, highRisk: 0 })),
@@ -55,7 +64,11 @@ export default function HealthcareDashboard() {
         vaccinationsApi.getUpcomingVaccinations(7).catch(() => []),
         vaccinationsApi.getOverdueVaccinations().catch(() => []),
         childrenApi.getFollowUpNeeded().catch(() => []),
+        outboxReferrals().catch(() => []),
+        incomingReferrals().catch(() => []),
       ]);
+
+      const pendingReferrals = incomingReferralsData.filter(r => r.status === 'PENDING').length;
 
       setStats({
         mothers: Array.isArray(mothers) ? mothers.length : 0,
@@ -65,6 +78,9 @@ export default function HealthcareDashboard() {
         upcomingVaccinations: upcomingVaccinations.length || 0,
         overdueVaccinations: overdueVaccinations.length || 0,
         followUpNeeded: followUpNeeded.length || 0,
+        sentReferrals: Array.isArray(sentReferrals) ? sentReferrals.length : 0,
+        incomingReferrals: Array.isArray(incomingReferralsData) ? incomingReferralsData.length : 0,
+        pendingReferrals: pendingReferrals,
       });
     } catch (err) {
       console.error('Error fetching dashboard stats:', err);
@@ -152,7 +168,7 @@ export default function HealthcareDashboard() {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <StatCard
             title="Total Mothers"
             value={stats.mothers}
@@ -189,6 +205,18 @@ export default function HealthcareDashboard() {
             color="text-red-600"
             icon="⏰"
           />
+          <StatCard
+            title="Sent Referrals"
+            value={stats.sentReferrals}
+            color="text-indigo-600"
+            icon="📤"
+          />
+          <StatCard
+            title="Pending Referrals"
+            value={stats.pendingReferrals}
+            color="text-orange-600"
+            icon="⏳"
+          />
         </div>
 
         {/* Quick Actions */}
@@ -220,6 +248,18 @@ export default function HealthcareDashboard() {
               >
                 Vaccinations
               </a>
+              <button
+                onClick={() => router.push('/healthcare-dashboard/referrals')}
+                className="block px-4 py-3 bg-indigo-600 text-white text-center rounded-lg hover:bg-indigo-700 transition-colors"
+              >
+                Create Referral
+              </button>
+              <button
+                onClick={() => router.push('/healthcare-dashboard/referrals/manage')}
+                className="block px-4 py-3 bg-orange-600 text-white text-center rounded-lg hover:bg-orange-700 transition-colors"
+              >
+                Manage Referrals
+              </button>
             </div>
           </div>
 
@@ -256,7 +296,17 @@ export default function HealthcareDashboard() {
                   </div>
                 </div>
               )}
-              {stats.overdueVaccinations === 0 && stats.highRiskPregnancies === 0 && stats.followUpNeeded === 0 && (
+              {stats.pendingReferrals > 0 && (
+                <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                  <div className="flex items-center">
+                    <span className="text-orange-600 mr-2">⏳</span>
+                    <span className="text-orange-800">
+                      {stats.pendingReferrals} pending referral{stats.pendingReferrals !== 1 ? 's' : ''}
+                    </span>
+                  </div>
+                </div>
+              )}
+              {stats.overdueVaccinations === 0 && stats.highRiskPregnancies === 0 && stats.followUpNeeded === 0 && stats.pendingReferrals === 0 && (
                 <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
                   <div className="flex items-center">
                     <span className="text-green-600 mr-2">✅</span>
@@ -271,7 +321,7 @@ export default function HealthcareDashboard() {
         {/* Recent Activity */}
         <div className="bg-white rounded-lg shadow-md p-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Navigation</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             <a
               href="/healthcare-dashboard/mothers"
               className="block p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
@@ -300,6 +350,13 @@ export default function HealthcareDashboard() {
               <h3 className="font-medium text-gray-900">Vaccinations</h3>
               <p className="text-sm text-gray-600 mt-1">Manage immunization schedules</p>
             </a>
+            <button
+              onClick={() => router.push('/healthcare-dashboard/referrals')}
+              className="block p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-left"
+            >
+              <h3 className="font-medium text-gray-900">Referral Management</h3>
+              <p className="text-sm text-gray-600 mt-1">Create and track referrals</p>
+            </button>
           </div>
         </div>
       </main>
