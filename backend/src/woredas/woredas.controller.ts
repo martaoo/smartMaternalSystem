@@ -24,13 +24,15 @@ export class WoredasController {
     return this.woredasService.create(createWoredaDto);
   }
 
-  @Roles('SUPER_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN')
+  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN','DOCTOR')
   @Get()
   @ApiOperation({ summary: 'Get all woredas' })
   @ApiResponse({ status: 200, description: 'Woredas retrieved successfully' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async findAll(@Request() req) {
     const user = req.user;
-    return this.woredasService.findAllWithRoleFilter(user.role, user.woredaId?.toString());
+    // Check if user has woredaId property, if not, return all
+    const woredaId = user.woredaId?.toString() || user.woredaId;
+    return this.woredasService.findAllWithRoleFilter(user.role, woredaId);
   }
 }

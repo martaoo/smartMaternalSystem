@@ -11,7 +11,7 @@ interface AddHospitalFormProps {
 export function AddHospitalForm({ onClose, onSuccess }: AddHospitalFormProps) {
   const [formData, setFormData] = useState({
     name: '',
-    type: 'HOSPITAL',
+    type: 'HEALTH_CENTER',
     location: '',
     contact: '',
     woredaId: '',
@@ -30,7 +30,10 @@ export function AddHospitalForm({ onClose, onSuccess }: AddHospitalFormProps) {
     setError('');
 
     try {
-      await api.createHospital(formData);
+      await api.createHospital({
+        ...formData,
+        type: 'HEALTH_CENTER',
+      });
       onSuccess();
       onClose();
     } catch (err: any) {
@@ -41,8 +44,8 @@ export function AddHospitalForm({ onClose, onSuccess }: AddHospitalFormProps) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md">
+    <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-3 sm:p-4">
+      <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
         <h2 className="text-xl font-bold mb-4">Add New Hospital</h2>
         {error && <p className="text-red-600 mb-4">{error}</p>}
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -55,18 +58,6 @@ export function AddHospitalForm({ onClose, onSuccess }: AddHospitalFormProps) {
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
             />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Type</label>
-            <select
-              value={formData.type}
-              onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-            >
-              <option value="HOSPITAL">Hospital</option>
-              <option value="HEALTH_CENTER">Health Center</option>
-              <option value="CLINIC">Clinic</option>
-            </select>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700">Location</label>
@@ -103,18 +94,18 @@ export function AddHospitalForm({ onClose, onSuccess }: AddHospitalFormProps) {
               ))}
             </select>
           </div>
-          <div className="flex justify-end space-x-2">
+          <div className="flex flex-col sm:flex-row sm:justify-end gap-2">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
+              className="w-full sm:w-auto px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+              className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
             >
               {loading ? 'Creating...' : 'Create Hospital'}
             </button>

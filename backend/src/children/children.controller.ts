@@ -138,6 +138,24 @@ export class ChildrenController {
     );
   }
 
+  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN')
+  @Patch(':id/verify')
+  @ApiOperation({ summary: 'Verify child registration for official documentation' })
+  @ApiParam({ name: 'id', description: 'Child ID' })
+  @ApiResponse({ status: 200, description: 'Child verification status updated successfully' })
+  @ApiResponse({ status: 400, description: 'Bad Request' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' })
+  @ApiResponse({ status: 404, description: 'Child not found' })
+  async verifyChild(@Param('id') id: string, @Request() req) {
+    const user = req.user;
+    return this.childrenService.verifyChild(
+      id,
+      user.role,
+      user.woredaId?.toString()
+    );
+  }
+
   @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
   @Delete(':id')
   @ApiOperation({ summary: 'Delete child record' })

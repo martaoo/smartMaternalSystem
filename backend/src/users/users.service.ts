@@ -9,9 +9,20 @@ import * as bcrypt from 'bcrypt';
 @Injectable()
 export class UsersService {
   constructor(@InjectModel(User.name) private userModel: Model<UserDocument>) {}
+  private readonly hospitalManagedRoles = [
+    'DOCTOR',
+    'NURSE',
+    'MIDWIFE',
+    'DISPATCHER',
+    'LIAISON_OFFICER',
+    'HOSPITAL_APPROVER',
+    'GATEKEEPER',
+    'SPECIALIST',
+  ];
 
   async create(createUserDto: CreateUserDto): Promise<User> {
-    const { email, password, role, hospitalId, woredaId, ...userData } = createUserDto;
+    const { email, password, role, hospitalId, healthCenterId, woredaId, ...userData } = createUserDto;
+    const selectedHospitalId = hospitalId ?? healthCenterId;
 
     // Check if user already exists
     const existingUser = await this.userModel.findOne({ email });
@@ -27,7 +38,7 @@ export class UsersService {
       email,
       password: hashedPassword,
       role,
-      hospitalId: hospitalId ? new Types.ObjectId(hospitalId) : undefined,
+      hospitalId: selectedHospitalId ? new Types.ObjectId(selectedHospitalId) : undefined,
       woredaId: woredaId ? new Types.ObjectId(woredaId) : undefined,
     });
 
@@ -35,24 +46,23 @@ export class UsersService {
   }
 
   async createWithRoleValidation(createUserDto: CreateUserDto, creatorRole: string, creatorHospitalId?: string): Promise<User> {
-    const { role: newRole, hospitalId, woredaId } = createUserDto;
+    const { role: newRole, hospitalId, healthCenterId, woredaId } = createUserDto;
+    const selectedHospitalId = hospitalId ?? healthCenterId;
 
     // Role-based creation permissions
-    if (creatorRole === 'HOSPITAL_ADMIN') {
-      // Hospital Admin must have a hospitalId to create users
+    if (creatorRole === 'HOSPITAL_ADMIN' || creatorRole === 'HEALTH_CENTER_ADMIN') {
+      // Facility admin must have a facility id to create users
       if (!creatorHospitalId) {
-        throw new BadRequestException('Hospital Admin must be assigned to a hospital to create users');
+        throw new BadRequestException(`${creatorRole} must be assigned to a facility to create users`);
       }
       
-      // Hospital Admin can only create workers for his own hospital
-      if (['DOCTOR', 'NURSE', 'DISPATCHER'].includes(newRole)) {
-        if (!hospitalId || hospitalId !== creatorHospitalId) {
-          throw new BadRequestException(`Hospital Admin can only create workers for their own hospital. Provided hospitalId: ${hospitalId}, Creator hospitalId: ${creatorHospitalId}`);
+      // Facility admin can only create workers for their own facility
+      if (this.hospitalManagedRoles.includes(newRole)) {
+        if (!selectedHospitalId || selectedHospitalId !== creatorHospitalId) {
+          throw new BadRequestException(`${creatorRole} can only create workers for their own facility. Provided hospitalId/healthCenterId: ${selectedHospitalId}, Creator hospitalId: ${creatorHospitalId}`);
         }
-      } else if (newRole === 'HOSPITAL_ADMIN') {
-        throw new BadRequestException('Hospital Admin cannot create other Hospital Admins');
-      } else if (['SUPER_ADMIN', 'WOREDA_ADMIN'].includes(newRole)) {
-        throw new BadRequestException('Hospital Admin cannot create Super Admins or Woreda Admins');
+      } else if (['HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN', 'SUPER_ADMIN', 'WOREDA_ADMIN', 'SYSTEM_ADMIN'].includes(newRole)) {
+        throw new BadRequestException(`${creatorRole} cannot create admin users`);
       }
     } else if (creatorRole === 'WOREDA_ADMIN') {
       // Woreda Admin cannot create any users (as per requirement)
@@ -177,8 +187,8 @@ export class UsersService {
     // Role-based update permissions
     if (creatorRole === 'HOSPITAL_ADMIN') {
       // Hospital Admin can only update workers for his own hospital
-      if (!['DOCTOR', 'NURSE', 'DISPATCHER'].includes(userToUpdate.role)) {
-        throw new BadRequestException('Hospital Admin can only update workers (DOCTOR, NURSE, DISPATCHER)');
+      if (!this.hospitalManagedRoles.includes(userToUpdate.role)) {
+        throw new BadRequestException('Hospital Admin can only update hospital staff users');
       }
       if (userToUpdate.hospitalId?.toString() !== creatorHospitalId) {
         throw new BadRequestException('Hospital Admin can only update workers in their own hospital');
@@ -209,8 +219,8 @@ export class UsersService {
     // Role-based delete permissions
     if (creatorRole === 'HOSPITAL_ADMIN') {
       // Hospital Admin can only delete workers for his own hospital
-      if (!['DOCTOR', 'NURSE', 'DISPATCHER'].includes(userToDelete.role)) {
-        throw new BadRequestException('Hospital Admin can only delete workers (DOCTOR, NURSE, DISPATCHER)');
+      if (!this.hospitalManagedRoles.includes(userToDelete.role)) {
+        throw new BadRequestException('Hospital Admin can only delete hospital staff users');
       }
       if (userToDelete.hospitalId?.toString() !== creatorHospitalId) {
         throw new BadRequestException('Hospital Admin can only delete workers in their own hospital');

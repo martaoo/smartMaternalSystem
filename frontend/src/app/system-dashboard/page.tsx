@@ -6,6 +6,7 @@ import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { AddUserForm } from '@/components/AddUserForm';
 import { AddWoredaForm } from '@/components/AddWoredaForm';
 import { AddHospitalForm } from '@/components/AddHospitalForm';
+import { AddHealthCenterForm } from '@/components/AddHealthCenterForm';
 import { UserManagement } from '@/components/UserManagement';
 import { HospitalWoredaList } from '@/components/HospitalWoredaList';
 import { useAuth } from '@/contexts/AuthContext';
@@ -17,6 +18,7 @@ export default function SystemDashboard() {
   const [showAddWoredaAdmin, setShowAddWoredaAdmin] = useState(false);
   const [showAddWoreda, setShowAddWoreda] = useState(false);
   const [showAddHospital, setShowAddHospital] = useState(false);
+  const [showAddHealthCenter, setShowAddHealthCenter] = useState(false);
   const [showHospitalsList, setShowHospitalsList] = useState(false);
   const [showWoredasList, setShowWoredasList] = useState(false);
   
@@ -97,6 +99,7 @@ export default function SystemDashboard() {
       case 'SYSTEM_ADMIN': return 'bg-blue-600';
       case 'WOREDA_ADMIN': return 'bg-green-600';
       case 'HOSPITAL_ADMIN': return 'bg-yellow-600';
+      case 'HEALTH_CENTER_ADMIN': return 'bg-teal-600';
       case 'DOCTOR': return 'bg-red-600';
       case 'NURSE': return 'bg-pink-600';
       case 'MIDWIFE': return 'bg-indigo-600';
@@ -138,13 +141,18 @@ export default function SystemDashboard() {
     alert('Hospital added successfully!');
   };
 
+  const handleAddHealthCenterSuccess = () => {
+    fetchDashboardData();
+    alert('Health Center added successfully!');
+  };
+
   return (
-    <ProtectedRoute requiredRole="SYSTEM_ADMIN">
+    <ProtectedRoute requiredRole={["SYSTEM_ADMIN", "SUPER_ADMIN"]}>
       <div className="min-h-screen bg-gray-50">
         {/* Header */}
         <header className="bg-white shadow-sm border-b border-gray-200">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center py-4">
+            <div className="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-center py-4">
               <div className="flex items-center">
                 <div className="h-10 w-10 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-lg flex items-center justify-center mr-3">
                   <svg className="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -156,11 +164,11 @@ export default function SystemDashboard() {
                   <p className="text-sm text-gray-500">Region: {user?.assignedRegion || 'System Administration'}</p>
                 </div>
               </div>
-              <div className="flex items-center space-x-4">
-                <span className="text-sm text-gray-700">Welcome, {user?.name}</span>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 w-full sm:w-auto">
+                <span className="text-sm text-gray-700 break-words">Welcome, {user?.name}</span>
                 <button
                   onClick={logout}
-                  className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors duration-200"
+                  className="w-full sm:w-auto bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors duration-200"
                 >
                   Logout
                 </button>
@@ -310,6 +318,16 @@ export default function SystemDashboard() {
                   Create Hospital
                 </button>
                 <button 
+                  onClick={() => setShowAddHealthCenter(true)}
+                  className="flex items-center justify-center px-4 py-3 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors duration-200"
+                >
+                  <svg className="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  Create Health Center
+                </button>
+                <button 
                   onClick={() => setShowAddUser(true)}
                   className="flex items-center justify-center px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200"
                 >
@@ -358,7 +376,7 @@ export default function SystemDashboard() {
         <AddUserForm 
           onClose={() => setShowAddUser(false)} 
           onSuccess={handleAddUserSuccess}
-          allowedRoles={['WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'DISPATCHER', 'EMERGENCY_ADMIN', 'MOTHER']}
+          allowedRoles={['SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'DISPATCHER', 'LIAISON_OFFICER', 'HOSPITAL_APPROVER', 'SPECIALIST', 'GATEKEEPER', 'EMERGENCY_ADMIN', 'MOTHER']}
         />
       )}
       {showAddWoredaAdmin && (
@@ -378,6 +396,12 @@ export default function SystemDashboard() {
         <AddHospitalForm 
           onClose={() => setShowAddHospital(false)} 
           onSuccess={handleAddHospitalSuccess} 
+        />
+      )}
+      {showAddHealthCenter && (
+        <AddHealthCenterForm 
+          onClose={() => setShowAddHealthCenter(false)} 
+          onSuccess={handleAddHealthCenterSuccess}
         />
       )}
     </ProtectedRoute>

@@ -73,6 +73,12 @@ export function UserManagement() {
           (u.hospitalId && typeof u.hospitalId === 'string' && u.hospitalId === user.hospitalId)
         );
       
+      case 'HEALTH_CENTER_ADMIN':
+        // Health Center Admin can only see users in their health center
+        return allUsers.filter(u => 
+          (u.hospitalId && typeof u.hospitalId === 'string' && u.hospitalId === user.hospitalId)
+        );
+      
       default:
         // Other roles can only see themselves
         return allUsers.filter(u => u._id === user.id);
@@ -197,6 +203,10 @@ export function UserManagement() {
         // Can edit users in their hospital
         return (targetUser.hospitalId && typeof targetUser.hospitalId === 'string' && targetUser.hospitalId === user.hospitalId);
       
+      case 'HEALTH_CENTER_ADMIN':
+        // Can edit users in their health center
+        return (targetUser.hospitalId && typeof targetUser.hospitalId === 'string' && targetUser.hospitalId === user.hospitalId);
+      
       default:
         // Other roles can only edit themselves
         return targetUser._id === user.id;
@@ -228,6 +238,10 @@ export function UserManagement() {
       case 'MIDWIFE': return 'bg-indigo-100 text-indigo-800';
       case 'DISPATCHER': return 'bg-orange-100 text-orange-800';
       case 'EMERGENCY_ADMIN': return 'bg-red-100 text-red-800';
+      case 'LIAISON_OFFICER': return 'bg-cyan-100 text-cyan-800';
+      case 'HOSPITAL_APPROVER': return 'bg-teal-100 text-teal-800';
+      case 'GATEKEEPER': return 'bg-amber-100 text-amber-800';
+      case 'SPECIALIST': return 'bg-violet-100 text-violet-800';
       case 'MOTHER': return 'bg-gray-100 text-gray-800';
       default: return 'bg-gray-100 text-gray-800';
     }
@@ -243,12 +257,12 @@ export function UserManagement() {
 
   return (
     <div className="bg-white rounded-lg shadow">
-      <div className="p-6 border-b border-gray-200">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold text-gray-900">User Management</h2>
+      <div className="p-4 sm:p-6 border-b border-gray-200">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
+          <h2 className="text-lg sm:text-xl font-semibold text-gray-900">User Management</h2>
           <button
             onClick={() => setShowAddUser(true)}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200"
+            className="w-full sm:w-auto bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200"
           >
             Add New User
           </button>
@@ -272,11 +286,16 @@ export function UserManagement() {
             <option value="SYSTEM_ADMIN">System Admin</option>
             <option value="WOREDA_ADMIN">Woreda Admin</option>
             <option value="HOSPITAL_ADMIN">Hospital Admin</option>
+            <option value="HEALTH_CENTER_ADMIN">Health Center Admin</option>
             <option value="DOCTOR">Doctor</option>
             <option value="NURSE">Nurse</option>
             <option value="MIDWIFE">Midwife</option>
             <option value="DISPATCHER">Dispatcher</option>
             <option value="EMERGENCY_ADMIN">Emergency Admin</option>
+            <option value="LIAISON_OFFICER">Liaison Officer</option>
+            <option value="HOSPITAL_APPROVER">Hospital Approver</option>
+            <option value="GATEKEEPER">Gatekeeper</option>
+            <option value="SPECIALIST">Specialist</option>
             <option value="MOTHER">Mother</option>
           </select>
         </div>
@@ -289,7 +308,7 @@ export function UserManagement() {
       )}
 
       <div className="overflow-x-auto">
-        <table className="w-full">
+        <table className="min-w-[900px] w-full">
           <thead className="bg-gray-50">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
