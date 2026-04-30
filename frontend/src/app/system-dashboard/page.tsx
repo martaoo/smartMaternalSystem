@@ -11,6 +11,7 @@ import { UserManagement } from '@/components/UserManagement';
 import { HospitalWoredaList } from '@/components/HospitalWoredaList';
 import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/lib/api';
+import { referralsApi } from '@/lib/healthcare-api';
 
 export default function SystemDashboard() {
   const { user, logout } = useAuth();
@@ -31,7 +32,8 @@ export default function SystemDashboard() {
     totalWoredas: 0,
     totalUsers: 0,
     totalWoredaAdmins: 0,
-    totalHospitals: 0
+    totalHospitals: 0,
+    pendingReferrals: 0,
   });
   const [recentActivities, setRecentActivities] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -45,10 +47,11 @@ export default function SystemDashboard() {
       setLoading(true);
       
       // Fetch all data in parallel
-      const [usersResponse, woredasResponse, hospitalsResponse] = await Promise.all([
+      const [usersResponse, woredasResponse, hospitalsResponse, referralStatsResponse] = await Promise.all([
         api.getUsers(),
         api.getWoredas(),
-        api.getHospitals()
+        api.getHospitals(),
+        referralsApi.getAdminStats().catch(() => ({ pending: 0 })),
       ]);
 
       const users = Array.isArray(usersResponse) ? usersResponse : [];
@@ -69,7 +72,8 @@ export default function SystemDashboard() {
         totalWoredas: regionalWoredas.length,
         totalUsers: usersInRegion.length,
         totalWoredaAdmins: usersInRegion.filter(u => u.role === 'WOREDA_ADMIN').length,
-        totalHospitals: regionalHospitals.length
+        totalHospitals: regionalHospitals.length,
+        pendingReferrals: referralStatsResponse?.pending || 0,
       };
 
       // Generate recent activities from recent user creations in region
@@ -181,7 +185,7 @@ export default function SystemDashboard() {
         <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
           <div className="px-4 py-6 sm:px-0">
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
               <div className="bg-white rounded-lg shadow p-6">
                 <div className="flex items-center cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors" 
                      onClick={() => setShowWoredasList(!showWoredasList)}>
@@ -255,6 +259,22 @@ export default function SystemDashboard() {
                     <svg className={`h-5 w-5 text-gray-400 transform transition-transform ${showHospitalsList ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                     </svg>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-lg shadow p-6">
+                <div className="flex items-center">
+                  <div className="p-2 bg-orange-100 rounded-lg">
+                    <svg className="h-6 w-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-600">Pending Referrals</p>
+                    <p className="text-2xl font-bold text-gray-900">
+                      {loading ? '...' : stats.pendingReferrals}
+                    </p>
                   </div>
                 </div>
               </div>

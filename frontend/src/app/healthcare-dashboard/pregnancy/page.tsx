@@ -37,10 +37,12 @@ interface PregnancyRecord {
 export default function PregnancyTracking() {
   const [pregnancyRecords, setPregnancyRecords] = useState<PregnancyRecord[]>([]);
   const [filteredRecords, setFilteredRecords] = useState<PregnancyRecord[]>([]);
+  const [groupedRecords, setGroupedRecords] = useState<{ [key: string]: PregnancyRecord[] }>({});
   const [searchQuery, setSearchQuery] = useState('');
   const [filterRisk, setFilterRisk] = useState<string>('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [expandedMothers, setExpandedMothers] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetchPregnancyRecords();
@@ -64,6 +66,37 @@ export default function PregnancyTracking() {
 
     setFilteredRecords(filtered);
   }, [searchQuery, filterRisk, pregnancyRecords]);
+
+  useEffect(() => {
+    // Group records by mother
+    const grouped: { [key: string]: PregnancyRecord[] } = {};
+    filteredRecords.forEach(record => {
+      const motherKey = `${record.motherId._id}-${record.motherId.name}`;
+      if (!grouped[motherKey]) {
+        grouped[motherKey] = [];
+      }
+      grouped[motherKey].push(record);
+    });
+
+    // Sort visits within each mother by date (most recent first)
+    Object.keys(grouped).forEach(motherKey => {
+      grouped[motherKey].sort((a, b) => 
+        new Date(b.visitDate).getTime() - new Date(a.visitDate).getTime()
+      );
+    });
+
+    setGroupedRecords(grouped);
+  }, [filteredRecords]);
+
+  const toggleMotherExpansion = (motherKey: string) => {
+    const newExpanded = new Set(expandedMothers);
+    if (newExpanded.has(motherKey)) {
+      newExpanded.delete(motherKey);
+    } else {
+      newExpanded.add(motherKey);
+    }
+    setExpandedMothers(newExpanded);
+  };
 
   const fetchPregnancyRecords = async () => {
     try {
@@ -200,7 +233,7 @@ export default function PregnancyTracking() {
 
         {/* Pregnancy Records List */}
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          {filteredRecords.length === 0 ? (
+          {Object.keys(groupedRecords).length === 0 ? (
             <div className="text-center py-12">
               <div className="text-gray-400 text-6xl mb-4">pregnancy</div>
               <h3 className="text-lg font-medium text-gray-900 mb-2">
@@ -222,97 +255,142 @@ export default function PregnancyTracking() {
               )}
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Mother
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Pregnancy Details
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Vital Signs
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Risk Level
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Visit Date
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredRecords.map((record) => (
-                    <tr key={record._id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">{record.motherId.name}</div>
-                          <div className="text-xs text-gray-500">{record.motherId.phone}</div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
-                          Week {record.week} ({record.gestationalAge} weeks)
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          {record.presentation && `Presentation: ${record.presentation}`}
-                        </div>
-                        {record.nextVisitDate && (
-                          <div className="text-xs text-gray-500">
-                            Next: {new Date(record.nextVisitDate).toLocaleDateString()}
+            <div className="divide-y divide-gray-200">
+              {Object.entries(groupedRecords).map(([motherKey, visits]) => {
+                const mother = visits[0].motherId;
+                const isExpanded = expandedMothers.has(motherKey);
+                const latestVisit = visits[0]; // Most recent visit (sorted by date)
+                
+                return (
+                  <div key={motherKey} className="border-b border-gray-200 last:border-b-0">
+                    {/* Mother Header - Clickable to expand/collapse */}
+                    <div 
+                      className="p-4 hover:bg-gray-50 cursor-pointer transition-colors"
+                      onClick={() => toggleMotherExpansion(motherKey)}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-3">
+                            <div className="flex-shrink-0">
+                              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                                <span className="text-blue-600 font-medium text-sm">
+                                  {mother.name.charAt(0).toUpperCase()}
+                                </span>
+                              </div>
+                            </div>
+                            <div>
+                              <h3 className="text-lg font-medium text-gray-900">{mother.name}</h3>
+                              <p className="text-sm text-gray-500">{mother.phone}</p>
+                              <p className="text-xs text-gray-400 mt-1">
+                                {visits.length} visit{visits.length !== 1 ? 's' : ''} recorded
+                              </p>
+                            </div>
                           </div>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
-                          {record.systolicBP && record.diastolicBP && (
-                            <div>BP: {record.systolicBP}/{record.diastolicBP}</div>
-                          )}
-                          {record.weight && <div>Weight: {record.weight}kg</div>}
-                          {record.fundalHeight && <div>FH: {record.fundalHeight}cm</div>}
-                          {record.fetalHeartRate && <div>FHR: {record.fetalHeartRate}bpm</div>}
                         </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex flex-col space-y-1">
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getRiskLevelColor(record.riskLevel)}`}>
-                            {getRiskLevelText(record.riskLevel)}
-                          </span>
-                          {record.emergency && (
-                            <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
-                              Emergency
-                            </span>
-                          )}
+                        <div className="flex items-center space-x-4">
+                          {/* Latest Visit Summary */}
+                          <div className="text-right">
+                            <div className="text-sm text-gray-500">Latest Visit</div>
+                            <div className="text-sm font-medium text-gray-900">
+                              Week {latestVisit.week} ({latestVisit.gestationalAge} weeks)
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {new Date(latestVisit.visitDate).toLocaleDateString()}
+                            </div>
+                          </div>
+                          {/* Expand/Collapse Icon */}
+                          <div className="flex-shrink-0">
+                            <svg
+                              className={`w-5 h-5 text-gray-400 transform transition-transform ${
+                                isExpanded ? 'rotate-180' : ''
+                              }`}
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                          </div>
                         </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {new Date(record.visitDate).toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex space-x-2">
-                          <a
-                            href={`/healthcare-dashboard/pregnancy/${record._id}`}
-                            className="text-blue-600 hover:text-blue-900"
-                          >
-                            View
-                          </a>
-                          <a
-                            href={`/healthcare-dashboard/mothers/${record.motherId._id}`}
-                            className="text-green-600 hover:text-green-900"
-                          >
-                            Mother
-                          </a>
+                      </div>
+                    </div>
+
+                    {/* Expanded Visits */}
+                    {isExpanded && (
+                      <div className="border-t border-gray-200 bg-gray-50">
+                        <div className="p-4">
+                          <h4 className="text-sm font-medium text-gray-700 mb-3">Visit History</h4>
+                          <div className="space-y-3">
+                            {visits.map((visit, index) => (
+                              <div key={visit._id} className="bg-white rounded-lg border border-gray-200 p-3">
+                                <div className="flex items-center justify-between mb-2">
+                                  <div className="flex items-center space-x-3">
+                                    <div className="text-sm font-medium text-gray-900">
+                                      Visit #{visits.length - index}
+                                    </div>
+                                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getRiskLevelColor(visit.riskLevel)}`}>
+                                      {getRiskLevelText(visit.riskLevel)}
+                                    </span>
+                                    {visit.emergency && (
+                                      <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
+                                        Emergency
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="text-xs text-gray-500">
+                                    {new Date(visit.visitDate).toLocaleDateString()}
+                                  </div>
+                                </div>
+                                
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
+                                  <div>
+                                    <span className="font-medium text-gray-700">Pregnancy:</span>
+                                    <div>Week {visit.week} ({visit.gestationalAge} weeks)</div>
+                                    {visit.presentation && (
+                                      <div className="text-gray-500">Presentation: {visit.presentation}</div>
+                                    )}
+                                  </div>
+                                  
+                                  <div>
+                                    <span className="font-medium text-gray-700">Vital Signs:</span>
+                                    {visit.systolicBP && visit.diastolicBP && (
+                                      <div>BP: {visit.systolicBP}/{visit.diastolicBP}</div>
+                                    )}
+                                    {visit.weight && <div>Weight: {visit.weight}kg</div>}
+                                    {visit.fundalHeight && <div>FH: {visit.fundalHeight}cm</div>}
+                                    {visit.fetalHeartRate && <div>FHR: {visit.fetalHeartRate}bpm</div>}
+                                  </div>
+                                  
+                                  <div>
+                                    <span className="font-medium text-gray-700">Next Actions:</span>
+                                    {visit.nextVisitDate && (
+                                      <div>Next: {new Date(visit.nextVisitDate).toLocaleDateString()}</div>
+                                    )}
+                                    <div className="flex space-x-2 mt-2">
+                                      <a
+                                        href={`/healthcare-dashboard/pregnancy/${visit._id}`}
+                                        className="text-blue-600 hover:text-blue-800 text-xs font-medium"
+                                      >
+                                        View Details
+                                      </a>
+                                      <a
+                                        href={`/healthcare-dashboard/pregnancy/${visit._id}/edit`}
+                                        className="text-indigo-600 hover:text-indigo-800 text-xs font-medium"
+                                      >
+                                        Edit
+                                      </a>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
                         </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

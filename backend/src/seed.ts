@@ -41,6 +41,7 @@ async function bootstrap() {
       password: 'admin123', // Service will hash this automatically
       role: UserRole.SYSTEM_ADMIN,
       assignedRegion: 'Addis Ababa',
+      role: UserRole.MOH_ADMIN,
       phoneNumber: '+251900000001',
     });
 
@@ -101,8 +102,7 @@ async function bootstrap() {
         await usersService.update((admin as any)._id.toString(), {
           name: admin.name,
           email: admin.email,
-          password: '', // Empty password for update (won't change existing password)
-          role: admin.role as any,
+          role: admin.role as UserRole,
           hospitalId: (hospital as any)._id.toString(),
         });
         console.log(`Fixed hospital admin ${admin.email} - assigned to hospital`);

@@ -45,7 +45,10 @@ export async function specialistQueue() {
   return data
 }
 
-export async function respondReferral(id: string, payload: { response: "ACCEPT" | "REJECT"; note?: string }) {
+export async function respondReferral(
+  id: string,
+  payload: { status: "ACCEPTED" | "REJECTED"; justification?: string; appointmentDate?: string },
+) {
   const { data } = await http.patch(`/referrals/${id}/respond`, payload)
   return data
 }

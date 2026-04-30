@@ -227,7 +227,7 @@ export function AddUserForm({
 
     try {
       const dataToSend: any = { ...formData };
-      if (!HOSPITAL_SCOPED_ROLES.includes(formData.role)) {
+      if (!['HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'DISPATCHER'].includes(formData.role)) {
         delete dataToSend.hospitalId;
       }
       if (!['WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN'].includes(formData.role)) {
@@ -331,62 +331,7 @@ export function AddUserForm({
               ))}
             </select>
           </div>
-          {['WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN'].includes(formData.role) && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Woreda</label>
-              {formData.hospitalId && !formData.woredaId ? (
-                // Show loading state when hospital is selected but woreda not yet assigned
-                <div className="mt-1">
-                  <div className="w-full border border-gray-300 rounded-md shadow-sm p-2 bg-gray-50 text-gray-500">
-                    Loading woreda...
-                  </div>
-                </div>
-              ) : formData.hospitalId && formData.woredaId ? (
-                // Show auto-assigned woreda (read-only) when hospital is selected
-                <div className="mt-1">
-                  <div className="w-full border border-gray-300 rounded-md shadow-sm p-2 bg-gray-50 text-gray-700">
-                    {woredas.find((w: any) => w._id?.toString() === formData.woredaId)?.name || 'Auto-assigned woreda'}
-                  </div>
-                  <p className="text-xs text-green-600 mt-1">
-                    Woreda automatically assigned from hospital location
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFormData(prev => ({ ...prev, hospitalId: '', woredaId: '' }));
-                      setFilteredHospitals(hospitals);
-                    }}
-                    className="text-xs text-blue-600 hover:text-blue-800 mt-1 underline"
-                  >
-                    Clear selection to choose woreda first
-                  </button>
-                </div>
-              ) : (
-                // Allow manual selection when no hospital is selected
-                <div>
-                  <select
-                    required
-                    value={formData.woredaId}
-                    onChange={(e) => handleWoredaChange(e.target.value)}
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-                  >
-                    <option value="">Select Woreda</option>
-                    {woredas.map((woreda: any) => (
-                      <option key={woreda._id} value={woreda._id?.toString() ?? ''}>
-                        {woreda.name}
-                      </option>
-                    ))}
-                  </select>
-                  {formData.woredaId && (
-                    <p className="text-xs text-green-600 mt-1">
-                      Woreda selected. Hospitals filtered to show only facilities in this woreda.
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-          {!hideHospitalSelect && HOSPITAL_SCOPED_ROLES.includes(formData.role) && (
+        {!hideHospitalSelect && ['HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'DISPATCHER'].includes(formData.role) && (
             <div>
               <label className="block text-sm font-medium text-gray-700">
                 {isHealthCenterAdminRole ? 'Health Center' : 'Hospital'}

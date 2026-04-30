@@ -29,9 +29,11 @@ interface PregnancyRecord {
   emergency: boolean;
   emergencyReason?: string;
   visitDate: string;
-  createdBy: {
+  healthWorkerId?: {
     name: string;
     role: string;
+    email?: string;
+    phone?: string;
   };
   notes?: string;
 }
@@ -207,8 +209,8 @@ export default function PregnancyDetail() {
                 </div>
                 <div>
                   <h3 className="text-sm font-medium text-gray-500">Recorded By</h3>
-                  <p className="text-lg font-medium text-gray-900">{pregnancyRecord.createdBy.name}</p>
-                  <p className="text-sm text-gray-600">{pregnancyRecord.createdBy.role}</p>
+                  <p className="text-lg font-medium text-gray-900">{pregnancyRecord.healthWorkerId?.name || 'Unknown'}</p>
+                  <p className="text-sm text-gray-600">{pregnancyRecord.healthWorkerId?.role || 'Unknown'}</p>
                 </div>
                 {pregnancyRecord.nextVisitDate && (
                   <div>

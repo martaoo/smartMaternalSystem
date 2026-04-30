@@ -122,9 +122,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         hospitalId: data.user.hospitalId ? String(data.user.hospitalId) : undefined,
         woredaId: data.user.woredaId ? String(data.user.woredaId) : undefined,
       };
-      
+
+      // Store both user and access token from API response
       localStorage.setItem('user', JSON.stringify(user));
-      localStorage.removeItem('token');
+      if (data.access_token) {
+        localStorage.setItem('token', data.access_token);
+      }
       dispatch({ type: 'LOGIN_SUCCESS', payload: user });
     } catch (error) {
       dispatch({ type: 'LOGIN_FAILURE', payload: error instanceof Error ? error.message : 'Login failed' });

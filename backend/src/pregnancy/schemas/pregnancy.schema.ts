@@ -79,6 +79,9 @@ export class Pregnancy {
 
   @Prop()
   emergencyReason?: string;
+
+  @Prop({ enum: ['A+', 'A-', 'B+', 'B-', 'O+', 'O-'] })
+  bloodType?: 'A+' | 'A-' | 'B+' | 'B-' | 'O+' | 'O-';
 }
 
 export const PregnancySchema = SchemaFactory.createForClass(Pregnancy);
