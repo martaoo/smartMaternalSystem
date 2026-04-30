@@ -39,14 +39,14 @@ async function bootstrap() {
       name: 'System Administrator',
       email: 'admin@maternal.gov.et',
       password: 'admin123', // Service will hash this automatically
-      role: UserRole.SUPER_ADMIN,
+      role: UserRole.MOH_ADMIN,
       phoneNumber: '+251900000001',
     });
 
     console.log('System Admin created');
     console.log('Email: admin@maternal.gov.et');
     console.log('Password: admin123');
-    console.log('Role: SUPER_ADMIN');
+    console.log('Role: MOH_ADMIN');
 
     // Create a test doctor
     await usersService.create({
@@ -86,8 +86,7 @@ async function bootstrap() {
         await usersService.update((admin as any)._id.toString(), {
           name: admin.name,
           email: admin.email,
-          password: '', // Empty password for update (won't change existing password)
-          role: admin.role as any,
+          role: admin.role as UserRole,
           hospitalId: (hospital as any)._id.toString(),
         });
         console.log(`Fixed hospital admin ${admin.email} - assigned to hospital`);

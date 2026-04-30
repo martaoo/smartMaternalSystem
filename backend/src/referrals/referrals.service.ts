@@ -1,0 +1,567 @@
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model, ClientSession, Types } from 'mongoose';
+import { Cron, CronExpression } from '@nestjs/schedule';
+
+import { Referral, ReferralDocument } from './schemas/referral.schema';
+import {
+  CreateReferralDto,
+  RespondReferralDto,
+  UnlockReferralDto,
+  GateCheckInDto,
+} from './dto/referralDto.dto';
+
+import { ReferralStatus } from '../common/enums/referral-status.enum';
+import { NotificationService } from './notification.service';
+import { MothersService } from '../mothers/mothers.service';
+import { Hospital, HospitalDocument } from '../hospitals/schemas/hospital.schema';
+
+@Injectable()
+export class ReferralsService {
+  constructor(
+    @InjectModel(Referral.name)
+    private readonly referralModel: Model<ReferralDocument>,
+
+    @InjectModel(Hospital.name)
+    private readonly hospitalModel: Model<HospitalDocument>,
+
+    private readonly notificationService: NotificationService,
+    private readonly motherService: MothersService, 
+  ) {}
+
+  // 1. CREATE REFERRAL (Doctor → DRAFT)
+  async createReferral(
+  dto: CreateReferralDto, 
+  doctorId: string, 
+  hospitalId: string, 
+  doctorName: string,
+  userRole: string = 'DOCTOR'
+): Promise<Referral> {
+
+  const { mother: motherData, ...referralData } = dto;
+
+  let mother: any;
+
+  // ✅ CASE 1: Existing mother
+  if (dto.motherId) {
+    mother = await this.motherService.findById(
+      dto.motherId,
+      userRole,
+      hospitalId
+    );
+
+    if (!mother) {
+      throw new BadRequestException('Invalid mother');
+    }
+  }
+
+  // ✅ CASE 2: Create or reuse mother
+  else if (motherData) {
+
+    const existingMother = await this.motherService.findByPhoneOrEmail(
+      motherData.phone,
+      motherData.email
+    );
+
+    if (existingMother) {
+      mother = existingMother;
+    } else {
+
+      // ✅ FIXED: NO illegal DTO fields
+      mother = await this.motherService.create(
+        {
+          ...motherData
+        },
+        userRole,
+        hospitalId
+      );
+    }
+
+    if (!mother) {
+      throw new BadRequestException('Failed to create mother');
+    }
+  }
+
+  // ❌ CASE 3: Missing mother
+  else {
+    throw new BadRequestException('Mother information is required');
+  }
+
+  // ✅ CREATE REFERRAL
+  const actorLabel =
+    userRole === 'NURSE' || userRole === 'MIDWIFE' ? 'Nurse/Midwife' : 'Doctor';
+
+  const referral = await this.referralModel.create({
+    ...referralData,
+    fromHospital: hospitalId,
+    motherId: new Types.ObjectId(mother._id),
+    referralCode: `REF-${Date.now()}`,
+    createdBy: doctorId,
+    status: ReferralStatus.DRAFT,
+
+    activityLog: [
+      {
+        status: ReferralStatus.DRAFT,
+        actor: doctorId,
+        note: `Referral drafted by ${actorLabel} ${doctorName}`,
+        timestamp: new Date(),
+      },
+    ],
+  });
+
+  // ✅ NOTIFICATION
+  await this.notificationService.notifyReferralCreated(
+    referral._id.toString(),
+    doctorName,
+    [doctorId],
+  );
+
+  return referral;
+}
+  async attachFile(referralId: string, filePath: string, uploaderHospitalId: string) {
+    const referral = await this.referralModel.findById(referralId);
+    if (!referral) throw new NotFoundException('Referral not found');
+
+    return await this.referralModel.findByIdAndUpdate(
+      referralId,
+      { $push: { attachments: filePath } },
+      { new: true }
+    );
+  }
+  async findActiveByMother(motherId: string): Promise<Referral | null> {
+  return this.referralModel.findOne({
+    motherId: new Types.ObjectId(motherId),
+    status: {
+      $in: [
+        ReferralStatus.DRAFT,
+        ReferralStatus.PENDING,
+        ReferralStatus.ACCEPTED,
+        ReferralStatus.CHECKED_IN,
+      ],
+    },
+  });
+}
+async createSystemReferral(data: {
+  motherId: string;
+  fromHospital: string;
+  reason: string;
+}): Promise<Referral> {
+  const referral = await this.referralModel.create({
+    motherId: new Types.ObjectId(data.motherId),
+    fromHospital: new Types.ObjectId(data.fromHospital),
+    referralCode: `SYS-${Date.now()}`,
+    createdBy: null,
+    status: ReferralStatus.PENDING,
+    reason: data.reason,
+
+    activityLog: [
+      {
+        status: ReferralStatus.PENDING,
+        actor: null, // Use null for SYSTEM actions
+        note: `Auto referral triggered: ${data.reason}`,
+        timestamp: new Date(),
+      },
+    ],
+  });
+
+  return referral;
+}
+
+  // 2. FINALIZE & SEND (Liaison Officer)
+  async finalizeAndSend(
+    referralId: string,
+    liaisonId: string,
+    liaisonHospitalId: string,
+    targetHospitalId: string,
+    liaisonName: string,
+  ): Promise<Referral> {
+    const referral = await this.referralModel.findById(referralId);
+    
+    if (!referral) throw new NotFoundException('Referral not found');
+
+    // Security Check: Liaison must belong to the 'from' hospital
+    if (referral.fromHospital.toString() !== liaisonHospitalId.toString()) {
+      throw new ForbiddenException('You are not allowed to send referrals from another hospital');
+    }
+
+    // Validation: Cannot refer to yourself
+    if (liaisonHospitalId === targetHospitalId) {
+      throw new BadRequestException('Target hospital cannot be the same as the originating hospital');
+    }
+
+    // State Check: Must be a DRAFT
+    if (referral.status !== ReferralStatus.DRAFT) {
+      throw new BadRequestException('Referral already finalized');
+    }
+
+    // Target Hospital Verification
+    const targetHospital = await this.hospitalModel.findById(targetHospitalId);
+    if (!targetHospital) {
+      throw new NotFoundException('Target hospital does not exist');
+    }
+
+    // Cast the string ID to a Mongoose ObjectId
+    referral.toHospital = new Types.ObjectId(targetHospitalId) as any;
+    
+    referral.status = ReferralStatus.PENDING;
+    referral.expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
+
+    // Audit Trail
+    referral.activityLog.push({
+      status: ReferralStatus.PENDING,
+      actor: liaisonId,
+      note: `Referral dispatched to ${targetHospital.name} by ${liaisonName}`,
+      timestamp: new Date(),
+    });
+
+    // Save and Return
+    const saved = await referral.save();
+
+    // Notifications
+    try {
+      await this.notificationService.notifyReferralSent(
+        saved._id.toString(),
+        targetHospital.name,
+        [targetHospitalId],
+      );
+    } catch (err) {
+      console.error('Notification failed but referral was saved:', err);
+    }
+
+    return saved;
+  }
+
+  // 3. RESPOND TO REFERRAL
+  async respondToReferral(
+    referralId: string,
+    dto: RespondReferralDto,
+    responderId: string,
+    responderHospitalId: string,
+  ): Promise<Referral> {
+    const session: ClientSession = await this.referralModel.db.startSession();
+    session.startTransaction();
+
+    try {
+      const referral = await this.referralModel.findById(referralId).session(session);
+      if (!referral) throw new NotFoundException('Referral not found');
+      
+      console.log('DEBUG:', { 
+        toHospital: referral.toHospital, 
+        responderId: responderHospitalId 
+      });
+      
+      if (!referral.toHospital) {
+        throw new BadRequestException('This referral does not have a destination hospital assigned.');
+      }
+      
+      if (referral.toHospital.toString() !== responderHospitalId.toString()) {
+        throw new ForbiddenException('Your hospital is not authorized to respond to this referral');
+      }
+
+      if (referral.status !== ReferralStatus.PENDING)
+        throw new BadRequestException('Referral already processed');
+
+      if (dto.status !== ReferralStatus.ACCEPTED && !dto.justification)
+        throw new BadRequestException('Justification is required for rejections/holds');
+
+      if (dto.status === ReferralStatus.ACCEPTED) {
+        referral.acceptedAt = new Date();
+      }
+
+      referral.status = dto.status;
+      referral.decisionMeta = {
+        responderId,
+        justification: dto.justification,
+        appointmentDate: dto.appointmentDate ? new Date(dto.appointmentDate) : undefined,
+      };
+
+      referral.activityLog.push({
+        status: dto.status,
+        actor: responderId,
+        note: `Decision (${dto.status}) recorded by receiving hospital`,
+        timestamp: new Date(),
+      });
+
+      const saved = await referral.save({ session });
+      await session.commitTransaction();
+
+      await this.notificationService.notifyReferralResponded(
+        saved._id.toString(),
+        dto.status,
+        [referral.createdBy.toString(), referral.fromHospital.toString()],
+      );
+
+      return saved;
+    } catch (err) {
+      await session.abortTransaction();
+      throw err;
+    } finally {
+      session.endSession();
+    }
+  }
+
+  async getIncomingReferrals(hospitalId: string): Promise<Referral[]> {
+    return this.referralModel.find({
+      toHospital: hospitalId,
+      status: ReferralStatus.PENDING
+    })
+    .populate('fromHospital', 'name')
+    .populate('createdBy', 'fullName')
+    .populate('motherId', 'fullName phone') // Populate mother instead of patient
+    .sort({ createdAt: -1 });
+  }
+
+  // 4. GATE CHECK-IN
+  async gateCheckIn(dto: GateCheckInDto, gateOfficerId: string): Promise<Referral> {
+    const referral = await this.referralModel.findOne({ referralCode: dto.referralCode });
+    if (!referral) throw new NotFoundException('Referral not found');
+
+    if (referral.gateCheckedInAt) {
+      return referral;
+    }
+
+    if (
+      referral.status !== ReferralStatus.ACCEPTED &&
+      referral.status !== ReferralStatus.SCHEDULED
+    )
+      throw new BadRequestException('Referral not valid for entry');
+
+    referral.gateCheckedInAt = new Date();
+    referral.status = ReferralStatus.CHECKED_IN;
+
+    referral.activityLog.push({
+      status: ReferralStatus.CHECKED_IN,
+      actor: gateOfficerId,
+      note: 'Patient arrived at hospital gate',
+      timestamp: new Date(),
+    });
+
+    const saved = await referral.save();
+
+    try {
+      await this.notificationService.notifyPatientArrived(
+        saved._id.toString(),
+        [referral.createdBy, referral.toHospital],
+      );
+    } catch (e) {
+      console.error('Notification failed', e);
+    }
+
+    return saved;
+  }
+
+  // 5. UNLOCK CLINICAL DATA
+  async unlockReferral(
+    dto: UnlockReferralDto,
+    specialistId: string,
+    specialistHospitalId: string,
+  ): Promise<Referral> {
+    const referral = await this.referralModel
+      .findOne({ referralCode: dto.referralCode })
+      .populate('motherId')
+      .populate('fromHospital', 'name')
+      .populate('toHospital', 'name');
+
+    if (!referral) {
+      throw new NotFoundException('Referral not found');
+    }
+
+    if (!referral.gateCheckedInAt) {
+      throw new BadRequestException('Patient has not checked in yet');
+    }
+
+    if (referral.isUnlocked) {
+      return referral; // already unlocked
+    }
+
+    if (
+      referral.status !== ReferralStatus.ACCEPTED &&
+      referral.status !== ReferralStatus.CHECKED_IN
+    ) {
+      throw new BadRequestException('Referral not eligible for unlock');
+    }
+
+    // Unlock clinical data
+    referral.isUnlocked = true;
+
+    referral.activityLog.push({
+      status: referral.status,
+      actor: specialistId,
+      note: 'Clinical data unlocked by specialist',
+      timestamp: new Date(),
+    });
+
+    const saved = await referral.save();
+
+    await this.notificationService.notifyClinicalDataUnlocked(
+      saved._id.toString(),
+      [referral.createdBy],
+    );
+
+    return saved;
+  }
+
+  // 6. SUBMIT FEEDBACK
+  async submitFeedback(
+    referralId: string,
+    feedbackNote: string,
+    specialistId: string,
+  ): Promise<Referral> {
+    const referral = await this.referralModel.findById(referralId);
+    if (!referral) throw new NotFoundException('Referral not found');
+
+    if (!referral.isUnlocked)
+      throw new BadRequestException('Clinical data not unlocked');
+
+    if (referral.status === ReferralStatus.COMPLETED)
+      throw new BadRequestException('Feedback already submitted');
+
+    referral.status = ReferralStatus.COMPLETED;
+    referral.completedAt = new Date();
+
+    referral.activityLog.push({
+      status: ReferralStatus.COMPLETED,
+      actor: specialistId,
+      note: `Backward referral: ${feedbackNote}`,
+      timestamp: new Date(),
+    });
+
+    const saved = await referral.save();
+
+    await this.notificationService.notifyFeedbackSubmitted(
+      saved._id.toString(),
+      [referral.createdBy],
+    );
+
+    return saved;
+  }
+
+  // 7. AUTO-EXPIRE REFERRALS
+  @Cron(CronExpression.EVERY_30_MINUTES)
+  async expireReferrals(): Promise<void> {
+    const now = new Date();
+
+    await this.referralModel.updateMany(
+      {
+        status: { $in: [ReferralStatus.PENDING, ReferralStatus.ACCEPTED] },
+        expiresAt: { $lt: now },
+      },
+      {
+        $set: {
+          status: ReferralStatus.EXPIRED,
+          expiredAt: now,
+        },
+        $push: {
+          activityLog: {
+            status: ReferralStatus.EXPIRED,
+            actor: null, // Use null for SYSTEM actions
+            note: 'Referral expired automatically',
+            timestamp: now,
+          },
+        },
+      },
+    );
+  }
+
+  // 8. GATE KEEPER VIEW
+  async getGatePassInfo(referralCode: string): Promise<any> {
+    const referral = await this.referralModel.findOne({ referralCode })
+      .select('motherId status toHospital')
+      .populate('motherId', 'fullName phone')
+      .lean();
+
+    if (!referral) throw new NotFoundException('Invalid Referral Code');
+
+    return referral;
+  }
+
+  // 9. LIAISON OUTBOX
+  async getOutgoingReferrals(hospitalId: string): Promise<Referral[]> {
+    return this.referralModel
+      .find({
+        fromHospital: hospitalId,
+      })
+      .populate('motherId', 'fullName phone')
+      .populate('createdBy', 'fullName')
+      .populate('toHospital', 'name')
+      .sort({ createdAt: -1 });
+  }
+
+  // 10. SPECIALIST WORKLIST
+  async getSpecialistQueue(hospitalId: string): Promise<Referral[]> {
+    return this.referralModel.find({
+      toHospital: hospitalId,
+      status: { 
+        $in: [ReferralStatus.ACCEPTED, ReferralStatus.CHECKED_IN] 
+      }
+    })
+    .populate('motherId', 'fullName phone age')
+    .populate('fromHospital', 'name')
+    .sort({ gateCheckedInAt: -1, createdAt: -1 });
+  }
+
+  async getHospitalDashboard(hospitalId: string, type: 'inbound' | 'outbound'): Promise<Referral[]> {
+    const query = type === 'inbound' 
+      ? { toHospital: hospitalId } 
+      : { fromHospital: hospitalId };
+
+    return this.referralModel.find(query)
+      .populate('motherId', 'fullName phone')
+      .populate('fromHospital', 'name')
+      .populate('toHospital', 'name')
+      .sort({ createdAt: -1 });
+  }
+
+  async getReferralById(referralId: string, hospitalId: string): Promise<Referral> {
+    const referral = await this.referralModel.findOne({
+      _id: referralId,
+      $or: [
+        { fromHospital: hospitalId },
+        { toHospital: hospitalId }
+      ]
+    })
+    .populate('fromHospital', 'name')
+    .populate('toHospital', 'name')
+    .populate('motherId', 'fullName phone email dateOfBirth')
+    .populate('createdBy', 'fullName')
+    .populate('activityLog.actor', 'fullName')
+    .populate('decisionMeta.responderId', 'fullName');
+
+    if (!referral) {
+      throw new NotFoundException('Referral not found or access denied.');
+    }
+
+    return referral;
+  }
+
+  async getAdminReferralStats() {
+    const [total, draft, pending, accepted, checkedIn, completed, rejected, expired] =
+      await Promise.all([
+        this.referralModel.countDocuments({}),
+        this.referralModel.countDocuments({ status: ReferralStatus.DRAFT }),
+        this.referralModel.countDocuments({ status: ReferralStatus.PENDING }),
+        this.referralModel.countDocuments({ status: ReferralStatus.ACCEPTED }),
+        this.referralModel.countDocuments({ status: ReferralStatus.CHECKED_IN }),
+        this.referralModel.countDocuments({ status: ReferralStatus.COMPLETED }),
+        this.referralModel.countDocuments({ status: ReferralStatus.REJECTED }),
+        this.referralModel.countDocuments({ status: ReferralStatus.EXPIRED }),
+      ]);
+
+    return {
+      total,
+      draft,
+      pending,
+      accepted,
+      checkedIn,
+      completed,
+      rejected,
+      expired,
+      active: draft + pending + accepted + checkedIn,
+    };
+  }
+}

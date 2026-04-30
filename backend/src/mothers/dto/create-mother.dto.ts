@@ -20,10 +20,7 @@ export class CreateMotherDto {
   @IsString()
   address: string;
 
-  @ApiProperty({ example: '507f1f77bcf86cd799439011', description: 'Health center ID' })
-  @IsMongoId()
-  healthCenter: string;
-
+ email?: string;
   @ApiPropertyOptional({ example: '+251911234568', description: 'Emergency contact number' })
   @IsOptional()
   @IsString()
@@ -54,8 +51,13 @@ export class CreateMotherDto {
   @IsDateString()
   lmp?: string;
 
-  @ApiPropertyOptional({ example: '507f1f77bcf86cd799439012', description: 'Assigned health worker ID' })
+  @ApiPropertyOptional({ example: 'O+', description: 'Mother blood type' })
   @IsOptional()
-  @IsMongoId()
-  assignedHealthWorker?: string;
+  @IsEnum(['A+', 'A-', 'B+', 'B-', 'O+', 'O-'])
+  bloodType?: 'A+' | 'A-' | 'B+' | 'B-' | 'O+' | 'O-';
+
+  @ApiPropertyOptional({ example: 'Dr. Sarah Johnson - Nurse', description: 'Name and role of person who registered the mother' })
+  @IsOptional()
+  @IsString()
+  registeredBy?: string;
 }

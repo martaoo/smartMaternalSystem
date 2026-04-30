@@ -1,164 +1,50 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { childrenApi } from '@/lib/healthcare-api';
-import { api } from '@/lib/api';
-
-interface ChildFormData {
-  name: string;
-  birthDate: string;
-  motherId: string;
-  gender: 'MALE' | 'FEMALE';
-  birthHospital: string;
-  deliveredBy: string;
-  birthWeight: string;
-  birthHeight: string;
-  apgarScore: string;
-  deliveryType: string;
-  complications: string;
-  healthStatus: 'HEALTHY' | 'NEEDS_ATTENTION' | 'CRITICAL';
-  notes: string;
-}
+import { mothersApi } from '@/lib/healthcare-api';
+import { useRouter } from 'next/navigation';
 
 export default function RegisterChild() {
-  const [formData, setFormData] = useState<ChildFormData>({
-    name: '',
-    birthDate: '',
-    motherId: '',
-    gender: 'MALE',
-    birthHospital: '',
-    deliveredBy: '',
-    birthWeight: '',
-    birthHeight: '',
-    apgarScore: '',
-    deliveryType: '',
-    complications: '',
-    healthStatus: 'HEALTHY',
-    notes: '',
-  });
-
+  const router = useRouter();
+  
   const [mothers, setMothers] = useState<any[]>([]);
-  const [hospitals, setHospitals] = useState<any[]>([]);
-  const [healthWorkers, setHealthWorkers] = useState<any[]>([]);
+  const [filteredMothers, setFilteredMothers] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     fetchMothers();
-    fetchHospitals();
-    fetchHealthWorkers();
   }, []);
+
+  useEffect(() => {
+    // Filter mothers based on search term
+    const filtered = mothers.filter(mother => 
+      mother.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      mother.phone.includes(searchTerm) ||
+      (mother.email && mother.email.toLowerCase().includes(searchTerm.toLowerCase()))
+    );
+    setFilteredMothers(filtered);
+  }, [searchTerm, mothers]);
 
   const fetchMothers = async () => {
     try {
-      const data = await childrenApi.getAll();
-      // Extract unique mothers from children data
-      const uniqueMothers = data.reduce((acc: any[], child: any) => {
-        if (child.motherId && !acc.find(m => m._id === child.motherId._id)) {
-          acc.push(child.motherId);
-        }
-        return acc;
-      }, []);
-      setMothers(uniqueMothers);
-    } catch (err) {
-      console.error('Error fetching mothers:', err);
-    }
-  };
-
-  const fetchHospitals = async () => {
-    try {
-      const data = await api.getHospitals();
-      setHospitals(data);
-    } catch (err) {
-      console.error('Error fetching hospitals:', err);
-    }
-  };
-
-  const fetchHealthWorkers = async () => {
-    try {
-      const data = await api.getUsers();
-      const healthcareWorkers = data.filter((user: any) => 
-        ['DOCTOR', 'NURSE', 'MIDWIFE'].includes(user.role)
+      const data = await mothersApi.getAll();
+      // Show mothers who have delivered (DELIVERED status) or are pregnant (for future births)
+      const eligibleMothers = data.filter((mother: any) => 
+        mother.status === 'DELIVERED' || mother.status === 'ACTIVE'
       );
-      setHealthWorkers(healthcareWorkers);
-    } catch (err) {
-      console.error('Error fetching health workers:', err);
-    }
-  };
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-
-    try {
-      const childData = {
-        ...formData,
-        birthWeight: formData.birthWeight ? parseFloat(formData.birthWeight) : undefined,
-        birthHeight: formData.birthHeight ? parseFloat(formData.birthHeight) : undefined,
-        apgarScore: formData.apgarScore ? parseInt(formData.apgarScore) : undefined,
-      };
-
-      await childrenApi.create(childData);
-      setSuccess(true);
-      setFormData({
-        name: '',
-        birthDate: '',
-        motherId: '',
-        gender: 'MALE',
-        birthHospital: '',
-        deliveredBy: '',
-        birthWeight: '',
-        birthHeight: '',
-        apgarScore: '',
-        deliveryType: '',
-        complications: '',
-        healthStatus: 'HEALTHY',
-        notes: '',
-      });
+      setMothers(eligibleMothers);
+      setFilteredMothers(eligibleMothers);
     } catch (err: any) {
-      setError(err.message || 'Failed to register child');
-    } finally {
-      setLoading(false);
+      console.error('Error fetching mothers:', err);
+      setError(err.message || 'Failed to load mothers');
     }
   };
 
-  if (success) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="bg-white rounded-lg shadow-md p-8 max-w-md w-full">
-          <div className="text-center">
-            <div className="text-green-600 text-6xl mb-4">👶</div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Child Registered Successfully!</h2>
-            <p className="text-gray-600 mb-6">The child has been registered in the system.</p>
-            <div className="space-y-3">
-              <a
-                href="/healthcare-dashboard/children"
-                className="block w-full px-4 py-2 bg-blue-600 text-white text-center rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                View All Children
-              </a>
-              <a
-                href="/healthcare-dashboard"
-                className="block w-full px-4 py-2 bg-gray-600 text-white text-center rounded-lg hover:bg-gray-700 transition-colors"
-              >
-                Back to Dashboard
-              </a>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const handleMotherSelect = (mother: any) => {
+    router.push(`/healthcare-dashboard/children/register/${mother._id}`);
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -168,7 +54,7 @@ export default function RegisterChild() {
           <div className="flex justify-between items-center py-4">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Register Child</h1>
-              <p className="text-sm text-gray-600">Add a new child to the system</p>
+              <p className="text-sm text-gray-600">Select a mother to register her child</p>
             </div>
             <a
               href="/healthcare-dashboard"
@@ -181,276 +67,102 @@ export default function RegisterChild() {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+      <main className="max-w-6xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
         <div className="bg-white rounded-lg shadow-md p-6">
+          <div className="mb-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Select Mother</h2>
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search mothers by name, phone, or email..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full px-4 py-3 pl-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+            </div>
+          </div>
+
           {error && (
             <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
               <div className="flex items-center">
-                <span className="text-red-600 mr-2">❌</span>
+                <span className="text-red-600 mr-2">â</span>
                 <span className="text-red-800">{error}</span>
               </div>
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-8">
-            {/* Basic Information */}
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Basic Information</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
-                    Child Name *
-                  </label>
-                  <input
-                    type="text"
-                    id="name"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="birthDate" className="block text-sm font-medium text-gray-700 mb-2">
-                    Birth Date *
-                  </label>
-                  <input
-                    type="date"
-                    id="birthDate"
-                    name="birthDate"
-                    value={formData.birthDate}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="motherId" className="block text-sm font-medium text-gray-700 mb-2">
-                    Mother *
-                  </label>
-                  <select
-                    id="motherId"
-                    name="motherId"
-                    value={formData.motherId}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="">Select Mother</option>
-                    {mothers.map((mother) => (
-                      <option key={mother._id} value={mother._id}>
-                        {mother.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label htmlFor="gender" className="block text-sm font-medium text-gray-700 mb-2">
-                    Gender *
-                  </label>
-                  <select
-                    id="gender"
-                    name="gender"
-                    value={formData.gender}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="MALE">Male</option>
-                    <option value="FEMALE">Female</option>
-                  </select>
-                </div>
-              </div>
+          {filteredMothers.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="text-gray-400 text-6xl mb-4">ð</div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No mothers found</h3>
+              <p className="text-gray-600">
+                {searchTerm ? 'Try adjusting your search terms' : 'No eligible mothers found in the system'}
+              </p>
             </div>
-
-            {/* Birth Information */}
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Birth Information</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label htmlFor="birthHospital" className="block text-sm font-medium text-gray-700 mb-2">
-                    Birth Hospital *
-                  </label>
-                  <select
-                    id="birthHospital"
-                    name="birthHospital"
-                    value={formData.birthHospital}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="">Select Hospital</option>
-                    {hospitals.map((hospital) => (
-                      <option key={hospital._id} value={hospital._id}>
-                        {hospital.name}
-                      </option>
-                    ))}
-                  </select>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredMothers.map((mother) => (
+                <div
+                  key={mother._id}
+                  onClick={() => handleMotherSelect(mother)}
+                  className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-lg transition-shadow cursor-pointer hover:border-blue-300"
+                >
+                  <div className="flex items-center mb-4">
+                    <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                      <span className="text-blue-600 font-semibold text-lg">
+                        {mother.name.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                    <div className="ml-4">
+                      <h3 className="text-lg font-semibold text-gray-900">{mother.name}</h3>
+                      <p className="text-sm text-gray-600">ID: {mother._id.slice(-8)}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <div className="flex items-center text-sm text-gray-600">
+                      <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                      </svg>
+                      {mother.phone}
+                    </div>
+                    
+                    {mother.email && (
+                      <div className="flex items-center text-sm text-gray-600">
+                        <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                        {mother.email}
+                      </div>
+                    )}
+                    
+                    <div className="flex items-center text-sm">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        mother.status === 'DELIVERED' 
+                          ? 'bg-purple-100 text-purple-800' 
+                          : mother.status === 'ACTIVE'
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-gray-100 text-gray-800'
+                      }`}>
+                        {mother.status}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-4 pt-4 border-t border-gray-200">
+                    <button className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                      Register Child
+                    </button>
+                  </div>
                 </div>
-
-                <div>
-                  <label htmlFor="deliveredBy" className="block text-sm font-medium text-gray-700 mb-2">
-                    Delivered By *
-                  </label>
-                  <select
-                    id="deliveredBy"
-                    name="deliveredBy"
-                    value={formData.deliveredBy}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="">Select Healthcare Worker</option>
-                    {healthWorkers.map((worker) => (
-                      <option key={worker._id} value={worker._id}>
-                        {worker.name} - {worker.role}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label htmlFor="birthWeight" className="block text-sm font-medium text-gray-700 mb-2">
-                    Birth Weight (grams)
-                  </label>
-                  <input
-                    type="number"
-                    id="birthWeight"
-                    name="birthWeight"
-                    value={formData.birthWeight}
-                    onChange={handleInputChange}
-                    min="500"
-                    max="6000"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="birthHeight" className="block text-sm font-medium text-gray-700 mb-2">
-                    Birth Height (cm)
-                  </label>
-                  <input
-                    type="number"
-                    id="birthHeight"
-                    name="birthHeight"
-                    value={formData.birthHeight}
-                    onChange={handleInputChange}
-                    min="30"
-                    max="80"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="apgarScore" className="block text-sm font-medium text-gray-700 mb-2">
-                    APGAR Score
-                  </label>
-                  <input
-                    type="number"
-                    id="apgarScore"
-                    name="apgarScore"
-                    value={formData.apgarScore}
-                    onChange={handleInputChange}
-                    min="0"
-                    max="10"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="deliveryType" className="block text-sm font-medium text-gray-700 mb-2">
-                    Delivery Type
-                  </label>
-                  <select
-                    id="deliveryType"
-                    name="deliveryType"
-                    value={formData.deliveryType}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="">Select Delivery Type</option>
-                    <option value="Vaginal">Vaginal</option>
-                    <option value="Cesarean">Cesarean Section</option>
-                    <option value="Assisted">Assisted Delivery</option>
-                  </select>
-                </div>
-              </div>
+              ))}
             </div>
-
-            {/* Health Assessment */}
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Health Assessment</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label htmlFor="healthStatus" className="block text-sm font-medium text-gray-700 mb-2">
-                    Health Status *
-                  </label>
-                  <select
-                    id="healthStatus"
-                    name="healthStatus"
-                    value={formData.healthStatus}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="HEALTHY">Healthy</option>
-                    <option value="NEEDS_ATTENTION">Needs Attention</option>
-                    <option value="CRITICAL">Critical</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label htmlFor="complications" className="block text-sm font-medium text-gray-700 mb-2">
-                    Birth Complications (comma-separated)
-                  </label>
-                  <input
-                    type="text"
-                    id="complications"
-                    name="complications"
-                    value={formData.complications}
-                    onChange={handleInputChange}
-                    placeholder="e.g., Jaundice, Respiratory distress"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-
-                <div className="md:col-span-2">
-                  <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-2">
-                    Additional Notes
-                  </label>
-                  <textarea
-                    id="notes"
-                    name="notes"
-                    value={formData.notes}
-                    onChange={handleInputChange}
-                    rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Submit Button */}
-            <div className="flex justify-end space-x-4">
-              <a
-                href="/healthcare-dashboard"
-                className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                Cancel
-              </a>
-              <button
-                type="submit"
-                disabled={loading}
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-300 transition-colors"
-              >
-                {loading ? 'Registering...' : 'Register Child'}
-              </button>
-            </div>
-          </form>
+          )}
         </div>
       </main>
     </div>

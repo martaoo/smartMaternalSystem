@@ -26,6 +26,9 @@ export class Mother {
   @Prop({ default: 'ACTIVE' })
   status: 'ACTIVE' | 'DELIVERED' | 'INACTIVE';
 
+  @Prop()
+  registeredBy?: string;
+
   @Prop({ type: Types.ObjectId, ref: 'User' })
   assignedHealthWorker?: Types.ObjectId;
 
@@ -55,6 +58,9 @@ export class Mother {
 
   @Prop()
   lmp?: Date; // Last Menstrual Period
+
+  @Prop({ enum: ['A+', 'A-', 'B+', 'B-', 'O+', 'O-'] })
+  bloodType?: 'A+' | 'A-' | 'B+' | 'B-' | 'O+' | 'O-';
 }
 
 export const MotherSchema = SchemaFactory.createForClass(Mother);

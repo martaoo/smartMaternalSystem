@@ -8,28 +8,52 @@ import { CreateMotherDto } from './dto/create-mother.dto';
 export class MothersService {
   constructor(@InjectModel(Mother.name) private motherModel: Model<MotherDocument>) {}
 
-  async create(createMotherDto: CreateMotherDto, userRole: string, userHospitalId?: string, userWoredaId?: string): Promise<Mother> {
-    // Validate hospital assignment based on user role
-    if (userRole === 'HOSPITAL_ADMIN' || userRole === 'DOCTOR' || userRole === 'NURSE' || userRole === 'MIDWIFE') {
-      // Hospital staff can only create mothers for their hospital
-      if (createMotherDto.healthCenter !== userHospitalId) {
-        throw new BadRequestException('You can only register mothers for your health center');
-      }
+ async create(
+  createMotherDto: CreateMotherDto,
+  userRole: string,
+  userHospitalId?: string,
+  userWoredaId?: string
+): Promise<Mother> {
+
+  let healthCenterId: string;
+
+  if (
+    userRole === 'HOSPITAL_ADMIN' ||
+    userRole === 'DOCTOR' ||
+    userRole === 'NURSE' ||
+    userRole === 'MIDWIFE'
+  ) {
+    if (!userHospitalId) {
+      throw new BadRequestException(
+        'You must be assigned to a hospital to register mothers'
+      );
     }
-
-    // Add woredaId based on user's woreda if applicable
-    const motherData = {
-      ...createMotherDto,
-      woredaId: userWoredaId ? new Types.ObjectId(userWoredaId) : undefined,
-      healthCenter: new Types.ObjectId(createMotherDto.healthCenter),
-      assignedHealthWorker: createMotherDto.assignedHealthWorker ? 
-        new Types.ObjectId(createMotherDto.assignedHealthWorker) : undefined,
-    };
-
-    const mother = new this.motherModel(motherData);
-    return mother.save();
+    healthCenterId = userHospitalId;
+  } else {
+    throw new BadRequestException(
+      'Only hospital staff can register mothers'
+    );
   }
 
+  const motherData = {
+    ...createMotherDto,
+
+    // ✅ ensure consistency with referral flow
+    woredaId: userWoredaId
+      ? new Types.ObjectId(userWoredaId)
+      : undefined,
+
+    healthCenter: new Types.ObjectId(healthCenterId),
+
+    registeredBy: createMotherDto.registeredBy || 'System',
+
+    // OPTIONAL: if your schema supports email
+    email: (createMotherDto as any).email || undefined,
+  };
+
+  const mother = new this.motherModel(motherData);
+  return mother.save();
+}
   async findAll(userRole: string, userHospitalId?: string, userWoredaId?: string): Promise<Mother[]> {
     let query: any = {};
 
@@ -64,11 +88,21 @@ export class MothersService {
 
     // Check access permissions
     if (userRole === 'HOSPITAL_ADMIN' || userRole === 'DOCTOR' || userRole === 'NURSE' || userRole === 'MIDWIFE') {
-      if (mother.healthCenter._id.toString() !== userHospitalId) {
+      const motherHealthCenterId =
+        typeof mother.healthCenter === 'object' && mother.healthCenter !== null && '_id' in mother.healthCenter
+          ? (mother.healthCenter as any)._id?.toString()
+          : (mother.healthCenter as any)?.toString();
+
+      if (userHospitalId && motherHealthCenterId !== String(userHospitalId)) {
         throw new NotFoundException('Mother not found or access denied');
       }
     } else if (userRole === 'WOREDA_ADMIN') {
-      if (mother.woredaId._id.toString() !== userWoredaId) {
+      const motherWoredaId =
+        typeof mother.woredaId === 'object' && mother.woredaId !== null && '_id' in mother.woredaId
+          ? (mother.woredaId as any)._id?.toString()
+          : (mother.woredaId as any)?.toString();
+
+      if (userWoredaId && motherWoredaId !== String(userWoredaId)) {
         throw new NotFoundException('Mother not found or access denied');
       }
     }
@@ -127,7 +161,17 @@ export class MothersService {
       .sort({ registrationDate: -1 })
       .exec();
   }
+async findByPhoneOrEmail(phone: string, email?: string): Promise<Mother | null> {
+  const query: any = {
+    $or: [{ phone }]
+  };
 
+  if (email) {
+    query.$or.push({ email });
+  }
+
+  return this.motherModel.findOne(query).exec();
+}
   async getMothersByHealthWorker(healthWorkerId: string, userRole: string, userHospitalId?: string): Promise<Mother[]> {
     let query: any = { assignedHealthWorker: new Types.ObjectId(healthWorkerId) };
 

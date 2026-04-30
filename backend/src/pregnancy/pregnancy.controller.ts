@@ -51,13 +51,24 @@ export class PregnancyController {
   @ApiResponse({ status: 200, description: 'Pregnancy records retrieved successfully' })
   @ApiResponse({ status: 404, description: 'Mother not found' })
   async findByMotherId(@Param('motherId') motherId: string, @Request() req) {
+    console.log('=== PREGNANCY BY MOTHER DEBUG ===');
+    console.log('MotherId:', motherId);
     const user = req.user;
-    return this.pregnancyService.findByMotherId(
+    console.log('User:', user);
+    console.log('User role:', user.role);
+    console.log('User hospitalId:', user.hospitalId);
+    
+    const result = await this.pregnancyService.findByMotherId(
       motherId,
       user.role,
       user.hospitalId?.toString(),
       user.woredaId?.toString()
     );
+    
+    console.log('Pregnancy records found:', result.length);
+    console.log('=== END PREGNANCY BY MOTHER DEBUG ===');
+    
+    return result;
   }
 
   @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
