@@ -47,6 +47,11 @@ export async function outboxReferrals() {
   return data
 }
 
+export async function checkedInReferrals() {
+  const { data } = await http.get<Referral[]>("/referrals/checked-in")
+  return data
+}
+
 export async function specialistQueue() {
   const { data } = await http.get<Referral[]>("/referrals/specialist/queue")
   return data

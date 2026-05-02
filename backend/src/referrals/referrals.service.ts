@@ -140,6 +140,9 @@ export class ReferralsService {
   async attachFile(referralId: string, filePath: string, uploaderHospitalId: string) {
     const referral = await this.referralModel.findById(referralId);
     if (!referral) throw new NotFoundException('Referral not found');
+    if (referral.fromHospital?.toString() !== uploaderHospitalId?.toString()) {
+      throw new ForbiddenException('Only the sending hospital can attach referral files');
+    }
 
     return await this.referralModel.findByIdAndUpdate(
       referralId,
@@ -281,8 +284,8 @@ async createSystemReferral(data: {
         throw new ForbiddenException('Your hospital is not authorized to respond to this referral');
       }
 
-      if (referral.status !== ReferralStatus.PENDING)
-        throw new BadRequestException('Referral already processed');
+      if (referral.status !== ReferralStatus.CHECKED_IN)
+        throw new BadRequestException('Referral must be checked-in before decision');
 
       if (dto.status !== ReferralStatus.ACCEPTED && !dto.justification)
         throw new BadRequestException('Justification is required for rejections/holds');
@@ -326,12 +329,24 @@ async createSystemReferral(data: {
   async getIncomingReferrals(hospitalId: string): Promise<Referral[]> {
     return this.referralModel.find({
       toHospital: hospitalId,
-      status: ReferralStatus.PENDING
+      status: { $in: [ReferralStatus.PENDING, ReferralStatus.CHECKED_IN] },
     })
     .populate('fromHospital', 'name')
     .populate('createdBy', 'name email')
     .populate('motherId', 'name phone age') // minimal highlights
     .sort({ createdAt: -1 });
+  }
+
+  async getCheckedInReferrals(hospitalId: string): Promise<Referral[]> {
+    return this.referralModel.find({
+      toHospital: hospitalId,
+      status: ReferralStatus.CHECKED_IN,
+    })
+    .populate('fromHospital', 'name')
+    .populate('toHospital', 'name')
+    .populate('createdBy', 'name email')
+    .populate('motherId', 'name phone age')
+    .sort({ gateCheckedInAt: -1, createdAt: -1 });
   }
 
   // 4. GATE CHECK-IN
@@ -343,11 +358,9 @@ async createSystemReferral(data: {
       return referral;
     }
 
-    if (
-      referral.status !== ReferralStatus.ACCEPTED &&
-      referral.status !== ReferralStatus.SCHEDULED
-    )
+    if (![ReferralStatus.PENDING, ReferralStatus.ACCEPTED].includes(referral.status)) {
       throw new BadRequestException('Referral not valid for entry');
+    }
 
     referral.gateCheckedInAt = new Date();
     referral.status = ReferralStatus.CHECKED_IN;
@@ -389,29 +402,34 @@ async createSystemReferral(data: {
       throw new NotFoundException('Referral not found');
     }
 
-    if (!referral.toHospital || referral.toHospital.toString() !== specialistHospitalId.toString()) {
+    const toHospitalId = (referral.toHospital as any)?._id?.toString?.() ?? referral.toHospital?.toString?.();
+    if (!specialistHospitalId) {
+      throw new BadRequestException('User hospital ID missing from token');
+    }
+    if (!referral.toHospital || toHospitalId !== specialistHospitalId.toString()) {
       throw new ForbiddenException('Your hospital is not authorized to unlock this referral');
     }
 
-    if (referral.isUnlocked) {
-      return referral; // already unlocked
+    const now = new Date();
+
+    if (referral.isUnlocked && referral.status === ReferralStatus.COMPLETED) {
+      return referral; // already fully completed
     }
 
-    if (
-      referral.status !== ReferralStatus.ACCEPTED &&
-      referral.status !== ReferralStatus.CHECKED_IN
-    ) {
-      throw new BadRequestException('Referral not eligible for unlock');
+    if (![ReferralStatus.CHECKED_IN, ReferralStatus.ACCEPTED].includes(referral.status)) {
+      throw new BadRequestException('Referral must be checked-in before unlock');
     }
 
-    // Unlock clinical data
+    // Unlock clinical data and mark the referral as completed at the receiving hospital
     referral.isUnlocked = true;
+    referral.status = ReferralStatus.COMPLETED;
+    referral.completedAt = now;
 
     referral.activityLog.push({
-      status: referral.status,
+      status: ReferralStatus.COMPLETED,
       actor: specialistId,
-      note: 'Clinical data unlocked by specialist',
-      timestamp: new Date(),
+      note: 'Clinical data unlocked and referral completed by specialist',
+      timestamp: now,
     });
 
     const saved = await referral.save();
@@ -535,7 +553,7 @@ async createSystemReferral(data: {
       .sort({ createdAt: -1 });
   }
 
-  async getReferralById(referralId: string, hospitalId: string): Promise<Referral> {
+  async getReferralById(referralId: string, hospitalId: string, requesterRole?: string): Promise<Referral> {
     const referral = await this.referralModel.findOne({
       _id: referralId,
       $or: [
@@ -554,11 +572,18 @@ async createSystemReferral(data: {
       throw new NotFoundException('Referral not found or access denied.');
     }
 
-    // If the requesting hospital is the receiving hospital, restrict details until unlocked.
-    // - PENDING: highlights only to support accept/reject decisions
-    // - ACCEPTED but locked: still highlights; full mother/clinical shown only after unlock
+    // If the requesting hospital is the receiving hospital, restrict details.
+    // Receiving liaison/admin roles should never see full clinical details.
+    // Clinical roles can see full details only after unlock.
     const isReceiver = referral.toHospital && referral.toHospital.toString() === hospitalId.toString();
-    if (isReceiver && !referral.isUnlocked) {
+    const nonClinicalReceiverRoles = new Set([
+      'LIAISON_OFFICER',
+      'HOSPITAL_APPROVER',
+      'HOSPITAL_ADMIN',
+      'GATEKEEPER',
+    ]);
+    const alwaysRedactForReceiver = requesterRole ? nonClinicalReceiverRoles.has(requesterRole) : false;
+    if (isReceiver && (alwaysRedactForReceiver || !referral.isUnlocked)) {
       // Strip sensitive fields
       (referral as any).clinicalNotes = undefined;
       (referral as any).attachments = [];

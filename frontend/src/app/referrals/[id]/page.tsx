@@ -45,6 +45,8 @@ export default function ReferralDetailsPage() {
   const [isUploading, setIsUploading] = React.useState(false)
   const [unlockCode, setUnlockCode] = React.useState("")
   const [isUnlocking, setIsUnlocking] = React.useState(false)
+  const [qrDataUrl, setQrDataUrl] = React.useState<string | null>(null)
+  const [generatingQr, setGeneratingQr] = React.useState(false)
 
   const user = React.useMemo<User | null>(() => {
     const raw = typeof window !== "undefined" ? localStorage.getItem("user") : null
@@ -55,6 +57,45 @@ export default function ReferralDetailsPage() {
       return null
     }
   }, [])
+
+  const fromHospitalId =
+    typeof (referral.data as any)?.fromHospital === "object"
+      ? (referral.data as any)?.fromHospital?._id
+      : (referral.data as any)?.fromHospital
+  const toHospitalId =
+    typeof (referral.data as any)?.toHospital === "object"
+      ? (referral.data as any)?.toHospital?._id
+      : (referral.data as any)?.toHospital
+  const isSenderHospital = !!user?.hospitalId && !!fromHospitalId && user.hospitalId === fromHospitalId
+  const isReceiverHospital = !!user?.hospitalId && !!toHospitalId && user.hospitalId === toHospitalId
+  const canUploadAttachments =
+    isSenderHospital && (user?.role === "DOCTOR" || user?.role === "LIAISON_OFFICER")
+  const canViewAttachments =
+    isSenderHospital || (isReceiverHospital && !!(referral.data as any)?.isUnlocked)
+  const canGenerateQr =
+    isSenderHospital &&
+    user?.role === "LIAISON_OFFICER" &&
+    referral.data?.status === "ACCEPTED" &&
+    !!referral.data?.referralCode
+
+
+  async function generateQr() {
+    if (!referral.data?.referralCode) return
+    setGeneratingQr(true)
+    try {
+      const QRCode = (await import("qrcode")).default
+      const dataUrl = await QRCode.toDataURL(referral.data.referralCode, {
+        errorCorrectionLevel: "H",
+        margin: 2,
+        width: 320,
+      })
+      setQrDataUrl(dataUrl)
+    } catch (err: any) {
+      toast.error(err?.message ?? "Could not generate QR code")
+    } finally {
+      setGeneratingQr(false)
+    }
+  }
 
   async function onUpload() {
     if (!file) return
@@ -125,17 +166,59 @@ export default function ReferralDetailsPage() {
                     <span className="text-slate-600">Referral ID</span>
                     <span className="font-medium">{referral.data._id}</span>
                   </div>
+
+                  {canGenerateQr && (
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                      <div className="mb-3 text-sm text-slate-700">
+                        This referral has been accepted by the receiving liaison officer. Generate a QR code so the mother can use it later at gate check-in.
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Button disabled={generatingQr} onClick={generateQr}>
+                          {qrDataUrl ? "Regenerate QR Code" : "Generate QR Code"}
+                        </Button>
+                        {qrDataUrl && (
+                          <a
+                            href={qrDataUrl}
+                            download={`referral-${referral.data.referralCode}.png`}
+                            className="inline-flex items-center justify-center rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-800 shadow-sm hover:bg-slate-100"
+                          >
+                            Download QR PNG
+                          </a>
+                        )}
+                      </div>
+                      {qrDataUrl && (
+                        <div className="mt-4 flex justify-center">
+                          <img
+                            src={qrDataUrl}
+                            alt="Referral QR code"
+                            className="h-72 w-72 rounded-md border border-slate-200 bg-white p-3"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </>
               )}
             </CardContent>
           </Card>
 
           {/* Unlock for receiving hospital staff */}
+          {(referral.data as any)?.isUnlocked && referral.data?.status === "COMPLETED" && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Referral Completed</CardTitle>
+              </CardHeader>
+              <CardContent className="text-sm text-slate-700">
+                This referral has been unlocked and marked completed. You should now have access to the full referral details and attached documents.
+              </CardContent>
+            </Card>
+          )}
+
           {(user?.role === "SPECIALIST" ||
             user?.role === "DOCTOR" ||
             user?.role === "NURSE" ||
             user?.role === "MIDWIFE") &&
-            referral.data?.status === "ACCEPTED" &&
+            (referral.data?.status === "ACCEPTED" || referral.data?.status === "CHECKED_IN") &&
             !(referral.data as any)?.isUnlocked && (
               <Card>
                 <CardHeader>
@@ -221,9 +304,14 @@ export default function ReferralDetailsPage() {
                 <CardTitle>Respond (Accept / Reject)</CardTitle>
               </CardHeader>
               <CardContent className="flex flex-wrap gap-3">
+                {referral.data?.status !== "CHECKED_IN" && (
+                  <p className="text-xs text-slate-600">
+                    Acceptance/rejection becomes available only after gate check-in (QR/referral code verification).
+                  </p>
+                )}
                 <Button
                   variant="secondary"
-                  disabled={respond.isPending}
+                  disabled={respond.isPending || referral.data?.status !== "CHECKED_IN"}
                   onClick={async () => {
                     try {
                       await respond.mutateAsync({ id, payload: { status: "ACCEPTED" } })
@@ -238,7 +326,7 @@ export default function ReferralDetailsPage() {
                 </Button>
                 <Button
                   variant="destructive"
-                  disabled={respond.isPending}
+                  disabled={respond.isPending || referral.data?.status !== "CHECKED_IN"}
                   onClick={async () => {
                     try {
                       await respond.mutateAsync({
@@ -258,10 +346,7 @@ export default function ReferralDetailsPage() {
             </Card>
           )}
 
-          {(user?.role === "DOCTOR" ||
-            user?.role === "NURSE" ||
-            user?.role === "MIDWIFE" ||
-            user?.role === "LIAISON_OFFICER") && (
+          {canUploadAttachments && (
             <Card>
               <CardHeader>
                 <CardTitle>Attach Files</CardTitle>
@@ -274,6 +359,30 @@ export default function ReferralDetailsPage() {
                 <Button disabled={!file || isUploading} onClick={onUpload}>
                   {isUploading ? "Uploading..." : "Upload"}
                 </Button>
+                <p className="text-xs text-slate-600">
+                  Attachments are sender-side only and remain hidden from receiver until unlock.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {canViewAttachments && Array.isArray((referral.data as any)?.attachments) && (referral.data as any).attachments.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Attachments</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2 text-sm">
+                {(referral.data as any).attachments.map((url: string, idx: number) => (
+                  <a
+                    key={`${url}-${idx}`}
+                    href={url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="block text-blue-600 hover:underline break-all"
+                  >
+                    Document {idx + 1}
+                  </a>
+                ))}
               </CardContent>
             </Card>
           )}

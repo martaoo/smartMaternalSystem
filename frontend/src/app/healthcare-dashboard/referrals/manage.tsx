@@ -28,13 +28,15 @@ interface Referral {
 }
 
 export default function ReferralManagement() {
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
   const router = useRouter();
   const [incomingReferralsData, setIncomingReferrals] = useState<Referral[]>([]);
   const [sentReferralsData, setSentReferrals] = useState<Referral[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'incoming' | 'sent'>('incoming');
+  const canUnlockReferral =
+    !!user?.role && ['DOCTOR', 'NURSE', 'MIDWIFE', 'SPECIALIST'].includes(user.role);
 
   useEffect(() => {
     fetchReferrals();
@@ -70,6 +72,16 @@ export default function ReferralManagement() {
     } catch (err: any) {
       console.error('Error responding to referral:', err);
       setError(err?.message || 'Failed to respond to referral');
+    }
+  };
+
+  const handleUnlockReferral = async (referralCode: string) => {
+    try {
+      await referralsApi.unlock({ referralCode });
+      await fetchReferrals();
+    } catch (err: any) {
+      console.error('Error unlocking referral:', err);
+      setError(err?.message || 'Failed to unlock referral');
     }
   };
 
@@ -156,28 +168,18 @@ export default function ReferralManagement() {
       )}
 
       <div className="flex space-x-3">
-        {isIncoming && referral.status === 'PENDING' && (
+        {isIncoming && referral.status === 'CHECKED_IN' && canUnlockReferral && (
           <>
             <button
-              onClick={() => handleRespondToReferral(referral._id, 'ACCEPT')}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              onClick={() => handleUnlockReferral(referral.referralCode)}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
-              Accept
-            </button>
-            <button
-              onClick={() => {
-                const reason = window.prompt('Please enter rejection justification:');
-                if (!reason || !reason.trim()) {
-                  setError('Rejection requires a justification note.');
-                  return;
-                }
-                handleRespondToReferral(referral._id, 'REJECT', reason.trim());
-              }}
-              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-            >
-              Reject
+              Unlock Clinical Data
             </button>
           </>
+        )}
+        {isIncoming && referral.status === 'PENDING' && (
+          <p className="text-xs text-gray-600 self-center">Waiting for gate check-in before decision.</p>
         )}
         
         {!isIncoming && referral.status === 'DRAFT' && (

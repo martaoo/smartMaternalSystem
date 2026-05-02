@@ -76,6 +76,24 @@ async getIncoming(@Req() req) {
 
   return this.referralsService.getIncomingReferrals(hospitalId);
 }
+
+@Get('checked-in')
+@Roles(
+  UserRole.LIAISON_OFFICER,
+  UserRole.HOSPITAL_APPROVER,
+  UserRole.HOSPITAL_ADMIN,
+  UserRole.DOCTOR,
+  UserRole.NURSE,
+  UserRole.MIDWIFE,
+  UserRole.SPECIALIST,
+)
+async getCheckedIn(@Req() req) {
+  const hospitalId = req.user.hospitalId;
+  if (!hospitalId) {
+    throw new ForbiddenException('User is not assigned to a hospital');
+  }
+  return this.referralsService.getCheckedInReferrals(hospitalId);
+}
   // ────────────── RECEIVING HOSPITAL / LIAISON ──────────────
   @Patch(':id/respond')
   @Roles(
@@ -107,7 +125,7 @@ async getIncoming(@Req() req) {
 
   // ────────────── SPECIALIST / NURSE / MIDWIFE ──────────────
   @Post('unlock')
-  @Roles(UserRole.DOCTOR, UserRole.LIAISON_OFFICER, UserRole.NURSE, UserRole.MIDWIFE)
+  @Roles(UserRole.DOCTOR, UserRole.SPECIALIST, UserRole.NURSE, UserRole.MIDWIFE)
   async unlockReferral(@Body() dto: UnlockReferralDto, @Req() req) {
     return this.referralsService.unlockReferral(dto, req.user.id,req.user.hospitalId);
   }
@@ -174,6 +192,6 @@ async getIncoming(@Req() req) {
   @Get(':id')
   @Roles(UserRole.LIAISON_OFFICER, UserRole.DOCTOR, UserRole.SPECIALIST, UserRole.NURSE, UserRole.MIDWIFE)
   async getOne(@Param('id') id: string, @Req() req) {
-    return this.referralsService.getReferralById(id, req.user.hospitalId);
+    return this.referralsService.getReferralById(id, req.user.hospitalId, req.user.role);
   }
 }
