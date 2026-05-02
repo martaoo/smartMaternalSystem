@@ -38,6 +38,12 @@ export default function SystemDashboard() {
 
   useEffect(() => {
     fetchDashboardData();
+
+    const refreshTimer = setInterval(() => {
+      fetchDashboardData();
+    }, 20000);
+
+    return () => clearInterval(refreshTimer);
   }, []);
 
   const fetchDashboardData = async () => {
@@ -162,6 +168,12 @@ export default function SystemDashboard() {
               </div>
               <div className="flex items-center space-x-4">
                 <span className="text-sm text-gray-700">Welcome, {user?.name}</span>
+                <button
+                  onClick={fetchDashboardData}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200"
+                >
+                  Refresh
+                </button>
                 <button
                   onClick={logout}
                   className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors duration-200"

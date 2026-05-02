@@ -53,8 +53,15 @@ export function useCreateReferral() {
 export function useSendReferral() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, targetHospitalId }: { id: string; targetHospitalId: string }) =>
-      sendReferral(id, targetHospitalId),
+    mutationFn: ({
+      id,
+      targetHospitalId,
+      liaisonNote,
+    }: {
+      id: string
+      targetHospitalId: string
+      liaisonNote?: string
+    }) => sendReferral(id, targetHospitalId, liaisonNote),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["referrals", "incoming"] })
       qc.invalidateQueries({ queryKey: ["referrals", "outbox"] })

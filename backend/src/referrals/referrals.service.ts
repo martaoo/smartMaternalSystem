@@ -100,6 +100,20 @@ export class ReferralsService {
     ...referralData,
     fromHospital: hospitalId,
     motherId: new Types.ObjectId(mother._id),
+    motherSnapshot: {
+      name: mother?.name,
+      phone: mother?.phone,
+      age: mother?.age,
+      address: mother?.address,
+      emergencyContact: mother?.emergencyContact,
+      medicalHistory: mother?.medicalHistory,
+      expectedDeliveryDate: mother?.expectedDeliveryDate,
+      highRisk: mother?.highRisk,
+      gravida: mother?.gravida,
+      para: mother?.para,
+      lmp: mother?.lmp,
+      bloodType: mother?.bloodType,
+    },
     referralCode: `REF-${Date.now()}`,
     createdBy: doctorId,
     status: ReferralStatus.DRAFT,
@@ -179,6 +193,7 @@ async createSystemReferral(data: {
     liaisonHospitalId: string,
     targetHospitalId: string,
     liaisonName: string,
+    liaisonNote?: string,
   ): Promise<Referral> {
     const referral = await this.referralModel.findById(referralId);
     
@@ -210,6 +225,9 @@ async createSystemReferral(data: {
     
     referral.status = ReferralStatus.PENDING;
     referral.expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
+    if (liaisonNote && liaisonNote.trim()) {
+      referral.liaisonNote = liaisonNote.trim();
+    }
 
     // Audit Trail
     referral.activityLog.push({
@@ -311,8 +329,8 @@ async createSystemReferral(data: {
       status: ReferralStatus.PENDING
     })
     .populate('fromHospital', 'name')
-    .populate('createdBy', 'fullName')
-    .populate('motherId', 'fullName phone') // Populate mother instead of patient
+    .populate('createdBy', 'name email')
+    .populate('motherId', 'name phone age') // minimal highlights
     .sort({ createdAt: -1 });
   }
 
@@ -371,8 +389,8 @@ async createSystemReferral(data: {
       throw new NotFoundException('Referral not found');
     }
 
-    if (!referral.gateCheckedInAt) {
-      throw new BadRequestException('Patient has not checked in yet');
+    if (!referral.toHospital || referral.toHospital.toString() !== specialistHospitalId.toString()) {
+      throw new ForbiddenException('Your hospital is not authorized to unlock this referral');
     }
 
     if (referral.isUnlocked) {
@@ -472,7 +490,7 @@ async createSystemReferral(data: {
   async getGatePassInfo(referralCode: string): Promise<any> {
     const referral = await this.referralModel.findOne({ referralCode })
       .select('motherId status toHospital')
-      .populate('motherId', 'fullName phone')
+      .populate('motherId', 'name phone')
       .lean();
 
     if (!referral) throw new NotFoundException('Invalid Referral Code');
@@ -486,8 +504,8 @@ async createSystemReferral(data: {
       .find({
         fromHospital: hospitalId,
       })
-      .populate('motherId', 'fullName phone')
-      .populate('createdBy', 'fullName')
+      .populate('motherId', 'name phone')
+      .populate('createdBy', 'name email')
       .populate('toHospital', 'name')
       .sort({ createdAt: -1 });
   }
@@ -500,7 +518,7 @@ async createSystemReferral(data: {
         $in: [ReferralStatus.ACCEPTED, ReferralStatus.CHECKED_IN] 
       }
     })
-    .populate('motherId', 'fullName phone age')
+    .populate('motherId', 'name phone age')
     .populate('fromHospital', 'name')
     .sort({ gateCheckedInAt: -1, createdAt: -1 });
   }
@@ -511,7 +529,7 @@ async createSystemReferral(data: {
       : { fromHospital: hospitalId };
 
     return this.referralModel.find(query)
-      .populate('motherId', 'fullName phone')
+      .populate('motherId', 'name phone')
       .populate('fromHospital', 'name')
       .populate('toHospital', 'name')
       .sort({ createdAt: -1 });
@@ -527,13 +545,37 @@ async createSystemReferral(data: {
     })
     .populate('fromHospital', 'name')
     .populate('toHospital', 'name')
-    .populate('motherId', 'fullName phone email dateOfBirth')
-    .populate('createdBy', 'fullName')
-    .populate('activityLog.actor', 'fullName')
-    .populate('decisionMeta.responderId', 'fullName');
+    .populate('motherId', 'name phone age address medicalHistory emergencyContact expectedDeliveryDate highRisk gravida para lmp bloodType')
+    .populate('createdBy', 'name email')
+    .populate('activityLog.actor', 'name email')
+    .populate('decisionMeta.responderId', 'name email');
 
     if (!referral) {
       throw new NotFoundException('Referral not found or access denied.');
+    }
+
+    // If the requesting hospital is the receiving hospital, restrict details until unlocked.
+    // - PENDING: highlights only to support accept/reject decisions
+    // - ACCEPTED but locked: still highlights; full mother/clinical shown only after unlock
+    const isReceiver = referral.toHospital && referral.toHospital.toString() === hospitalId.toString();
+    if (isReceiver && !referral.isUnlocked) {
+      // Strip sensitive fields
+      (referral as any).clinicalNotes = undefined;
+      (referral as any).attachments = [];
+      // Keep minimal mother highlights
+      if ((referral as any).motherId && typeof (referral as any).motherId === 'object') {
+        const m = (referral as any).motherId as any;
+        (referral as any).motherId = { _id: m._id, name: m.name, age: m.age, phone: m.phone };
+      }
+      // Keep snapshot but limit it to highlights
+      if (referral.motherSnapshot) {
+        referral.motherSnapshot = {
+          name: referral.motherSnapshot.name,
+          age: referral.motherSnapshot.age,
+          phone: referral.motherSnapshot.phone,
+          highRisk: referral.motherSnapshot.highRisk,
+        } as any;
+      }
     }
 
     return referral;

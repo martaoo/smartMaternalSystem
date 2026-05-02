@@ -208,13 +208,7 @@ export default function CreateReferral() {
       const response = await referralsApi.create(referralData);
       console.log('Referral created successfully:', response);
 
-      // In maternal flow we can send immediately when target hospital is chosen.
-      if (formData.targetHospitalId && response?._id) {
-        await referralsApi.send(response._id, formData.targetHospitalId);
-        setSuccessMessage('Referral created and sent to receiving hospital.');
-      } else {
-        setSuccessMessage('Referral created as draft. Please send it from referral management.');
-      }
+      setSuccessMessage('Referral created as draft. Please send it from Manage Referrals.');
 
       setSuccess(true);
       
@@ -483,14 +477,13 @@ export default function CreateReferral() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Target Hospital *
+                  Target Hospital (selected later by liaison)
                 </label>
                 <select
                   name="targetHospitalId"
                   value={formData.targetHospitalId}
                   onChange={handleInputChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  required
                 >
                   <option value="">Select Target Hospital</option>
                   {(() => {
