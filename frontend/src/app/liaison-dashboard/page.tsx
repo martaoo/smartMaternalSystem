@@ -9,6 +9,10 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useIncomingReferrals, useOutboxReferrals } from "@/hooks/useReferrals"
 
+function pickName(obj: any) {
+  return obj?.fullName ?? obj?.name ?? "—"
+}
+
 export default function LiaisonDashboardPage() {
   const incoming = useIncomingReferrals()
   const outbox = useOutboxReferrals()
@@ -46,14 +50,29 @@ export default function LiaisonDashboardPage() {
                   <p className="text-sm text-red-600">Failed to load incoming referrals.</p>
                 )}
                 {(incoming.data ?? []).slice(0, 8).map((r) => (
-                  <div key={r._id} className="flex items-center justify-between rounded-md border bg-white p-3">
-                    <div className="space-y-1">
-                      <div className="font-medium">Referral #{r.referralCode ?? r._id.slice(-6)}</div>
-                      <div className="text-xs text-slate-600">Status: {r.status}</div>
+                  <div key={r._id} className="rounded-md border bg-white p-3">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="space-y-1">
+                        <div className="font-medium">Referral #{r.referralCode ?? r._id.slice(-6)}</div>
+                        <div className="text-xs text-slate-600">Status: {r.status}</div>
+                        <div className="text-xs text-slate-600">
+                          Mother: {typeof r.motherId === "object" ? pickName(r.motherId) : "—"}{" "}
+                          {typeof r.motherId === "object" && r.motherId?.age ? `(${r.motherId.age}y)` : ""}
+                        </div>
+                        {r.reasonForReferral && (
+                          <div className="text-xs text-slate-600">Reason: {r.reasonForReferral}</div>
+                        )}
+                        <div className="text-xs text-slate-600">
+                          From: {typeof r.fromHospital === "object" ? pickName(r.fromHospital) : "—"}
+                        </div>
+                        <div className="text-xs text-slate-600">
+                          By: {typeof r.createdBy === "object" ? pickName(r.createdBy) : "—"}
+                        </div>
+                      </div>
+                      <Button asChild variant="outline" size="sm">
+                        <Link href={`/referrals/${r._id}`}>Open</Link>
+                      </Button>
                     </div>
-                    <Button asChild variant="outline" size="sm">
-                      <Link href={`/referrals/${r._id}`}>Open</Link>
-                    </Button>
                   </div>
                 ))}
               </CardContent>
@@ -68,14 +87,25 @@ export default function LiaisonDashboardPage() {
                 {outbox.isLoading && <p className="text-sm text-slate-600">Loading...</p>}
                 {outbox.isError && <p className="text-sm text-red-600">Failed to load outbox.</p>}
                 {(outbox.data ?? []).slice(0, 8).map((r) => (
-                  <div key={r._id} className="flex items-center justify-between rounded-md border bg-white p-3">
-                    <div className="space-y-1">
-                      <div className="font-medium">Referral #{r.referralCode ?? r._id.slice(-6)}</div>
-                      <div className="text-xs text-slate-600">Status: {r.status}</div>
+                  <div key={r._id} className="rounded-md border bg-white p-3">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="space-y-1">
+                        <div className="font-medium">Referral #{r.referralCode ?? r._id.slice(-6)}</div>
+                        <div className="text-xs text-slate-600">Status: {r.status}</div>
+                        <div className="text-xs text-slate-600">
+                          To: {typeof r.toHospital === "object" ? pickName(r.toHospital) : "—"}
+                        </div>
+                        <div className="text-xs text-slate-600">
+                          Mother: {typeof r.motherId === "object" ? pickName(r.motherId) : "—"}
+                        </div>
+                        {r.liaisonNote && (
+                          <div className="text-xs text-slate-600">Liaison note: {r.liaisonNote}</div>
+                        )}
+                      </div>
+                      <Button asChild variant="outline" size="sm">
+                        <Link href={`/referrals/${r._id}`}>View</Link>
+                      </Button>
                     </div>
-                    <Button asChild variant="outline" size="sm">
-                      <Link href={`/referrals/${r._id}`}>View</Link>
-                    </Button>
                   </div>
                 ))}
               </CardContent>

@@ -13,6 +13,7 @@ import { uploadReferralDoc } from "@/services/files"
 import { submitFeedback } from "@/services/referrals"
 import { useReferral, useRespondReferral, useSendReferral } from "@/hooks/useReferrals"
 import type { User } from "@/types/auth"
+import { referralsApi } from "@/lib/healthcare-api"
 
 function statusVariant(status?: string) {
   switch (status) {
@@ -38,9 +39,12 @@ export default function ReferralDetailsPage() {
   const send = useSendReferral()
 
   const [targetHospitalId, setTargetHospitalId] = React.useState("")
+  const [liaisonNote, setLiaisonNote] = React.useState("")
   const [feedbackNote, setFeedbackNote] = React.useState("")
   const [file, setFile] = React.useState<File | null>(null)
   const [isUploading, setIsUploading] = React.useState(false)
+  const [unlockCode, setUnlockCode] = React.useState("")
+  const [isUnlocking, setIsUnlocking] = React.useState(false)
 
   const user = React.useMemo<User | null>(() => {
     const raw = typeof window !== "undefined" ? localStorage.getItem("user") : null
@@ -105,6 +109,18 @@ export default function ReferralDetailsPage() {
                     <span className="text-slate-600">Referral Code</span>
                     <span className="font-medium">{referral.data.referralCode ?? "—"}</span>
                   </div>
+                  {"reasonForReferral" in referral.data && (
+                    <div className="pt-2">
+                      <div className="text-slate-600">Reason</div>
+                      <div className="font-medium">{(referral.data as any).reasonForReferral ?? "—"}</div>
+                    </div>
+                  )}
+                  {"liaisonNote" in referral.data && (referral.data as any).liaisonNote && (
+                    <div className="pt-2">
+                      <div className="text-slate-600">Liaison Note</div>
+                      <div className="font-medium">{(referral.data as any).liaisonNote}</div>
+                    </div>
+                  )}
                   <div className="flex items-center justify-between">
                     <span className="text-slate-600">Referral ID</span>
                     <span className="font-medium">{referral.data._id}</span>
@@ -113,6 +129,48 @@ export default function ReferralDetailsPage() {
               )}
             </CardContent>
           </Card>
+
+          {/* Unlock for receiving hospital staff */}
+          {(user?.role === "SPECIALIST" ||
+            user?.role === "DOCTOR" ||
+            user?.role === "NURSE" ||
+            user?.role === "MIDWIFE") &&
+            referral.data?.status === "ACCEPTED" &&
+            !(referral.data as any)?.isUnlocked && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Unlock Mother Details</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <Input
+                    value={unlockCode}
+                    onChange={(e) => setUnlockCode(e.target.value)}
+                    placeholder="Enter referral code (e.g. REF-...)"
+                  />
+                  <Button
+                    disabled={isUnlocking || !unlockCode.trim()}
+                    onClick={async () => {
+                      setIsUnlocking(true)
+                      try {
+                        await referralsApi.unlock({ referralCode: unlockCode.trim() })
+                        toast.success("Unlocked")
+                        setUnlockCode("")
+                        referral.refetch()
+                      } catch (err: any) {
+                        toast.error(err?.response?.data?.message ?? err?.message ?? "Unlock failed")
+                      } finally {
+                        setIsUnlocking(false)
+                      }
+                    }}
+                  >
+                    {isUnlocking ? "Unlocking..." : "Unlock"}
+                  </Button>
+                  <p className="text-xs text-slate-600">
+                    Until you unlock, you will only see referral highlights.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
 
           {(user?.role === "LIAISON_OFFICER" ||
             user?.role === "DOCTOR" ||
@@ -128,13 +186,23 @@ export default function ReferralDetailsPage() {
                   onChange={(e) => setTargetHospitalId(e.target.value)}
                   placeholder="Target Hospital ID"
                 />
+                <Input
+                  value={liaisonNote}
+                  onChange={(e) => setLiaisonNote(e.target.value)}
+                  placeholder="Liaison note to receiving hospital (optional)"
+                />
                 <Button
                   disabled={send.isPending || !targetHospitalId.trim()}
                   onClick={async () => {
                     try {
-                      await send.mutateAsync({ id, targetHospitalId: targetHospitalId.trim() })
+                      await send.mutateAsync({
+                        id,
+                        targetHospitalId: targetHospitalId.trim(),
+                        liaisonNote: liaisonNote.trim() || undefined,
+                      })
                       toast.success("Referral sent")
                       setTargetHospitalId("")
+                      setLiaisonNote("")
                       referral.refetch()
                     } catch (err: any) {
                       toast.error(err?.response?.data?.message ?? err?.message ?? "Send failed")

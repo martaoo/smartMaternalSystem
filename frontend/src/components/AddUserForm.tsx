@@ -91,7 +91,7 @@ export function AddUserForm({
 
     try {
       const dataToSend: any = { ...formData };
-      if (!['HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'DISPATCHER'].includes(formData.role)) {
+      if (!['HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'DISPATCHER', 'LIAISON_OFFICER', 'MIDWIFE'].includes(formData.role)) {
         delete dataToSend.hospitalId;
       }
       if (!['WOREDA_ADMIN', 'HOSPITAL_ADMIN'].includes(formData.role)) {
@@ -124,6 +124,8 @@ export function AddUserForm({
     'HOSPITAL_ADMIN',
     'DOCTOR',
     'NURSE',
+    'MIDWIFE',
+    'LIAISON_OFFICER',
     'DISPATCHER',
     'MOTHER',
   ];
@@ -184,7 +186,8 @@ export function AddUserForm({
               ))}
             </select>
           </div>
-          {!hideHospitalSelect && ['HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'DISPATCHER'].includes(formData.role) && (
+          {!hideHospitalSelect &&
+            ['HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'DISPATCHER', 'LIAISON_OFFICER', 'MIDWIFE'].includes(formData.role) && (
             <div>
               <label className="block text-sm font-medium text-gray-700">Hospital</label>
               <select

@@ -45,7 +45,7 @@ export class UsersService {
       }
       
       // Hospital Admin can only create workers for his own hospital
-      if (['DOCTOR', 'NURSE', 'DISPATCHER'].includes(newRole)) {
+      if (['DOCTOR', 'NURSE', 'MIDWIFE', 'DISPATCHER', 'LIAISON_OFFICER', 'HOSPITAL_APPROVER', 'GATEKEEPER', 'SPECIALIST'].includes(newRole)) {
         if (!hospitalId || hospitalId !== creatorHospitalId) {
           throw new BadRequestException(`Hospital Admin can only create workers for their own hospital. Provided hospitalId: ${hospitalId}, Creator hospitalId: ${creatorHospitalId}`);
         }

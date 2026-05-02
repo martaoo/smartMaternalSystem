@@ -13,7 +13,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagg
 export class HospitalsController {
   constructor(private readonly hospitalsService: HospitalsService) {}
 
-  @Roles('SUPER_ADMIN', 'WOREDA_ADMIN')
+  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN')
   @Post()
   @ApiOperation({ summary: 'Create a new hospital' })
   @ApiResponse({ status: 201, description: 'Hospital successfully created' })
@@ -24,7 +24,7 @@ export class HospitalsController {
     return this.hospitalsService.create(createHospitalDto);
   }
 
-  @Roles('SUPER_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
+  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
   @Get()
   @ApiOperation({ summary: 'Get all hospitals' })
   @ApiResponse({ status: 200, description: 'Hospitals retrieved successfully' })
