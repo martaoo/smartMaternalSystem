@@ -19,6 +19,7 @@ interface Referral {
   urgency: string;
   reasonForReferral: string;
   clinicalNotes?: string;
+  liaisonNote?: string;
   createdAt: string;
   activityLog: any[];
   // Frontend convenience aliases
@@ -61,7 +62,10 @@ export default function ReferralManagement() {
 
   const handleRespondToReferral = async (referralId: string, response: 'ACCEPT' | 'REJECT', note?: string) => {
     try {
-      await referralsApi.respond(referralId, { status: response === 'ACCEPT' ? 'ACCEPTED' : 'REJECTED', justification: note });
+      await referralsApi.respond(referralId, {
+        status: response === 'ACCEPT' ? 'ACCEPTED' : 'REJECTED',
+        justification: note,
+      });
       await fetchReferrals(); // Refresh data
     } catch (err: any) {
       console.error('Error responding to referral:', err);
@@ -69,9 +73,9 @@ export default function ReferralManagement() {
     }
   };
 
-  const handleSendReferral = async (referralId: string, targetHospitalId: string) => {
+  const handleSendReferral = async (referralId: string, targetHospitalId: string, liaisonNote?: string) => {
     try {
-      await referralsApi.send(referralId, targetHospitalId);
+      await referralsApi.send(referralId, targetHospitalId, liaisonNote);
       await fetchReferrals(); // Refresh data
     } catch (err: any) {
       console.error('Error sending referral:', err);
@@ -109,6 +113,32 @@ export default function ReferralManagement() {
         </span>
       </div>
 
+      <div className="mb-4 space-y-1">
+        <p className="text-sm text-gray-600">
+          <span className="font-medium">Mother:</span>{" "}
+          {referral.motherId?.name || referral.motherId?.fullName || "-"}{" "}
+          {referral.motherId?.age ? `(${referral.motherId.age}y)` : ""}
+          {referral.motherId?.phone ? ` • ${referral.motherId.phone}` : ""}
+        </p>
+        <p className="text-sm text-gray-600">
+          <span className="font-medium">Reason:</span> {referral.reasonForReferral || "-"}
+        </p>
+        {referral.liaisonNote && (
+          <p className="text-sm text-gray-600">
+            <span className="font-medium">Liaison note:</span> {referral.liaisonNote}
+          </p>
+        )}
+        <p className="text-sm text-gray-600">
+          <span className="font-medium">From:</span> {referral.fromHospital?.name || referral.fromHospital || "-"}
+        </p>
+        <p className="text-sm text-gray-600">
+          <span className="font-medium">To:</span> {referral.toHospital?.name || referral.toHospital || "-"}
+        </p>
+        <p className="text-sm text-gray-600">
+          <span className="font-medium">By:</span> {referral.createdBy?.fullName || referral.createdBy?.name || "-"}
+        </p>
+      </div>
+
       {referral.targetHospitalId && (
         <div className="mb-4">
           <p className="text-sm text-gray-600">
@@ -135,7 +165,14 @@ export default function ReferralManagement() {
               Accept
             </button>
             <button
-              onClick={() => handleRespondToReferral(referral._id, 'REJECT')}
+              onClick={() => {
+                const reason = window.prompt('Please enter rejection justification:');
+                if (!reason || !reason.trim()) {
+                  setError('Rejection requires a justification note.');
+                  return;
+                }
+                handleRespondToReferral(referral._id, 'REJECT', reason.trim());
+              }}
               className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
             >
               Reject

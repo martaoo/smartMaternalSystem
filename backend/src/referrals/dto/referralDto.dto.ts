@@ -57,6 +57,10 @@ export class CreateReferralDto {
   clinicalNotes?: string;
 
   @IsOptional()
+  @IsString()
+  liaisonNote?: string;
+
+  @IsOptional()
   @IsArray()
   @IsString({ each: true })
   attachments?: string[];
