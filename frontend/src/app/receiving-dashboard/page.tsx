@@ -75,7 +75,7 @@ export default function ReceivingDashboardPage() {
                         <Button asChild variant="outline" size="sm">
                           <Link href={`/referrals/${r._id}`}>Review</Link>
                         </Button>
-                        {r.status === "PENDING" && (
+                        {r.status === "CHECKED_IN" && (
                           <>
                             <Button
                               size="sm"
@@ -118,6 +118,11 @@ export default function ReceivingDashboardPage() {
                               Reject
                             </Button>
                           </>
+                        )}
+                        {r.status === "PENDING" && (
+                          <p className="text-[11px] text-slate-600 max-w-[130px]">
+                            Waiting for gate check-in before decision.
+                          </p>
                         )}
                       </div>
                     </div>
