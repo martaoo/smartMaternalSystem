@@ -24,7 +24,7 @@ export class HospitalsController {
     return this.hospitalsService.create(createHospitalDto);
   }
 
-  @Roles('SUPER_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
+  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
   @Get()
   @ApiOperation({ summary: 'Get all hospitals' })
   @ApiResponse({ status: 200, description: 'Hospitals retrieved successfully' })

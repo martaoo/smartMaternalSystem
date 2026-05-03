@@ -6,12 +6,14 @@ import { User, AuthState, LoginCredentials, RegisterCredentials } from '@/types/
 const getDashboardForRole = (role: string): string => {
   switch (role) {
     case 'SUPER_ADMIN':
-    case 'MOH_ADMIN':
-      return '/moh-dashboard';
     case 'SYSTEM_ADMIN':
       return '/system-dashboard';
+    case 'MOH_ADMIN':
+      return '/moh-dashboard';
     case 'HOSPITAL_ADMIN':
       return '/hospital-dashboard';
+    case 'HEALTH_CENTER_ADMIN':
+      return '/health-center-dashboard';
     case 'DOCTOR':
     case 'NURSE':
     case 'MIDWIFE':

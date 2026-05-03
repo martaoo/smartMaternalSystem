@@ -1,9 +1,9 @@
 export type UserRole =
   | 'SUPER_ADMIN'
-  | 'MOH_ADMIN'
   | 'SYSTEM_ADMIN'
   | 'WOREDA_ADMIN'
   | 'HOSPITAL_ADMIN'
+  | 'HEALTH_CENTER_ADMIN'
   | 'HOSPITAL_APPROVER'
   | 'DOCTOR'
   | 'NURSE'

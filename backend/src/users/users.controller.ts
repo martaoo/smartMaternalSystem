@@ -14,7 +14,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@ne
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN')
+  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN','HEALTH_CENTER_ADMIN')
   @Post()
   @ApiOperation({ summary: 'Create a new user' })
   @ApiResponse({ status: 201, description: 'User successfully created' })
@@ -31,8 +31,8 @@ export class UsersController {
     if (user.role === 'SUPER_ADMIN') {
       console.log('DEBUG Controller - Creating user as SUPER_ADMIN');
       return this.usersService.create(createUserDto);
-    } else if (user.role === 'HOSPITAL_ADMIN') {
-      console.log('DEBUG Controller - Creating user as HOSPITAL_ADMIN');
+    } else if (user.role === 'HOSPITAL_ADMIN' || user.role === 'HEALTH_CENTER_ADMIN') {
+      console.log(`DEBUG Controller - Creating user as ${user.role}`);
       return this.usersService.createWithRoleValidation(
         createUserDto, 
         user.role, 
@@ -44,7 +44,7 @@ export class UsersController {
     }
   }
 
-  @Roles('SUPER_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN')
+  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN')
   @Get()
   @ApiOperation({ summary: 'Get all users' })
   @ApiResponse({ status: 200, description: 'Users retrieved successfully' })
@@ -54,7 +54,7 @@ export class UsersController {
     return this.usersService.findAllWithRoleFilter(user.role, user.hospitalId?.toString());
   }
 
-  @Roles('SUPER_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN')
+  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN')
   @Get('role/:role')
   @ApiOperation({ summary: 'Get users by role' })
   @ApiParam({ name: 'role', description: 'User role' })

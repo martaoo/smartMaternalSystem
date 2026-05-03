@@ -133,6 +133,41 @@ export class ChildrenService {
       .exec();
   }
 
+  async verifyChild(id: string, userRole: string, userWoredaId?: string): Promise<Child> {
+    const child = await this.childModel.findById(id)
+      .populate('motherId', 'name phone age address')
+      .populate('birthHospital', 'name type address')
+      .populate('deliveredBy', 'name email role')
+      .populate('assignedHealthWorker', 'name email role')
+      .exec();
+
+    if (!child) {
+      throw new NotFoundException('Child not found');
+    }
+
+    // Check if user has permission to verify this child
+    if (userRole === 'WOREDA_ADMIN') {
+      // For woreda admin, check if the child belongs to their woreda
+      // This might require checking through the birth facility or mother
+      const hospitalWoreda = (child.birthHospital as any)?.woreda;
+      if (hospitalWoreda !== userWoredaId) {
+        throw new BadRequestException('You can only verify children in your woreda');
+      }
+    }
+
+    // Update verification status
+    return this.childModel.findByIdAndUpdate(id, { 
+      verified: true, 
+      verifiedAt: new Date(),
+      verifiedBy: userRole 
+    }, { new: true })
+      .populate('motherId', 'name phone age address')
+      .populate('birthHospital', 'name type address')
+      .populate('deliveredBy', 'name email role')
+      .populate('assignedHealthWorker', 'name email role')
+      .exec();
+  }
+
   async delete(id: string, userRole: string, userHospitalId?: string): Promise<void> {
     await this.findById(id, userRole, userHospitalId);
     await this.childModel.findByIdAndDelete(id);

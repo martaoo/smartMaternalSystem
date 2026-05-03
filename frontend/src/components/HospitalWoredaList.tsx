@@ -140,13 +140,13 @@ export function HospitalWoredaList({
   return (
     <div className="space-y-6">
       {showHospitals && (
-        <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Hospitals ({hospitals.length})</h3>
+        <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+          <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">Hospitals ({hospitals.length})</h3>
           {hospitals.length === 0 ? (
             <p className="text-gray-500">No hospitals found</p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="min-w-[680px] w-full">
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
@@ -193,13 +193,13 @@ export function HospitalWoredaList({
       )}
 
       {showWoredas && (
-        <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Woredas ({woredas.length})</h3>
+        <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+          <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">Woredas ({woredas.length})</h3>
           {woredas.length === 0 ? (
             <p className="text-gray-500">No woredas found</p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="min-w-[560px] w-full">
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
