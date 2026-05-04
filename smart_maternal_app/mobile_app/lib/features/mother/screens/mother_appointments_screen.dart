@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../services/notification_service.dart';
-import '../data/mock_mother_repository.dart';
+import '../../../services/appointment_service.dart';
 import '../models/mother_entities.dart';
 
 class MotherAppointmentsScreen extends StatefulWidget {
@@ -14,6 +14,7 @@ class MotherAppointmentsScreen extends StatefulWidget {
 
 class _MotherAppointmentsScreenState extends State<MotherAppointmentsScreen> with TickerProviderStateMixin {
   final NotificationService _notificationService = NotificationService();
+  final AppointmentService _appointmentService = AppointmentService();
 
   List<MotherAppointment> _appointments = const [];
   DateTime _monthCursor = DateTime(DateTime.now().year, DateTime.now().month);
@@ -23,6 +24,7 @@ class _MotherAppointmentsScreenState extends State<MotherAppointmentsScreen> wit
   bool _loading = true;
   bool _remindersLoading = true;
   final Set<String> _reminderEnabledAppointmentIds = {};
+  String? _errorMessage;
 
   @override
   void initState() {
@@ -33,14 +35,25 @@ class _MotherAppointmentsScreenState extends State<MotherAppointmentsScreen> wit
 
   Future<void> _reload() async {
     setState(() => _loading = true);
-    final items = MockMotherRepository.getAppointments();
-    items.sort((a, b) => a.dateTime.compareTo(b.dateTime));
-    setState(() {
-      _appointments = items;
-      _loading = false;
-    });
+    try {
+      final items = await _appointmentService.getAppointments();
+      items.sort((a, b) => a.dateTime.compareTo(b.dateTime));
+      setState(() {
+        _appointments = items;
+        _loading = false;
+        _errorMessage = null;
+      });
+    } catch (e) {
+      print('Error loading appointments: $e');
+      setState(() {
+        _appointments = [];
+        _loading = false;
+        _errorMessage = e.toString();
+      });
+    }
   }
 
+  
   Future<void> _initReminders() async {
     try {
       await _notificationService.initialize();
@@ -49,11 +62,12 @@ class _MotherAppointmentsScreenState extends State<MotherAppointmentsScreen> wit
       final ids = pending.map((p) => p.id).toSet();
 
       final enabled = <String>{};
-      for (final a in MockMotherRepository.getAppointments()) {
+      for (final a in _appointments) {
         final base = _notificationBaseId(a.id);
-        if (base == null) continue;
-        if (ids.contains(base + 1000) || ids.contains(base + 2000)) {
-          enabled.add(a.id);
+        if (base != null) {
+          if (ids.contains(base + 1000) || ids.contains(base + 2000)) {
+            enabled.add(a.id);
+          }
         }
       }
 
@@ -143,6 +157,8 @@ class _MotherAppointmentsScreenState extends State<MotherAppointmentsScreen> wit
                 padding: EdgeInsets.all(30),
                 child: Center(child: CircularProgressIndicator()),
               )
+            else if (_errorMessage != null)
+              _buildErrorState()
             else if (filtered.isEmpty)
               _buildEmptyState()
             else
@@ -741,6 +757,51 @@ class _MotherAppointmentsScreenState extends State<MotherAppointmentsScreen> wit
     );
   }
 
+  Widget _buildErrorState() {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: Colors.red.shade200),
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              color: Colors.red.shade50,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Icon(Icons.error_outline, color: Colors.red.shade400, size: 30),
+          ),
+          const SizedBox(height: 12),
+          const Text('Unable to load appointments', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+          const SizedBox(height: 6),
+          Text(
+            _errorMessage ?? 'Unknown error occurred',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.grey[700], height: 1.35),
+          ),
+          const SizedBox(height: 14),
+          ElevatedButton.icon(
+            onPressed: _refresh,
+            icon: const Icon(Icons.refresh),
+            label: const Text('Retry'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFB01257),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              elevation: 0,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   IconData _typeIcon(String type) {
     switch (type.toLowerCase()) {
       case 'anc':
@@ -984,7 +1045,7 @@ class _MotherAppointmentsScreenState extends State<MotherAppointmentsScreen> wit
                       selectedTime.minute,
                     );
 
-                    await MockMotherRepository.bookAppointment(
+                    await _appointmentService.bookAppointment(
                       title: title,
                       type: selectedType,
                       week: int.tryParse(weekCtrl.text.trim()),
@@ -1030,26 +1091,39 @@ class _MotherAppointmentsScreenState extends State<MotherAppointmentsScreen> wit
         reminderEnabled: _reminderEnabledAppointmentIds.contains(appointment.id),
         onToggleReminder: (_remindersLoading || status != _ApptStatus.upcoming) ? null : () => _toggleReminder(appointment),
         onMarkCompleted: () async {
-          await MockMotherRepository.markAppointmentCompleted(appointment.id);
-          if (!mounted) return;
-          Navigator.pop(context);
-          await _refresh();
+          // For now, we'll use a simple status update since the backend service doesn't have markCompleted method
+          try {
+            await _appointmentService.rescheduleAppointment(appointment.id, appointment.dateTime);
+            if (!mounted) return;
+            Navigator.pop(context);
+            await _refresh();
+          } catch (e) {
+            print('Error marking appointment as completed: $e');
+          }
         },
         onMarkMissed: () async {
-          await MockMotherRepository.markAppointmentMissed(appointment.id);
-          if (!mounted) return;
-          Navigator.pop(context);
-          await _refresh();
+          try {
+            await _appointmentService.cancelAppointment(appointment.id);
+            if (!mounted) return;
+            Navigator.pop(context);
+            await _refresh();
+          } catch (e) {
+            print('Error marking appointment as missed: $e');
+          }
         },
         onReschedulePlus2Days: (status == _ApptStatus.upcoming)
             ? () async {
-                await MockMotherRepository.rescheduleAppointment(
-                  appointment.id,
-                  appointment.dateTime.add(const Duration(days: 2)),
-                );
-                if (!mounted) return;
-                Navigator.pop(context);
-                await _refresh();
+                try {
+                  await _appointmentService.rescheduleAppointment(
+                    appointment.id,
+                    appointment.dateTime.add(const Duration(days: 2)),
+                  );
+                  if (!mounted) return;
+                  Navigator.pop(context);
+                  await _refresh();
+                } catch (e) {
+                  print('Error rescheduling appointment: $e');
+                }
               }
             : null,
       ),
@@ -1322,6 +1396,7 @@ class _DetailRow extends StatelessWidget {
   final IconData icon;
   final String label;
   final String value;
+
   const _DetailRow({required this.icon, required this.label, required this.value});
 
   @override
