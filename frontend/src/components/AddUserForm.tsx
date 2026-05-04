@@ -227,6 +227,8 @@ export function AddUserForm({
     'GATEKEEPER',
     'NURSE',
     'MIDWIFE',
+    'LIAISON_OFFICER',
+    'MIDWIFE',
     'DISPATCHER',
     'EMERGENCY_ADMIN',
     'MOTHER',

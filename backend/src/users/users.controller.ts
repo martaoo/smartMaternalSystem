@@ -23,10 +23,14 @@ export class UsersController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' })
   async create(@Body() createUserDto: CreateUserDto, @Request() req) {
-    const creator = req.user;
-
-    if (creator.role === 'SUPER_ADMIN') {
-      // Super admin can freely assign anything
+    console.log('DEBUG Controller - Create user request received');
+    console.log('DEBUG Controller - Request user:', req.user);
+    console.log('DEBUG Controller - User role:', req.user?.role);
+    
+    const user = req.user;
+    
+    if (user.role === 'SUPER_ADMIN' || user.role === 'SYSTEM_ADMIN') {
+      console.log(`DEBUG Controller - Creating user as ${user.role}`);
       return this.usersService.create(createUserDto);
     }
 
@@ -104,7 +108,7 @@ export class UsersController {
     return this.usersService.findByRoleWithFilter(role, user.role, user.hospitalId?.toString());
   }
 
-  @Roles('SUPER_ADMIN', 'HOSPITAL_ADMIN')
+  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'HOSPITAL_ADMIN')
   @Get(':id')
   @ApiOperation({ summary: 'Get user by ID' })
   @ApiParam({ name: 'id', description: 'User ID' })
@@ -120,7 +124,7 @@ export class UsersController {
     return this.usersService.findByIdWithRoleFilter(id, user.role, user.hospitalId?.toString());
   }
 
-  @Roles('SUPER_ADMIN', 'HOSPITAL_ADMIN')
+  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'HOSPITAL_ADMIN')
   @Patch(':id')
   @ApiOperation({ summary: 'Update a user' })
   @ApiParam({ name: 'id', description: 'User ID' })
@@ -132,7 +136,7 @@ export class UsersController {
   async update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto, @Request() req) {
     const user = req.user;
     
-    if (user.role === 'SUPER_ADMIN') {
+    if (user.role === 'SUPER_ADMIN' || user.role === 'SYSTEM_ADMIN') {
       return this.usersService.update(id, updateUserDto);
     } else if (user.role === 'HOSPITAL_ADMIN') {
       return this.usersService.updateWithRoleValidation(
@@ -144,7 +148,7 @@ export class UsersController {
     }
   }
 
-  @Roles('SUPER_ADMIN', 'HOSPITAL_ADMIN')
+  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'HOSPITAL_ADMIN')
   @Delete(':id')
   @ApiOperation({ summary: 'Delete a user' })
   @ApiParam({ name: 'id', description: 'User ID' })
@@ -155,7 +159,7 @@ export class UsersController {
   async delete(@Param('id') id: string, @Request() req) {
     const user = req.user;
     
-    if (user.role === 'SUPER_ADMIN') {
+    if (user.role === 'SUPER_ADMIN' || user.role === 'SYSTEM_ADMIN') {
       return this.usersService.delete(id);
     } else if (user.role === 'HOSPITAL_ADMIN') {
       return this.usersService.deleteWithRoleValidation(

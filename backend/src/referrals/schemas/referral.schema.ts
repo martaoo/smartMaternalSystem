@@ -58,6 +58,50 @@ export class Referral {
   attachments: string[];
 
   // ─────────────────────────────────────────
+  // MOTHER SNAPSHOT (TRANSFERRED / LOCKABLE)
+  // A point-in-time copy of key mother fields so the referral
+  // carries the necessary information even if the Mother record changes.
+  // This can be selectively exposed based on status/isUnlocked.
+  // ─────────────────────────────────────────
+  @Prop({
+    type: {
+      name: String,
+      phone: String,
+      age: Number,
+      address: String,
+      emergencyContact: String,
+      medicalHistory: String,
+      expectedDeliveryDate: Date,
+      highRisk: Boolean,
+      gravida: Number,
+      para: Number,
+      lmp: Date,
+      bloodType: String,
+    },
+  })
+  motherSnapshot?: {
+    name?: string;
+    phone?: string;
+    age?: number;
+    address?: string;
+    emergencyContact?: string;
+    medicalHistory?: string;
+    expectedDeliveryDate?: Date;
+    highRisk?: boolean;
+    gravida?: number;
+    para?: number;
+    lmp?: Date;
+    bloodType?: string;
+  };
+
+  // ─────────────────────────────────────────
+  // LIAISON NOTES (SENDER -> RECEIVER)
+  // Allows the liaison officer to add context on top of the original notes.
+  // ─────────────────────────────────────────
+  @Prop()
+  liaisonNote?: string;
+
+  // ─────────────────────────────────────────
   // SECURITY & ACCESS CONTROL
   // ─────────────────────────────────────────
   @Prop({ required: false }) // optional so it can be nullified

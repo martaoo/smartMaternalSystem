@@ -30,6 +30,18 @@ export function UserManagement() {
   const [roleFilter, setRoleFilter] = useState('');
   const [visibleCount, setVisibleCount] = useState(10);
 
+  const getAllowedRolesForCurrentUser = () => {
+    switch (user?.role) {
+      case 'SYSTEM_ADMIN':
+        return ['WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'DISPATCHER', 'EMERGENCY_ADMIN', 'MOTHER'];
+      case 'HOSPITAL_ADMIN':
+        return ['DOCTOR', 'NURSE', 'MIDWIFE', 'LIAISON_OFFICER', 'DISPATCHER'];
+      case 'SUPER_ADMIN':
+      default:
+        return ['SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'LIAISON_OFFICER', 'DISPATCHER', 'EMERGENCY_ADMIN', 'MOTHER'];
+    }
+  };
+
   useEffect(() => {
     fetchUsers();
     fetchHospitals();
@@ -473,6 +485,7 @@ export function UserManagement() {
           }}
           onSuccess={handleAddUserSuccess}
           userToEdit={editingUser || undefined}
+          allowedRoles={getAllowedRolesForCurrentUser()}
         />
       )}
     </div>

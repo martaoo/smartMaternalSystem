@@ -57,6 +57,16 @@ export class UsersService {
       if (!creatorHospitalId) {
         throw new BadRequestException(`${creatorRole} must be assigned to a facility to create users`);
       }
+      
+      // Hospital Admin can only create workers for his own hospital
+      if (['DOCTOR', 'NURSE', 'MIDWIFE', 'DISPATCHER', 'LIAISON_OFFICER', 'HOSPITAL_APPROVER', 'GATEKEEPER', 'SPECIALIST'].includes(newRole)) {
+        if (!hospitalId || hospitalId !== creatorHospitalId) {
+          throw new BadRequestException(`Hospital Admin can only create workers for their own hospital. Provided hospitalId: ${hospitalId}, Creator hospitalId: ${creatorHospitalId}`);
+        }
+      } else if (newRole === 'HOSPITAL_ADMIN') {
+        throw new BadRequestException('Hospital Admin cannot create other Hospital Admins');
+      } else if (['SUPER_ADMIN', 'WOREDA_ADMIN'].includes(newRole)) {
+        throw new BadRequestException('Hospital Admin cannot create Super Admins or Woreda Admins');
       if (this.hospitalManagedRoles.includes(newRole)) {
         // Force hospital and woreda from the creator — ignore whatever the frontend sent
         const dto = {
