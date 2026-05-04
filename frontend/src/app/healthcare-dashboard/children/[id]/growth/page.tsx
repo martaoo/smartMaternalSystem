@@ -96,6 +96,7 @@ export default function GrowthTracking() {
 
     try {
       const growthData = {
+        childId,  // required by the DTO — must be a valid MongoDB ObjectId
         ...formData,
         ageMonths: parseInt(formData.ageMonths),
         weight: parseFloat(formData.weight),
@@ -103,9 +104,9 @@ export default function GrowthTracking() {
         headCircumference: formData.headCircumference ? parseFloat(formData.headCircumference) : undefined,
         chestCircumference: formData.chestCircumference ? parseFloat(formData.chestCircumference) : undefined,
         muac: formData.muac ? parseFloat(formData.muac) : undefined,
-        developmentalMilestones: formData.developmentalMilestones ? formData.developmentalMilestones.split(',').map(m => m.trim()) : [],
-        immunizationsReceived: formData.immunizationsReceived ? formData.immunizationsReceived.split(',').map(i => i.trim()) : [],
-        healthConcerns: formData.healthConcerns ? formData.healthConcerns.split(',').map(h => h.trim()) : [],
+        developmentalMilestones: formData.developmentalMilestones ? formData.developmentalMilestones.split(',').map(m => m.trim()).filter(Boolean) : [],
+        immunizationsReceived: formData.immunizationsReceived ? formData.immunizationsReceived.split(',').map(i => i.trim()).filter(Boolean) : [],
+        healthConcerns: formData.healthConcerns ? formData.healthConcerns.split(',').map(h => h.trim()).filter(Boolean) : [],
         followUpDate: formData.followUpDate || undefined,
       };
 

@@ -10,6 +10,11 @@ export class CreateMotherDto {
   @IsString()
   phone: string;
 
+  @ApiPropertyOptional({ example: 'abeba@example.com', description: 'Email address for notifications' })
+  @IsOptional()
+  @IsString()
+  email?: string;
+
   @ApiProperty({ example: 28, description: 'Mother age' })
   @IsNumber()
   @Min(15)
@@ -22,8 +27,6 @@ woredaId: string;
   @ApiProperty({ example: 'Addis Ababa, Bole, Street 123', description: 'Home address' })
   @IsString()
   address: string;
-
- email?: string;
   @ApiPropertyOptional({ example: '+251911234568', description: 'Emergency contact number' })
   @IsOptional()
   @IsString()

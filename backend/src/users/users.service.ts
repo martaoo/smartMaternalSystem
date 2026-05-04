@@ -45,31 +45,33 @@ export class UsersService {
     return user.save();
   }
 
-  async createWithRoleValidation(createUserDto: CreateUserDto, creatorRole: string, creatorHospitalId?: string): Promise<User> {
-    const { role: newRole, hospitalId, healthCenterId, woredaId } = createUserDto;
-    const selectedHospitalId = hospitalId ?? healthCenterId;
+  async createWithRoleValidation(
+    createUserDto: CreateUserDto,
+    creatorRole: string,
+    creatorHospitalId?: string,
+    creatorWoredaId?: string,
+  ): Promise<User> {
+    const { role: newRole } = createUserDto;
 
-    // Role-based creation permissions
     if (creatorRole === 'HOSPITAL_ADMIN' || creatorRole === 'HEALTH_CENTER_ADMIN') {
-      // Facility admin must have a facility id to create users
       if (!creatorHospitalId) {
         throw new BadRequestException(`${creatorRole} must be assigned to a facility to create users`);
       }
-      
-      // Facility admin can only create workers for their own facility
       if (this.hospitalManagedRoles.includes(newRole)) {
-        if (!selectedHospitalId || selectedHospitalId !== creatorHospitalId) {
-          throw new BadRequestException(`${creatorRole} can only create workers for their own facility. Provided hospitalId/healthCenterId: ${selectedHospitalId}, Creator hospitalId: ${creatorHospitalId}`);
-        }
+        // Force hospital and woreda from the creator — ignore whatever the frontend sent
+        const dto = {
+          ...createUserDto,
+          hospitalId: creatorHospitalId,
+          woredaId: creatorWoredaId ?? createUserDto.woredaId,
+        };
+        return this.create(dto);
       } else if (['HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN', 'SUPER_ADMIN', 'WOREDA_ADMIN', 'SYSTEM_ADMIN'].includes(newRole)) {
         throw new BadRequestException(`${creatorRole} cannot create admin users`);
       }
     } else if (creatorRole === 'WOREDA_ADMIN') {
-      // Woreda Admin cannot create any users (as per requirement)
       throw new BadRequestException('Woreda Admin cannot create users');
     }
 
-    // Proceed with normal creation
     return this.create(createUserDto);
   }
 
@@ -200,6 +202,62 @@ export class UsersService {
     }
 
     return this.update(id, updateUserDto);
+  }
+
+  async getOwnProfile(id: string): Promise<any> {
+    const user = await this.userModel
+      .findById(id)
+      .select('-password')
+      .populate({ path: 'hospitalId', populate: { path: 'woredaId' } })
+      .populate('woredaId')
+      .exec();
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const userObj: any = (user as any).toObject();
+
+    // If woredaId is not directly set on the user but their hospital has one, derive it
+    if (!userObj.woredaId && userObj.hospitalId?.woredaId) {
+      userObj.woredaId = userObj.hospitalId.woredaId;
+    }
+
+    // If assignedRegion is not set but hospital's woreda has a region/city, derive it
+    if (!userObj.assignedRegion && userObj.woredaId?.city) {
+      userObj.assignedRegion = userObj.woredaId.city;
+    }
+
+    return userObj;
+  }
+
+  async updateSelf(
+    id: string,
+    data: { name?: string; email?: string; phoneNumber?: string; currentPassword?: string; newPassword?: string },
+  ): Promise<User> {
+    const user = await this.userModel.findById(id);
+    if (!user) throw new NotFoundException('User not found');
+
+    const updateData: any = {};
+
+    if (data.name) updateData.name = data.name;
+    if (data.phoneNumber !== undefined) updateData.phoneNumber = data.phoneNumber;
+
+    if (data.email && data.email !== user.email) {
+      const taken = await this.userModel.findOne({ email: data.email });
+      if (taken) throw new ConflictException('Email already in use');
+      updateData.email = data.email;
+    }
+
+    if (data.newPassword) {
+      if (!data.currentPassword) {
+        throw new BadRequestException('Current password is required to set a new password');
+      }
+      const isMatch = await bcrypt.compare(data.currentPassword, user.password);
+      if (!isMatch) throw new BadRequestException('Current password is incorrect');
+      updateData.password = await bcrypt.hash(data.newPassword, 10);
+    }
+
+    return this.userModel.findByIdAndUpdate(id, updateData, { new: true }).select('-password').populate('hospitalId').populate('woredaId').exec();
   }
 
   async delete(id: string): Promise<void> {

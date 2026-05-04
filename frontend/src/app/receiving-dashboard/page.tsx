@@ -22,16 +22,21 @@ export default function ReceivingDashboardPage() {
               <h1 className="text-2xl font-bold">Receiving Hospital</h1>
               <p className="text-sm text-slate-600">Incoming referrals, approvals, and specialist queue.</p>
             </div>
-            <Button
-              variant="secondary"
-              onClick={() => {
-                incoming.refetch()
-                queue.refetch()
-                toast.success("Refreshed")
-              }}
-            >
-              Refresh
-            </Button>
+            <div className="flex items-center gap-3">
+              <Link href="/receiving-dashboard/profile" className="text-sm text-blue-600 hover:underline">
+                My Profile
+              </Link>
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  incoming.refetch()
+                  queue.refetch()
+                  toast.success("Refreshed")
+                }}
+              >
+                Refresh
+              </Button>
+            </div>
           </div>
 
           <div className="grid gap-6 md:grid-cols-2">

@@ -57,13 +57,17 @@ export class VaccinationsService {
       ...createVaccinationRecordDto,
       childId: new Types.ObjectId(createVaccinationRecordDto.childId),
       vaccineId: new Types.ObjectId(createVaccinationRecordDto.vaccineId),
-      createdBy: new Types.ObjectId(userId),
-      createdAtHospital: new Types.ObjectId(userHospitalId),
+      createdBy: userId ? new Types.ObjectId(userId) : undefined,
+      createdAtHospital: userHospitalId ? new Types.ObjectId(userHospitalId) : undefined,
       scheduledDate: new Date(createVaccinationRecordDto.scheduledDate),
       administeredDate: createVaccinationRecordDto.administeredDate ? new Date(createVaccinationRecordDto.administeredDate) : undefined,
       expiryDate: createVaccinationRecordDto.expiryDate ? new Date(createVaccinationRecordDto.expiryDate) : undefined,
       followUpDate: createVaccinationRecordDto.followUpDate ? new Date(createVaccinationRecordDto.followUpDate) : undefined,
       originalScheduleDate: createVaccinationRecordDto.originalScheduleDate ? new Date(createVaccinationRecordDto.originalScheduleDate) : undefined,
+      // Ensure all reminder flags start as false so the cron picks this record up
+      reminderSent: false,
+      reminder3DaySent: false,
+      reminderSameDaySent: false,
     };
 
     const record = new this.vaccinationRecordModel(recordData);
@@ -240,10 +244,16 @@ export class VaccinationsService {
   }
 
   // Vaccination Schedule Generation
-  async generateVaccinationSchedule(childId: string, userRole: string, userHospitalId?: string): Promise<VaccinationRecord[]> {
+  async generateVaccinationSchedule(childId: string, userRole: string, userHospitalId?: string, userId?: string): Promise<VaccinationRecord[]> {
     const child = await this.childrenService.findById(childId, userRole, userHospitalId);
     const vaccines = await this.findAllVaccines();
     const schedule: VaccinationRecord[] = [];
+
+    if (vaccines.length === 0) {
+      throw new BadRequestException(
+        'No vaccines found in the system. Please ask a System Admin to add vaccines before generating a schedule.'
+      );
+    }
 
     for (const vaccine of vaccines) {
       for (let dose = 1; dose <= vaccine.dosesRequired; dose++) {
@@ -255,22 +265,45 @@ export class VaccinationsService {
         const existing = await this.vaccinationRecordModel.findOne({
           childId: new Types.ObjectId(childId),
           vaccineId: (vaccine as any)._id,
-          doseNumber: dose
+          doseNumber: dose,
         }).exec();
 
         if (!existing) {
-          const record = new this.vaccinationRecordModel({
-            childId: new Types.ObjectId(childId),
-            vaccineId: (vaccine as any)._id,
-            doseNumber: dose,
-            scheduledDate,
-            status: 'SCHEDULED',
-            createdBy: new Types.ObjectId('SYSTEM'), // This would be the current user in real implementation
-            createdAtHospital: new Types.ObjectId(userHospitalId),
-          });
-          schedule.push(await record.save());
+          try {
+            const recordData: any = {
+              childId: new Types.ObjectId(childId),
+              vaccineId: (vaccine as any)._id,
+              doseNumber: dose,
+              scheduledDate,
+              status: 'SCHEDULED',
+            };
+
+            // Only set these if we have valid ObjectIds
+            if (userHospitalId && /^[0-9a-fA-F]{24}$/.test(userHospitalId)) {
+              recordData.createdAtHospital = new Types.ObjectId(userHospitalId);
+            }
+            if (userId && /^[0-9a-fA-F]{24}$/.test(userId)) {
+              recordData.createdBy = new Types.ObjectId(userId);
+            }
+
+            const record = new this.vaccinationRecordModel(recordData);
+            schedule.push(await record.save());
+          } catch (saveErr) {
+            // Log but don't fail the whole schedule for one record
+            console.error(`Failed to save vaccination record for vaccine ${vaccine.code} dose ${dose}:`, saveErr.message);
+          }
         }
       }
+    }
+
+    if (schedule.length === 0 && vaccines.length > 0) {
+      // All records already exist — return existing ones
+      const existing = await this.vaccinationRecordModel
+        .find({ childId: new Types.ObjectId(childId) })
+        .populate('vaccineId', 'name code category recommendedAge')
+        .sort({ scheduledDate: 1 })
+        .exec();
+      return existing as any;
     }
 
     return schedule;

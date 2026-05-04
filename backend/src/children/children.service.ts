@@ -13,6 +13,63 @@ export class ChildrenService {
     @InjectModel(GrowthRecord.name) private growthRecordModel: Model<GrowthRecordDocument>
   ) {}
 
+  async findByWoreda(woredaId: string): Promise<Child[]> {
+    // Find children whose birth hospital belongs to this woreda
+    return this.childModel
+      .find()
+      .populate({
+        path: 'birthHospital',
+        match: { woredaId },
+        select: 'name type address woredaId',
+      })
+      .populate('motherId', 'name phone age address')
+      .populate('deliveredBy', 'name email role')
+      .sort({ registrationDate: -1 })
+      .exec()
+      .then(children => children.filter(c => c.birthHospital !== null));
+  }
+
+  async issueBirthCertificate(
+    id: string,
+    userRole: string,
+    userWoredaId?: string,
+    extraData?: { fatherName?: string; fatherPhone?: string; birthLocation?: string },
+  ): Promise<Child> {
+    const child = await this.childModel
+      .findById(id)
+      .populate({ path: 'birthHospital', select: 'name type woredaId' })
+      .populate('motherId', 'name phone age address')
+      .exec();
+
+    if (!child) throw new NotFoundException('Child not found');
+
+    if (child.verified) {
+      throw new BadRequestException('Birth certificate has already been issued for this child');
+    }
+
+    // Generate a unique certificate number: BC-YYYY-WOREDA-XXXXXX
+    const year = new Date().getFullYear();
+    const random = Math.floor(100000 + Math.random() * 900000);
+    const woredaCode = userWoredaId ? userWoredaId.slice(-4).toUpperCase() : 'XXXX';
+    const certificateNumber = `BC-${year}-${woredaCode}-${random}`;
+
+    const updateData: any = {
+      verified: true,
+      verifiedAt: new Date(),
+      verifiedBy: userRole,
+      certificateNumber,
+      certificateIssuedDate: new Date(),
+      ...extraData,
+    };
+
+    return this.childModel
+      .findByIdAndUpdate(id, updateData, { new: true })
+      .populate('motherId', 'name phone age address')
+      .populate('birthHospital', 'name type address')
+      .populate('deliveredBy', 'name email role')
+      .exec();
+  }
+
   async create(createChildDto: CreateChildDto, userRole: string, userHospitalId?: string, userId?: string): Promise<Child> {
     // Validate hospital assignment based on user role
     if (userRole === 'HOSPITAL_ADMIN' || userRole === 'DOCTOR' || userRole === 'NURSE' || userRole === 'MIDWIFE') {
@@ -130,6 +187,36 @@ export class ChildrenService {
       .populate('birthHospital', 'name type address')
       .populate('deliveredBy', 'name email role')
       .populate('assignedHealthWorker', 'name email role')
+      .exec();
+  }
+
+  async notifyWoreda(id: string, userRole: string, userHospitalId?: string, senderName?: string): Promise<Child> {
+    const child = await this.childModel.findById(id)
+      .populate({ path: 'birthHospital', select: 'name type woredaId' })
+      .exec();
+
+    if (!child) throw new NotFoundException('Child not found');
+
+    // Only hospital staff can send to woreda
+    if (userHospitalId && child.birthHospital) {
+      const hospitalId = (child.birthHospital as any)._id?.toString() ?? child.birthHospital.toString();
+      if (hospitalId !== userHospitalId) {
+        throw new BadRequestException('You can only notify the woreda for children registered at your facility');
+      }
+    }
+
+    return this.childModel.findByIdAndUpdate(
+      id,
+      {
+        sentToWoreda: true,
+        sentToWoredaAt: new Date(),
+        sentToWoredaBy: senderName ?? userRole,
+      },
+      { new: true },
+    )
+      .populate('motherId', 'name phone age address')
+      .populate('birthHospital', 'name type address')
+      .populate('deliveredBy', 'name email role')
       .exec();
   }
 

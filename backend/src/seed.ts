@@ -41,7 +41,6 @@ async function bootstrap() {
       password: 'admin123', // Service will hash this automatically
       role: UserRole.SYSTEM_ADMIN,
       assignedRegion: 'Addis Ababa',
-      role: UserRole.MOH_ADMIN,
       phoneNumber: '+251900000001',
     });
 

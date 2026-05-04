@@ -1,5 +1,6 @@
 import { Controller, Get, Post, Patch, Delete, Body, Param, UseGuards, Request, Query } from '@nestjs/common';
 import { VaccinationsService } from './vaccinations.service';
+import { VaccinationReminderService } from './vaccination-reminder.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -10,7 +11,19 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiQuery }
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('vaccinations')
 export class VaccinationsController {
-  constructor(private readonly vaccinationsService: VaccinationsService) {}
+  constructor(
+    private readonly vaccinationsService: VaccinationsService,
+    private readonly vaccinationReminderService: VaccinationReminderService,
+  ) {}
+
+  // ── Manual reminder trigger (dev/testing only) ──────────────────────────────
+  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN')
+  @Post('reminders/trigger')
+  @ApiOperation({ summary: 'Manually trigger vaccination reminder job (dev/testing)' })
+  @ApiResponse({ status: 200, description: 'Reminder job triggered' })
+  async triggerReminders() {
+    return this.vaccinationReminderService.triggerManually();
+  }
 
   // Vaccine Management Endpoints
   @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN')
@@ -195,7 +208,8 @@ export class VaccinationsController {
     return this.vaccinationsService.generateVaccinationSchedule(
       childId,
       user.role,
-      user.hospitalId?.toString()
+      user.hospitalId?.toString(),
+      user._id?.toString(),
     );
   }
 
