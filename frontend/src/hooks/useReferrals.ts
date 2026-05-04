@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 
 import {
+  checkedInReferrals,
   createReferral,
   getReferral,
   incomingReferrals,
@@ -22,6 +23,14 @@ export function useOutboxReferrals() {
   return useQuery({
     queryKey: ["referrals", "outbox"],
     queryFn: outboxReferrals,
+    refetchInterval: 15_000,
+  })
+}
+
+export function useCheckedInReferrals() {
+  return useQuery({
+    queryKey: ["referrals", "checked-in"],
+    queryFn: checkedInReferrals,
     refetchInterval: 15_000,
   })
 }
@@ -53,8 +62,15 @@ export function useCreateReferral() {
 export function useSendReferral() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, targetHospitalId }: { id: string; targetHospitalId: string }) =>
-      sendReferral(id, targetHospitalId),
+    mutationFn: ({
+      id,
+      targetHospitalId,
+      liaisonNote,
+    }: {
+      id: string
+      targetHospitalId: string
+      liaisonNote?: string
+    }) => sendReferral(id, targetHospitalId, liaisonNote),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["referrals", "incoming"] })
       qc.invalidateQueries({ queryKey: ["referrals", "outbox"] })

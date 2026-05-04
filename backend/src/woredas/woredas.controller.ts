@@ -13,7 +13,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagg
 export class WoredasController {
   constructor(private readonly woredasService: WoredasService) {}
 
-  @Roles('SUPER_ADMIN')
+  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN')
   @Post()
   @ApiOperation({ summary: 'Create a new woreda' })
   @ApiResponse({ status: 201, description: 'Woreda successfully created' })
@@ -24,7 +24,7 @@ export class WoredasController {
     return this.woredasService.create(createWoredaDto);
   }
 
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN','DOCTOR')
+  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN','DOCTOR')
   @Get()
   @ApiOperation({ summary: 'Get all woredas' })
   @ApiResponse({ status: 200, description: 'Woredas retrieved successfully' })

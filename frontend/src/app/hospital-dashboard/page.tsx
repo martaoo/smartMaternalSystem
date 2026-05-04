@@ -222,7 +222,7 @@ export default function HospitalDashboard() {
           <AddUserForm
             onClose={() => setShowAddUser(false)}
             onSuccess={handleAddUserSuccess}
-            allowedRoles={['DOCTOR', 'NURSE', 'MIDWIFE', 'DISPATCHER', 'LIAISON_OFFICER', 'HOSPITAL_APPROVER', 'SPECIALIST', 'GATEKEEPER']}
+            allowedRoles={['DOCTOR', 'NURSE', 'MIDWIFE', 'LIAISON_OFFICER', 'DISPATCHER', 'LIAISON_OFFICER', 'HOSPITAL_APPROVER', 'SPECIALIST', 'GATEKEEPER']}
             hideHospitalSelect={true}
             fixedHospitalId={
               typeof user?.hospitalId === 'string'

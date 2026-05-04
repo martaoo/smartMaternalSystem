@@ -46,6 +46,7 @@ async createSystemReferral(@Body() dto, @Req() req) {
 async finalizeAndSend(
   @Param('id') id: string,
   @Body('targetHospitalId') targetHospitalId: string,
+  @Body('liaisonNote') liaisonNote: string,
   @Req() req,
 ) {
   // Using consistent naming from the request object
@@ -58,7 +59,8 @@ async finalizeAndSend(
     actorId, 
     hospitalId, 
     targetHospitalId, 
-    actorName
+    actorName,
+    liaisonNote,
   );
 }
 @Get('incoming')
@@ -73,6 +75,24 @@ async getIncoming(@Req() req) {
   }
 
   return this.referralsService.getIncomingReferrals(hospitalId);
+}
+
+@Get('checked-in')
+@Roles(
+  UserRole.LIAISON_OFFICER,
+  UserRole.HOSPITAL_APPROVER,
+  UserRole.HOSPITAL_ADMIN,
+  UserRole.DOCTOR,
+  UserRole.NURSE,
+  UserRole.MIDWIFE,
+  UserRole.SPECIALIST,
+)
+async getCheckedIn(@Req() req) {
+  const hospitalId = req.user.hospitalId;
+  if (!hospitalId) {
+    throw new ForbiddenException('User is not assigned to a hospital');
+  }
+  return this.referralsService.getCheckedInReferrals(hospitalId);
 }
   // ────────────── RECEIVING HOSPITAL / LIAISON ──────────────
   @Patch(':id/respond')
@@ -105,7 +125,7 @@ async getIncoming(@Req() req) {
 
   // ────────────── SPECIALIST / NURSE / MIDWIFE ──────────────
   @Post('unlock')
-  @Roles(UserRole.DOCTOR, UserRole.LIAISON_OFFICER, UserRole.NURSE, UserRole.MIDWIFE)
+  @Roles(UserRole.DOCTOR, UserRole.SPECIALIST, UserRole.NURSE, UserRole.MIDWIFE)
   async unlockReferral(@Body() dto: UnlockReferralDto, @Req() req) {
     return this.referralsService.unlockReferral(dto, req.user.id,req.user.hospitalId);
   }
@@ -145,31 +165,22 @@ async getIncoming(@Req() req) {
 
     return await this.referralsService.getSpecialistQueue(hospitalId);
   }
-  @Get(':id')
-  @Roles(UserRole.LIAISON_OFFICER, UserRole.DOCTOR,UserRole.SPECIALIST, UserRole.NURSE, UserRole.MIDWIFE)
-async getOne(@Param('id') id: string, @Req() req) {
-  // req.user.hospitalId comes from your AuthGuard
-  return this.referralsService.getReferralById(id, req.user.hospitalId);
-}
 
-  // ────────────── HOSPITAL DASHBOARD ──────────────
-  
+  // ────────────── HOSPITAL DASHBOARD (must be declared before @Get(':id')) ──────────────
 
   @Get('dashboard/:type')
-async getDashboard(@Param('type') type: 'inbound' | 'outbound', @Req() req) {
-  return this.referralsService.getHospitalDashboard(req.user.hospitalId, type);
-}
- @Get()
+  async getDashboard(@Param('type') type: 'inbound' | 'outbound', @Req() req) {
+    return this.referralsService.getHospitalDashboard(req.user.hospitalId, type);
+  }
+
+  @Get()
   async getReferrals(
     @Req() req,
     @Query('type') type: 'inbound' | 'outbound' = 'outbound',
   ) {
     const hospitalId = req.user.hospitalId;
 
-    return this.referralsService.getHospitalDashboard(
-      hospitalId,
-      type,
-    );
+    return this.referralsService.getHospitalDashboard(hospitalId, type);
   }
 
   @Get('admin/stats')
@@ -177,4 +188,10 @@ async getDashboard(@Param('type') type: 'inbound' | 'outbound', @Req() req) {
   async getAdminStats() {
     return this.referralsService.getAdminReferralStats();
   }
-} // Don't forget the closing bracket for the class!
+
+  @Get(':id')
+  @Roles(UserRole.LIAISON_OFFICER, UserRole.DOCTOR, UserRole.SPECIALIST, UserRole.NURSE, UserRole.MIDWIFE)
+  async getOne(@Param('id') id: string, @Req() req) {
+    return this.referralsService.getReferralById(id, req.user.hospitalId, req.user.role);
+  }
+}

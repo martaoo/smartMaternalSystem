@@ -339,13 +339,13 @@ export const referralsApi = {
     }).then(handleResponse),
 
   // Send referral (liaison)
-  send: (id: string, targetHospitalId: string) =>
+  send: (id: string, targetHospitalId: string, liaisonNote?: string) =>
     fetch(`${API_BASE}/referrals/${id}/send`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
               },
-      body: JSON.stringify({ targetHospitalId }),
+      body: JSON.stringify({ targetHospitalId, liaisonNote }),
     }).then(handleResponse),
 
   // Respond to referral

@@ -36,7 +36,7 @@ export class CreateUserDto {
   licenseNumber?: string;
 
   @ApiPropertyOptional({ example: '507f1f77bcf86cd799439011', description: 'Associated hospital ID (for hospital staff - auto-assigned for Hospital Admin)' })
-  @ValidateIf(o => ['HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'DISPATCHER', 'LIAISON_OFFICER', 'HOSPITAL_APPROVER', 'GATEKEEPER', 'SPECIALIST'].includes(o.role))
+  @ValidateIf(o => ['HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'MIDWIFE', 'DISPATCHER', 'LIAISON_OFFICER', 'HOSPITAL_APPROVER', 'GATEKEEPER', 'SPECIALIST', 'LIAISON_OFFICER', 'HOSPITAL_APPROVER', 'GATEKEEPER', 'SPECIALIST'].includes(o.role))
   @IsString()
   @IsNotEmpty()
   @IsMongoId()
