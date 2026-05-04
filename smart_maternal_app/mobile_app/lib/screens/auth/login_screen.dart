@@ -231,14 +231,14 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              'Email: bezawit@mother.com',
+                              'Email: meron@maternal.et',
                               style: TextStyle(
                                 fontSize: 12,
                                 color: Colors.blue.shade600,
                               ),
                             ),
                             Text(
-                              'Password: password',
+                              'Password: mother123',
                               style: TextStyle(
                                 fontSize: 12,
                                 color: Colors.blue.shade600,
@@ -249,8 +249,8 @@ class _LoginScreenState extends State<LoginScreen> {
                               width: double.infinity,
                               child: ElevatedButton(
                                 onPressed: () {
-                                  _emailController.text = 'bezawit@mother.com';
-                                  _passwordController.text = 'password';
+                                  _emailController.text = 'meron@maternal.et';
+                                  _passwordController.text = 'mother123';
                                   _login();
                                 },
                                 style: ElevatedButton.styleFrom(

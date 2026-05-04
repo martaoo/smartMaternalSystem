@@ -20,8 +20,8 @@ class _ProfileScreenState extends State<ProfileScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
     _motherProfile = MockMotherRepository.getMotherProfile();
+    _tabController = TabController(length: _motherProfile.infants.length, vsync: this);
   }
 
   @override
