@@ -80,8 +80,53 @@ export class Pregnancy {
   @Prop()
   emergencyReason?: string;
 
-  @Prop({ enum: ['A+', 'A-', 'B+', 'B-', 'O+', 'O-'] })
-  bloodType?: 'A+' | 'A-' | 'B+' | 'B-' | 'O+' | 'O-';
+  @Prop({ enum: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'] })
+  bloodType?: 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-' | 'O+' | 'O-';
+
+  @Prop({ default: false })
+  visitReminderSent: boolean;
+
+  @Prop({ type: Date })
+  visitReminderSentDate?: Date;
+
+  // ── ANC scheduling ────────────────────────────────────────────────────────
+  @Prop({ enum: ['SCHEDULED', 'COMPLETED', 'MISSED', 'RESCHEDULED'], default: 'COMPLETED' })
+  visitStatus: 'SCHEDULED' | 'COMPLETED' | 'MISSED' | 'RESCHEDULED';
+
+  @Prop()
+  visitNumber?: number; // 1–8 per WHO ANC schedule
+
+  @Prop({ default: false })
+  reminder3DaySent: boolean;
+
+  @Prop({ default: false })
+  reminderSameDaySent: boolean;
+
+  // ── Manual override & audit ───────────────────────────────────────────────
+  @Prop({ enum: ['ANC', 'PNC', 'EMERGENCY', 'CUSTOM'], default: 'ANC' })
+  visitType: 'ANC' | 'PNC' | 'EMERGENCY' | 'CUSTOM';
+
+  @Prop({ default: false })
+  manualOverride: boolean;
+
+  @Prop()
+  overrideReason?: string;
+
+  @Prop({ default: false })
+  retrospectiveEntry: boolean;
+
+  @Prop({ type: Types.ObjectId, ref: 'User' })
+  createdBy?: Types.ObjectId;
+
+  @Prop({ type: Types.ObjectId, ref: 'User' })
+  updatedBy?: Types.ObjectId;
+
+  // WHO deviation warning (set by system when manual date deviates > 2 weeks from schedule)
+  @Prop({ default: false })
+  deviatesFromWhoSchedule: boolean;
+
+  @Prop()
+  whoDeviationNote?: string;
 }
 
 export const PregnancySchema = SchemaFactory.createForClass(Pregnancy);

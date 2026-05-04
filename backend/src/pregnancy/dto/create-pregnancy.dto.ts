@@ -125,6 +125,6 @@ export class CreatePregnancyDto {
 
   @ApiPropertyOptional({ example: 'O+', description: 'Mother blood type' })
   @IsOptional()
-  @IsEnum(['A+', 'A-', 'B+', 'B-', 'O+', 'O-'])
-  bloodType?: 'A+' | 'A-' | 'B+' | 'B-' | 'O+' | 'O-';
+  @IsEnum(['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'])
+  bloodType?: 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-' | 'O+' | 'O-';
 }

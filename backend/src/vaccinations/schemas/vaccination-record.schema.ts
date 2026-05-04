@@ -60,10 +60,16 @@ export class VaccinationRecord {
   createdAtHospital: Types.ObjectId;
 
   @Prop({ default: false })
-  reminderSent: boolean;
+  reminderSent: boolean;       // 1-day reminder
 
   @Prop({ type: Date })
   reminderSentDate?: Date;
+
+  @Prop({ default: false })
+  reminder3DaySent: boolean;   // 3-day reminder
+
+  @Prop({ default: false })
+  reminderSameDaySent: boolean; // same-day reminder
 
   @Prop({ default: false })
   followUpRequired: boolean;

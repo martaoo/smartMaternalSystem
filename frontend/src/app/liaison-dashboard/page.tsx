@@ -22,16 +22,21 @@ export default function LiaisonDashboardPage() {
               <h1 className="text-2xl font-bold">Liaison Dashboard</h1>
               <p className="text-sm text-slate-600">Finalize, send, and track referrals.</p>
             </div>
-            <Button
-              variant="secondary"
-              onClick={() => {
-                incoming.refetch()
-                outbox.refetch()
-                toast.success("Refreshed")
-              }}
-            >
-              Refresh
-            </Button>
+            <div className="flex items-center gap-3">
+              <Link href="/liaison-dashboard/profile" className="text-sm text-blue-600 hover:underline">
+                My Profile
+              </Link>
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  incoming.refetch()
+                  outbox.refetch()
+                  toast.success("Refreshed")
+                }}
+              >
+                Refresh
+              </Button>
+            </div>
           </div>
 
           <div className="grid gap-6 md:grid-cols-2">

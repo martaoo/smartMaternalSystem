@@ -75,9 +75,49 @@ export const pregnancyApi = {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
-              },
+      },
       body: JSON.stringify(pregnancyData),
     }).then(handleResponse),
+
+  // Mark visit as completed
+  completeVisit: (id: string) =>
+    fetch(`${API_BASE}/pregnancy/${id}/complete`, {
+      method: 'PATCH',
+    }).then(handleResponse),
+
+  // Reschedule a visit (manual override — requires overrideReason)
+  rescheduleVisit: (id: string, newDate: string, overrideReason: string) =>
+    fetch(`${API_BASE}/pregnancy/${id}/reschedule`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ newDate, overrideReason }),
+    }).then(handleResponse),
+
+  // Create a manual visit (ANC, PNC, Emergency, Custom)
+  createManualVisit: (data: {
+    motherId: string;
+    visitDate: string;
+    visitType: 'ANC' | 'PNC' | 'EMERGENCY' | 'CUSTOM';
+    notes?: string;
+    overrideReason: string;
+    retrospectiveEntry?: boolean;
+    gestationalAge?: number;
+    week?: number;
+    riskLevel?: 'LOW' | 'MODERATE' | 'HIGH';
+  }) =>
+    fetch(`${API_BASE}/pregnancy/manual`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }).then(handleResponse),
+
+  // Full schedule: visits + vaccines + next visit + overdue + warnings
+  getFullSchedule: (motherId: string) =>
+    fetch(`${API_BASE}/pregnancy/full-schedule/${motherId}`).then(handleResponse),
+
+  // WHO ANC 8-visit grid with status
+  getAncSchedule: (motherId: string) =>
+    fetch(`${API_BASE}/pregnancy/anc-schedule/${motherId}`).then(handleResponse),
 
   // Delete pregnancy record
   delete: (id: string) =>
@@ -140,6 +180,18 @@ export const childrenApi = {
       method: 'PATCH',
       headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
     }).then(handleResponse),
+
+  // Issue birth certificate (woreda admin)
+  issueBirthCertificate: (id: string, data: { fatherName?: string; fatherPhone?: string; birthLocation?: string }) =>
+    fetch(`${API_BASE}/children/${id}/issue-certificate`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }).then(handleResponse),
+
+  // Get children by woreda
+  getByWoreda: (woredaId: string) =>
+    fetch(`${API_BASE}/children/woreda/${woredaId}`).then(handleResponse),
 
   // Search children
   search: (query: string) =>
@@ -223,10 +275,6 @@ export const vaccinationsApi = {
   generateVaccinationSchedule: (childId: string) =>
     fetch(`${API_BASE}/vaccinations/schedule/${childId}`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(childId),
     }).then(handleResponse),
 
   // Action endpoints
@@ -255,6 +303,15 @@ export const vaccinationsApi = {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ deferReason, newScheduledDate }),
+    }).then(handleResponse),
+
+  updateVaccinationRecord: (id: string, updateData: any) =>
+    fetch(`${API_BASE}/vaccinations/records/${id}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(updateData),
     }).then(handleResponse),
 
   // Statistics
@@ -311,6 +368,20 @@ export const referralsApi = {
       body: JSON.stringify(data),
     }).then(handleResponse),
 
+  // Get referral by ID
+  getById: (id: string) =>
+    fetch(`${API_BASE}/referrals/${id}`).then(handleResponse),
+
+  // Update referral status
+  updateStatus: (id: string, status: string, note?: string) =>
+    fetch(`${API_BASE}/referrals/${id}/status`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ status, note }),
+    }).then(handleResponse),
+
   // Unlock clinical data
   unlock: (data: any) =>
     fetch(`${API_BASE}/referrals/unlock`, {
@@ -331,7 +402,7 @@ export const referralsApi = {
       body: JSON.stringify(data),
     }).then(handleResponse),
 
-  // Get referrals
+  // Get referrals with type filter
   getAll: (type: 'inbound' | 'outbound' = 'outbound') =>
     fetch(`${API_BASE}/referrals?type=${type}`).then(handleResponse),
 
@@ -342,10 +413,6 @@ export const referralsApi = {
   // Get specialist queue
   getQueue: () =>
     fetch(`${API_BASE}/referrals/specialist/queue`).then(handleResponse),
-
-  // Get single referral
-  getById: (id: string) =>
-    fetch(`${API_BASE}/referrals/${id}`).then(handleResponse),
 
   // Get MOH/System referral stats
   getAdminStats: () =>

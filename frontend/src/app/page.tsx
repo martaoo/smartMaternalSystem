@@ -45,24 +45,12 @@ export default function Home() {
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 {user ? (
-                  <>
-                    <button
-                      onClick={handleDashboardClick}
-                      className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-4 rounded-lg hover:from-blue-700 hover:to-purple-700 transform transition-all duration-200 hover:scale-105 font-semibold shadow-lg"
-                    >
-                      Login / Continue
-                    </button>
-                    <button 
-                      onClick={() => {
-                        localStorage.removeItem('user');
-                        localStorage.removeItem('token');
-                        router.push('/');
-                      }}
-                      className="border-2 border-gray-300 text-gray-700 px-8 py-4 rounded-lg hover:border-gray-400 hover:bg-gray-50 transform transition-all duration-200 hover:scale-105 font-semibold"
-                    >
-                      Logout
-                    </button>
-                  </>
+                  <button
+                    onClick={handleDashboardClick}
+                    className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-4 rounded-lg hover:from-blue-700 hover:to-purple-700 transform transition-all duration-200 hover:scale-105 font-semibold shadow-lg"
+                  >
+                    Go to Dashboard
+                  </button>
                 ) : (
                   <>
                     <button

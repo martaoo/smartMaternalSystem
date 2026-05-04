@@ -121,6 +121,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         role: data.user.role,
         hospitalId: data.user.hospitalId ? String(data.user.hospitalId) : undefined,
         woredaId: data.user.woredaId ? String(data.user.woredaId) : undefined,
+        assignedRegion: data.user.assignedRegion ?? undefined,
+        phoneNumber: data.user.phoneNumber ?? undefined,
       };
 
       // Store both user and access token from API response

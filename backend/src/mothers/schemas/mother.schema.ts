@@ -11,6 +11,9 @@ export class Mother {
   @Prop({ required: true })
   phone: string;
 
+  @Prop()
+  email?: string;
+
   @Prop({ required: true })
   age: number;
 

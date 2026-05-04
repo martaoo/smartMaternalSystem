@@ -156,7 +156,7 @@ export default function SystemDashboard() {
         {/* Header */}
         <header className="bg-white shadow-sm border-b border-gray-200">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-center py-4">
+            <div className="flex flex-wrap justify-between items-center py-4 gap-y-2">
               <div className="flex items-center">
                 <div className="h-10 w-10 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-lg flex items-center justify-center mr-3">
                   <svg className="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -168,11 +168,14 @@ export default function SystemDashboard() {
                   <p className="text-sm text-gray-500">Region: {user?.assignedRegion || 'System Administration'}</p>
                 </div>
               </div>
-              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 w-full sm:w-auto">
-                <span className="text-sm text-gray-700 break-words">Welcome, {user?.name}</span>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-sm text-gray-700 whitespace-nowrap">Welcome, {user?.name}</span>
+                <Link href="/system-dashboard/profile" className="text-sm text-blue-600 hover:underline whitespace-nowrap">
+                  My Profile
+                </Link>
                 <button
                   onClick={logout}
-                  className="w-full sm:w-auto bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors duration-200"
+                  className="whitespace-nowrap bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors duration-200 text-sm"
                 >
                   Logout
                 </button>

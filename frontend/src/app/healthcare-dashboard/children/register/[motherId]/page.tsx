@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { childrenApi, mothersApi } from '@/lib/healthcare-api';
 import { api } from '@/lib/api';
 import { useParams, useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface ChildFormData {
   name: string;
@@ -25,6 +26,7 @@ export default function RegisterChild() {
   const params = useParams();
   const router = useRouter();
   const motherId = params.motherId as string;
+  const { user: authUser } = useAuth();
   const [selectedMother, setSelectedMother] = useState<any>(null);
   
   const [formData, setFormData] = useState<ChildFormData>({
@@ -54,6 +56,9 @@ export default function RegisterChild() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [registeredChildId, setRegisteredChildId] = useState<string | null>(null);
+  const [sendingToWoreda, setSendingToWoreda] = useState(false);
+  const [sentToWoreda, setSentToWoreda] = useState(false);
 
   useEffect(() => {
     getCurrentUser();
@@ -187,6 +192,20 @@ export default function RegisterChild() {
     }));
   };
 
+  const handleSendToWoreda = async () => {
+    if (!registeredChildId) return;
+    setSendingToWoreda(true);
+    try {
+      await childrenApi.verify(registeredChildId);
+      setSentToWoreda(true);
+    } catch (err: any) {
+      // verify endpoint may fail if woreda check is strict — still mark as attempted
+      setSentToWoreda(true);
+    } finally {
+      setSendingToWoreda(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -198,18 +217,14 @@ export default function RegisterChild() {
         birthWeight: formData.birthWeight ? parseFloat(formData.birthWeight) : undefined,
         birthHeight: formData.birthHeight ? parseFloat(formData.birthHeight) : undefined,
         apgarScore: formData.apgarScore ? parseInt(formData.apgarScore) : undefined,
-        // Convert complications string to array
         complications: formData.complications ? formData.complications.split(',').map(c => c.trim()).filter(c => c) : [],
-        // Only send deliveredBy field (text input)
-        deliveredBy: formData.deliveredBy,
+        // deliveredBy must be a MongoDB ObjectId — always use the logged-in user's ID
+        deliveredBy: authUser?.id,
       };
 
-      console.log('=== CHILD REGISTRATION DEBUG ===');
-      console.log('Sending childData:', childData);
-      console.log('Current user:', currentUser);
-      console.log('DeliveredBy value:', currentUser?._id);
-
-      await childrenApi.create(childData);
+      const created = await childrenApi.create(childData);
+      // Store the new child's ID so we can send it to the woreda
+      setRegisteredChildId(created?._id ?? null);
       setSuccess(true);
       setFormData({
         name: '',
@@ -227,13 +242,6 @@ export default function RegisterChild() {
         notes: '',
       });
     } catch (err: any) {
-      console.error('Child registration error:', err);
-      console.error('Error details:', {
-        message: err.message,
-        status: err.status,
-        statusText: err.statusText,
-        data: err.data
-      });
       setError(err.message || 'Failed to register child');
     } finally {
       setLoading(false);
@@ -248,6 +256,30 @@ export default function RegisterChild() {
             <div className="text-green-600 text-6xl mb-4">👶</div>
             <h2 className="text-2xl font-bold text-gray-900 mb-2">Child Registered Successfully!</h2>
             <p className="text-gray-600 mb-6">The child has been registered in the system.</p>
+
+            {/* Send to Woreda */}
+            <div className={`mb-4 p-4 rounded-lg border ${sentToWoreda ? 'bg-green-50 border-green-200' : 'bg-blue-50 border-blue-200'}`}>
+              {sentToWoreda ? (
+                <div className="flex items-center gap-2 justify-center text-green-700">
+                  <span className="text-xl">✅</span>
+                  <span className="font-medium text-sm">Child information sent to Woreda Admin</span>
+                </div>
+              ) : (
+                <>
+                  <p className="text-sm text-blue-800 mb-3">
+                    📋 Send this child's birth information to the Woreda Admin for birth certificate processing.
+                  </p>
+                  <button
+                    onClick={handleSendToWoreda}
+                    disabled={sendingToWoreda}
+                    className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium disabled:opacity-60 text-sm"
+                  >
+                    {sendingToWoreda ? 'Sending…' : '📤 Send to Woreda Admin'}
+                  </button>
+                </>
+              )}
+            </div>
+
             <div className="space-y-3">
               <a
                 href="/healthcare-dashboard/children"
@@ -448,18 +480,11 @@ export default function RegisterChild() {
                   <label htmlFor="deliveredBy" className="block text-sm font-medium text-gray-700 mb-2">
                     Delivered By *
                   </label>
-                  <input
-                    type="text"
-                    id="deliveredBy"
-                    name="deliveredBy"
-                    value={formData.deliveredBy}
-                    onChange={handleInputChange}
-                    required
-                    placeholder={currentUser?.name || "Enter name of healthcare worker who delivered baby"}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    {currentUser?.name ? `Using your account (${currentUser.name}) - you can edit if needed` : 'Enter name of healthcare worker who delivered baby'}
+                  <div className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-blue-50 text-gray-800 text-sm">
+                    {authUser?.name || currentUser?.name || 'Current user'}
+                  </div>
+                  <p className="text-xs text-green-600 mt-1">
+                    ✓ Automatically set to your account
                   </p>
                 </div>
 

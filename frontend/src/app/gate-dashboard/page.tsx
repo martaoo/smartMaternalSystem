@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import Link from "next/link"
 import { toast } from "sonner"
 
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute"
@@ -34,9 +35,14 @@ export default function GateDashboardPage() {
     <ProtectedRoute requiredRole={["GATEKEEPER", "LIAISON_OFFICER"]}>
       <div className="min-h-screen bg-slate-50">
         <div className="mx-auto max-w-xl p-6 space-y-6">
-          <div>
-            <h1 className="text-2xl font-bold">Gate Check-in</h1>
-            <p className="text-sm text-slate-600">Enter referral code to check-in patient.</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold">Gate Check-in</h1>
+              <p className="text-sm text-slate-600">Enter referral code to check-in patient.</p>
+            </div>
+            <Link href="/gate-dashboard/profile" className="text-sm text-blue-600 hover:underline">
+              My Profile
+            </Link>
           </div>
 
           <Card>
