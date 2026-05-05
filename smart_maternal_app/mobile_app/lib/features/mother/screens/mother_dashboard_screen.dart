@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../services/auth_service.dart';
 import '../data/mock_mother_repository.dart';
 import 'mother_danger_signs_screen.dart';
 
@@ -14,10 +15,10 @@ class MotherDashboardScreen extends StatefulWidget {
 class _MotherDashboardScreenState extends State<MotherDashboardScreen> {
   bool _expandedTip = false;
   int _selectedQuickAction = -1;
+  final AuthService _authService = AuthService();
 
   @override
   Widget build(BuildContext context) {
-    final profile = MockMotherRepository.profile;
     final greeting = _greeting();
 
     return Scaffold(
@@ -43,7 +44,13 @@ class _MotherDashboardScreenState extends State<MotherDashboardScreen> {
                     child: Opacity(opacity: value, child: child),
                   );
                 },
-                child: _buildHeroHeader(profile, greeting),
+                child: FutureBuilder<String?>(
+                  future: _authService.getUserName(),
+                  builder: (context, snapshot) {
+                    final userName = snapshot.data ?? 'Mother';
+                    return _buildHeroHeader(userName, greeting);
+                  },
+                ),
               ),
             ),
             
@@ -58,7 +65,7 @@ class _MotherDashboardScreenState extends State<MotherDashboardScreen> {
                 builder: (context, value, child) {
                   return Transform.scale(scale: value, child: child);
                 },
-                child: _buildStatsRow(profile),
+                child: _buildStatsRow(),
               ),
             ),
             
@@ -142,7 +149,7 @@ class _MotherDashboardScreenState extends State<MotherDashboardScreen> {
   }
 
   // ==================== LARGER HERO HEADER (400px height) ====================
-  Widget _buildHeroHeader(profile, String greeting) {
+  Widget _buildHeroHeader(String userName, String greeting) {
     return Container(
       margin: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -302,7 +309,7 @@ class _MotherDashboardScreenState extends State<MotherDashboardScreen> {
                   const SizedBox(height: 6),
                   // Name - LARGER
                   Text(
-                    profile.name,
+                    userName,
                     style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w800,
@@ -333,7 +340,7 @@ class _MotherDashboardScreenState extends State<MotherDashboardScreen> {
                           children: [
                             _buildEnhancedInfoChip(
                               icon: Icons.calendar_today,
-                              label: 'Week ${profile.pregnancyWeek}',
+                              label: 'Week 24',
                               color: AppColors.honeyGold,
                             ),
                             const SizedBox(width: 8),
@@ -446,9 +453,9 @@ class _MotherDashboardScreenState extends State<MotherDashboardScreen> {
   }
 
   // ==================== STATS ROW ====================
-  Widget _buildStatsRow(profile) {
+  Widget _buildStatsRow() {
     final stats = [
-      _StatItem('Next ANC Visit', profile.nextVisit, Icons.calendar_month, AppColors.secondaryBrown),
+      _StatItem('Next ANC Visit', 'May 12, 2024', Icons.calendar_month, AppColors.secondaryBrown),
       _StatItem('Baby\'s Heartbeat', '142 bpm', Icons.favorite, AppColors.successGreen),
       _StatItem('Est. Due Date', 'Aug 15, 2024', Icons.event, AppColors.medicalTeal),
     ];

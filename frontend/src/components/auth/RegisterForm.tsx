@@ -13,7 +13,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onToggleMode }) => {
     email: '',
     password: '',
     name: '',
-    role: 'MOH_ADMIN',
+    role: 'SYSTEM_ADMIN',
   });
   const { register, isLoading, error, clearError } = useAuth();
 
@@ -101,12 +101,20 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onToggleMode }) => {
               required
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="MOH_ADMIN">MOH System Admin</option>
+              <option value="SYSTEM_ADMIN">System Admin</option>
               <option value="WOREDA_ADMIN">Woreda Admin</option>
               <option value="HOSPITAL_ADMIN">Hospital Admin</option>
+              <option value="HEALTH_CENTER_ADMIN">Health Center Admin</option>
               <option value="DOCTOR">Doctor</option>
               <option value="NURSE">Nurse</option>
+              <option value="MIDWIFE">Midwife</option>
               <option value="DISPATCHER">Emergency Dispatcher</option>
+              <option value="LIAISON_OFFICER">Liaison Officer</option>
+              <option value="HOSPITAL_APPROVER">Hospital Approver</option>
+              <option value="GATEKEEPER">Gatekeeper</option>
+              <option value="SPECIALIST">Specialist</option>
+              <option value="EMERGENCY_ADMIN">Emergency Admin</option>
+              <option value="MOTHER">Mother</option>
             </select>
           </div>
 

@@ -8,52 +8,64 @@ import { CreateMotherDto } from './dto/create-mother.dto';
 export class MothersService {
   constructor(@InjectModel(Mother.name) private motherModel: Model<MotherDocument>) {}
 
- async create(
-  createMotherDto: CreateMotherDto,
-  userRole: string,
-  userHospitalId?: string,
-  userWoredaId?: string
-): Promise<Mother> {
-
-  let healthCenterId: string;
-
-  if (
-    userRole === 'HOSPITAL_ADMIN' ||
-    userRole === 'DOCTOR' ||
-    userRole === 'NURSE' ||
-    userRole === 'MIDWIFE'
-  ) {
-    if (!userHospitalId) {
+  async create(
+    createMotherDto: CreateMotherDto,
+    userRole: string,
+    userHospitalId?: string,
+    userWoredaId?: string
+  ): Promise<Mother> {
+  
+    let healthCenterId: string;
+  
+    if (
+      userRole === 'HOSPITAL_ADMIN' ||
+      userRole === 'DOCTOR' ||
+      userRole === 'NURSE' ||
+      userRole === 'MIDWIFE'
+    ) {
+      if (!userHospitalId) {
+        throw new BadRequestException(
+          'You must be assigned to a hospital to register mothers'
+        );
+      }
+      healthCenterId = userHospitalId;
+    } else {
       throw new BadRequestException(
-        'You must be assigned to a hospital to register mothers'
+        'Only hospital staff can register mothers'
       );
     }
-    healthCenterId = userHospitalId;
-  } else {
-    throw new BadRequestException(
-      'Only hospital staff can register mothers'
-    );
+  
+    const motherData = {
+      name: createMotherDto.name,
+      phone: createMotherDto.phone,
+      age: createMotherDto.age,
+      address: createMotherDto.address,
+      emergencyContact: createMotherDto.emergencyContact,
+      medicalHistory: createMotherDto.medicalHistory,
+      expectedDeliveryDate: createMotherDto.expectedDeliveryDate,
+      gravida: createMotherDto.gravida,
+      para: createMotherDto.para,
+      lmp: createMotherDto.lmp,
+      registeredBy: createMotherDto.registeredBy || 'System',
+      
+      // ✅ FIX: Use woredaId from DTO if userWoredaId is not available
+      woredaId: userWoredaId 
+        ? new Types.ObjectId(userWoredaId) 
+        : (createMotherDto.woredaId ? new Types.ObjectId(createMotherDto.woredaId) : undefined),
+      
+      healthCenter: new Types.ObjectId(healthCenterId),
+    };
+  
+    console.log('=== SERVICE CREATE DEBUG ===');
+    console.log('User role:', userRole);
+    console.log('User hospitalId:', userHospitalId);
+    console.log('User woredaId:', userWoredaId);
+    console.log('DTO woredaId:', createMotherDto.woredaId);
+    console.log('Final motherData:', JSON.stringify(motherData, null, 2));
+  
+    const mother = new this.motherModel(motherData);
+    return mother.save();
   }
-
-  const motherData = {
-    ...createMotherDto,
-
-    // ✅ ensure consistency with referral flow
-    woredaId: userWoredaId
-      ? new Types.ObjectId(userWoredaId)
-      : undefined,
-
-    healthCenter: new Types.ObjectId(healthCenterId),
-
-    registeredBy: createMotherDto.registeredBy || 'System',
-
-    // OPTIONAL: if your schema supports email
-    email: (createMotherDto as any).email || undefined,
-  };
-
-  const mother = new this.motherModel(motherData);
-  return mother.save();
-}
   async findAll(userRole: string, userHospitalId?: string, userWoredaId?: string): Promise<Mother[]> {
     let query: any = {};
 
@@ -136,6 +148,43 @@ export class MothersService {
 
   async findByPhone(phone: string): Promise<Mother | null> {
     return this.motherModel.findOne({ phone }).exec();
+  }
+
+  /**
+   * Resolve Mother profile for a logged-in MOTHER app user.
+   * Prefer explicit linkedMotherId on User, then phone match.
+   */
+  async findMotherForAuthenticatedAppUser(user: {
+    linkedMotherId?: Types.ObjectId | string | { _id?: Types.ObjectId };
+    phoneNumber?: string;
+  }): Promise<MotherDocument | null> {
+    const linked = user.linkedMotherId as any;
+    if (linked) {
+      const id =
+        typeof linked === 'string'
+          ? linked
+          : linked._id?.toString?.() ?? linked.toString?.();
+      if (id) {
+        const byLink = await this.motherModel.findById(id).exec();
+        if (byLink) return byLink;
+      }
+    }
+
+    const raw = (user.phoneNumber || '').trim();
+    if (!raw) {
+      return null;
+    }
+
+    let m = await this.motherModel.findOne({ phone: raw }).exec();
+    if (m) return m;
+
+    const digits = raw.replace(/\D/g, '');
+    if (digits.length >= 8) {
+      m = await this.motherModel
+        .findOne({ phone: { $regex: new RegExp(`${digits}$`) } })
+        .exec();
+    }
+    return m;
   }
 
   async search(query: string, userRole: string, userHospitalId?: string, userWoredaId?: string): Promise<Mother[]> {

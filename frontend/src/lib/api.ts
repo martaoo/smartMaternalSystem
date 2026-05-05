@@ -62,9 +62,21 @@ export const api = {
   getHospitals: () =>
     fetch(`${API_BASE}/hospitals`).then(handleResponse),
 
+  getHospital: (id: string) =>
+    fetch(`${API_BASE}/hospitals/${id}`).then(handleResponse),
+
   createHospital: (data: any) =>
     fetch(`${API_BASE}/hospitals`, {
       method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    }).then(handleResponse),
+
+  updateHospital: (id: string, data: any) =>
+    fetch(`${API_BASE}/hospitals/${id}`, {
+      method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
       },
@@ -80,9 +92,21 @@ export const api = {
   getWoredas: () =>
     fetch(`${API_BASE}/woredas`).then(handleResponse),
 
+  getWoreda: (id: string) =>
+    fetch(`${API_BASE}/woredas/${id}`).then(handleResponse),
+
   createWoreda: (data: any) =>
     fetch(`${API_BASE}/woredas`, {
       method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    }).then(handleResponse),
+
+  updateWoreda: (id: string, data: any) =>
+    fetch(`${API_BASE}/woredas/${id}`, {
+      method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
       },

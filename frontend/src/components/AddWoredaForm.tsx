@@ -12,6 +12,7 @@ export function AddWoredaForm({ onClose, onSuccess }: AddWoredaFormProps) {
   const [formData, setFormData] = useState({
     name: '',
     region: '',
+    city: '',
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -32,9 +33,26 @@ export function AddWoredaForm({ onClose, onSuccess }: AddWoredaFormProps) {
     }
   };
 
+  const ethiopianRegions = [
+    'Oromia',
+    'Amhara',
+    'Tigray',
+    'Somali',
+    'Afar',
+    'Sidama',
+    'South Ethiopia',
+    'Central Ethiopia',
+    'Southwest Ethiopia Peoples\'',
+    'Benishangul-Gumuz',
+    'Gambela',
+    'Harari',
+    'Addis Ababa (City Administration)',
+    'Dire Dawa (City Administration)'
+  ];
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md">
+    <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-3 sm:p-4">
+      <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
         <h2 className="text-xl font-bold mb-4">Add New Woreda</h2>
         {error && <p className="text-red-600 mb-4">{error}</p>}
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -50,26 +68,43 @@ export function AddWoredaForm({ onClose, onSuccess }: AddWoredaFormProps) {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700">Region</label>
-            <input
-              type="text"
+            <select
               required
               value={formData.region}
               onChange={(e) => setFormData({ ...formData, region: e.target.value })}
               className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+            >
+              <option value="">Select a region</option>
+              {ethiopianRegions.map((region) => (
+                <option key={region} value={region}>
+                  {region}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">City</label>
+            <input
+              type="text"
+              required
+              value={formData.city}
+              onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+              placeholder="Enter city name"
             />
           </div>
-          <div className="flex justify-end space-x-2">
+          <div className="flex flex-col sm:flex-row sm:justify-end gap-2">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
+              className="w-full sm:w-auto px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:opacity-50"
+              className="w-full sm:w-auto px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:opacity-50"
             >
               {loading ? 'Creating...' : 'Create Woreda'}
             </button>

@@ -23,9 +23,26 @@ export class WoredasService {
   }
 
   async findAllWithRoleFilter(role: string, woredaId?: string): Promise<Woreda[]> {
-    if (role === 'HOSPITAL_ADMIN' && woredaId) {
+    // SUPER_ADMIN can see all woredas
+    if (role === 'SUPER_ADMIN') {
+      return this.woredaModel.find().exec();
+    }
+    
+    // WOREDA_ADMIN can only see their woreda
+    if (role === 'WOREDA_ADMIN' && woredaId) {
       return this.woredaModel.find({ _id: woredaId }).exec();
     }
+    
+    // HOSPITAL_ADMIN - check if they have woredaId
+    if (role === 'HOSPITAL_ADMIN') {
+      if (woredaId) {
+        return this.woredaModel.find({ _id: woredaId }).exec();
+      }
+      // If no woredaId, return empty array or all? Usually empty for security
+      return [];
+    }
+    
+    // Default: return all for other roles (like DOCTOR, NURSE)
     return this.woredaModel.find().exec();
   }
 }

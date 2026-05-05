@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
-import '../../features/mother/data/mock_mother_repository.dart';
-import '../../features/mother/screens/mother_danger_signs_screen.dart';
+import '../../services/mother_service.dart';
+import '../../models/mother_models.dart';
+import 'mother_danger_signs_screen.dart';
 
 class MotherDashboardScreen extends StatefulWidget {
   final ValueChanged<int>? onNavigate;
@@ -14,10 +15,50 @@ class MotherDashboardScreen extends StatefulWidget {
 class _MotherDashboardScreenState extends State<MotherDashboardScreen> {
   bool _expandedTip = false;
   int _selectedQuickAction = -1;
+  bool _isLoading = true;
+  MotherProfile? _motherProfile;
+  PregnancyRecord? _currentPregnancy;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMotherData();
+  }
+
+  Future<void> _loadMotherData() async {
+    setState(() => _isLoading = true);
+    
+    try {
+      final motherService = MotherService();
+      final profile = await motherService.getMotherProfile();
+      final pregnancy = await motherService.getCurrentPregnancy();
+      
+      setState(() {
+        _motherProfile = profile;
+        _currentPregnancy = pregnancy;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final profile = MockMotherRepository.profile;
+    if (_isLoading) {
+      return _buildLoadingScreen();
+    }
+    
+    if (_errorMessage != null) {
+      return _buildErrorScreen();
+    }
+    
+    final profile = _motherProfile!;
+    final pregnancy = _currentPregnancy;
     final greeting = _greeting();
 
     return Scaffold(
@@ -43,7 +84,7 @@ class _MotherDashboardScreenState extends State<MotherDashboardScreen> {
                     child: Opacity(opacity: value, child: child),
                   );
                 },
-                child: _buildHeroHeader(profile, greeting),
+                child: _buildHeroHeader(profile, pregnancy, greeting),
               ),
             ),
             
@@ -58,7 +99,7 @@ class _MotherDashboardScreenState extends State<MotherDashboardScreen> {
                 builder: (context, value, child) {
                   return Transform.scale(scale: value, child: child);
                 },
-                child: _buildStatsRow(profile),
+                child: _buildStatsRow(profile, pregnancy),
               ),
             ),
             
@@ -94,7 +135,7 @@ class _MotherDashboardScreenState extends State<MotherDashboardScreen> {
                     child: Opacity(opacity: value, child: child),
                   );
                 },
-                child: _buildHealthMetricsSection(),
+                child: _buildHealthMetricsSection(pregnancy),
               ),
             ),
             
@@ -112,16 +153,16 @@ class _MotherDashboardScreenState extends State<MotherDashboardScreen> {
                     child: Opacity(opacity: value, child: child),
                   );
                 },
-                child: _buildAIAlertCard(profile.riskLevel),
+                child: _buildAIAlertCard(pregnancy?.riskLevel ?? 'LOW'),
               ),
             ),
             
             const SliverToBoxAdapter(child: SizedBox(height: 16)),
             
-            // Smart Tip Card
+            // Symptoms & Medications Section
             SliverToBoxAdapter(
               child: TweenAnimationBuilder<double>(
-                duration: const Duration(milliseconds: 1100),
+                duration: const Duration(milliseconds: 900),
                 curve: Curves.easeOutCubic,
                 tween: Tween(begin: 0, end: 1),
                 builder: (context, value, child) {
@@ -130,7 +171,25 @@ class _MotherDashboardScreenState extends State<MotherDashboardScreen> {
                     child: Opacity(opacity: value, child: child),
                   );
                 },
-                child: _buildSmartTip(profile.pregnancyWeek),
+                child: _buildSymptomsMedicationsSection(pregnancy),
+              ),
+            ),
+            
+            const SliverToBoxAdapter(child: SizedBox(height: 16)),
+            
+            // Smart Tip Card
+            SliverToBoxAdapter(
+              child: TweenAnimationBuilder<double>(
+                duration: const Duration(milliseconds: 1000),
+                curve: Curves.easeOutCubic,
+                tween: Tween(begin: 0, end: 1),
+                builder: (context, value, child) {
+                  return Transform.translate(
+                    offset: Offset(0, 30 * (1 - value)),
+                    child: Opacity(opacity: value, child: child),
+                  );
+                },
+                child: _buildSmartTip(pregnancy?.week ?? 24),
               ),
             ),
             
@@ -141,8 +200,62 @@ class _MotherDashboardScreenState extends State<MotherDashboardScreen> {
     );
   }
 
+  Widget _buildLoadingScreen() {
+    return Scaffold(
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const CircularProgressIndicator(color: AppColors.primaryBrown),
+            const SizedBox(height: 16),
+            Text(
+              'Loading your health data...',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorScreen() {
+    return Scaffold(
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, size: 64, color: Colors.red),
+              const SizedBox(height: 16),
+              Text(
+                'Unable to load data',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _errorMessage!,
+                textAlign: TextAlign.center,
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: _loadMotherData,
+                style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryBrown),
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   // ==================== HERO HEADER ====================
-  Widget _buildHeroHeader(profile, String greeting) {
+  Widget _buildHeroHeader(MotherProfile profile, PregnancyRecord? pregnancy, String greeting) {
+    final week = pregnancy?.week ?? 24;
+    final trimester = _getTrimester(week);
+    
     return Container(
       margin: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -159,7 +272,6 @@ class _MotherDashboardScreenState extends State<MotherDashboardScreen> {
         borderRadius: BorderRadius.circular(32),
         child: Stack(
           children: [
-            // Background Image
             Image.asset(
               'assets/images/pregnant_mother2.jpg',
               height: 320,
@@ -179,7 +291,6 @@ class _MotherDashboardScreenState extends State<MotherDashboardScreen> {
                 ),
               ),
             ),
-            // Gradient Overlay
             Container(
               height: 320,
               decoration: BoxDecoration(
@@ -194,7 +305,6 @@ class _MotherDashboardScreenState extends State<MotherDashboardScreen> {
                 ),
               ),
             ),
-            // Decorative Elements
             Positioned(
               top: -40,
               right: -40,
@@ -219,7 +329,6 @@ class _MotherDashboardScreenState extends State<MotherDashboardScreen> {
                 ),
               ),
             ),
-            // Content
             Positioned(
               left: 24,
               right: 24,
@@ -290,12 +399,12 @@ class _MotherDashboardScreenState extends State<MotherDashboardScreen> {
                       children: [
                         _buildInfoChip(
                           icon: Icons.calendar_today,
-                          label: 'Week ${profile.pregnancyWeek}',
+                          label: 'Week $week',
                         ),
                         const SizedBox(width: 12),
                         _buildInfoChip(
                           icon: Icons.favorite,
-                          label: profile.trimester,
+                          label: trimester,
                         ),
                         const Spacer(),
                         Container(
@@ -345,11 +454,11 @@ class _MotherDashboardScreenState extends State<MotherDashboardScreen> {
   }
 
   // ==================== STATS ROW ====================
-  Widget _buildStatsRow(profile) {
+  Widget _buildStatsRow(MotherProfile profile, PregnancyRecord? pregnancy) {
     final stats = [
-      _StatItem('Next Visit', profile.nextVisit, Icons.calendar_month, AppColors.secondaryBrown),
-      _StatItem('Baby Size', 'Eggplant', Icons.child_care, AppColors.successGreen),
-      _StatItem('Est. Weight', '1.2 kg', Icons.monitor_weight, AppColors.medicalTeal),
+      _StatItem('Next Visit', pregnancy?.nextVisitDate ?? 'Not scheduled', Icons.calendar_month, AppColors.secondaryBrown),
+      _StatItem('Baby Size', _getBabySize(pregnancy?.week ?? 24), Icons.child_care, AppColors.successGreen),
+      _StatItem('Est. Weight', _getBabyWeight(pregnancy?.week ?? 24), Icons.monitor_weight, AppColors.medicalTeal),
     ];
 
     return Padding(
@@ -528,12 +637,38 @@ class _MotherDashboardScreenState extends State<MotherDashboardScreen> {
   }
 
   // ==================== HEALTH METRICS SECTION ====================
-  Widget _buildHealthMetricsSection() {
+  Widget _buildHealthMetricsSection(PregnancyRecord? pregnancy) {
     final metrics = [
-      _MetricData('Blood Pressure', '118/76', 'Normal', Icons.favorite, AppColors.successGreen),
-      _MetricData('Weight', '64 kg', '+0.5 kg', Icons.monitor_weight, AppColors.secondaryBrown),
-      _MetricData('Baby Heartbeat', '142 bpm', 'Healthy', Icons.favorite_border, AppColors.medicalTeal),
-      _MetricData('Blood Sugar', '92 mg/dL', 'Normal', Icons.science, AppColors.successGreen),
+      _MetricData('Blood Pressure', 
+          '${pregnancy?.systolicBP ?? 120}/${pregnancy?.diastolicBP ?? 80}', 
+          _getBPStatus(pregnancy?.systolicBP ?? 120, pregnancy?.diastolicBP ?? 80), 
+          Icons.favorite, 
+          _getBPColor(pregnancy?.systolicBP ?? 120, pregnancy?.diastolicBP ?? 80)),
+      _MetricData('Weight', 
+          '${pregnancy?.weight ?? 65.5} kg', 
+          '+0.5 kg', 
+          Icons.monitor_weight, 
+          AppColors.secondaryBrown),
+      _MetricData('Baby Heartbeat', 
+          '${pregnancy?.fetalHeartRate ?? 140} bpm', 
+          _getFHRStatus(pregnancy?.fetalHeartRate ?? 140), 
+          Icons.favorite_border, 
+          _getFHRColor(pregnancy?.fetalHeartRate ?? 140)),
+      _MetricData('Blood Sugar', 
+          '${pregnancy?.labResults?.bloodSugar ?? 95} mg/dL', 
+          'Normal', 
+          Icons.science, 
+          AppColors.successGreen),
+      _MetricData('Hemoglobin', 
+          '${pregnancy?.labResults?.hemoglobin ?? 12.5} g/dL', 
+          pregnancy?.labResults?.hemoglobin != null && pregnancy!.labResults!.hemoglobin < 11 ? 'Low' : 'Normal', 
+          Icons.opacity, 
+          pregnancy?.labResults?.hemoglobin != null && pregnancy!.labResults!.hemoglobin < 11 ? AppColors.warningOrange : AppColors.successGreen),
+      _MetricData('Fundal Height', 
+          '${pregnancy?.fundalHeight ?? 24} cm', 
+          'Matches week', 
+          Icons.straighten, 
+          AppColors.successGreen),
     ];
 
     return Column(
@@ -567,7 +702,7 @@ class _MotherDashboardScreenState extends State<MotherDashboardScreen> {
               return Container(
                 width: 160,
                 margin: EdgeInsets.only(right: index == metrics.length - 1 ? 0 : 12),
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
@@ -584,42 +719,41 @@ class _MotherDashboardScreenState extends State<MotherDashboardScreen> {
                   ],
                   border: Border.all(color: m.color.withOpacity(0.2)),
                 ),
-                child: Row(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: m.color.withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: Icon(m.icon, color: m.color, size: 24),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: m.color.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(m.icon, color: m.color, size: 20),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
                             m.label,
                             style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            m.value,
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: m.color,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            m.status,
-                            style: const TextStyle(fontSize: 10, color: AppColors.textLight),
-                          ),
-                        ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      m.value,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: m.color,
                       ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      m.status,
+                      style: const TextStyle(fontSize: 10, color: AppColors.textLight),
                     ),
                   ],
                 ),
@@ -717,8 +851,133 @@ class _MotherDashboardScreenState extends State<MotherDashboardScreen> {
     );
   }
 
+  // ==================== SYMPTOMS & MEDICATIONS SECTION ====================
+  Widget _buildSymptomsMedicationsSection(PregnancyRecord? pregnancy) {
+    final symptoms = pregnancy?.symptoms ?? ['Nausea', 'Mild back pain'];
+    final medications = pregnancy?.medications ?? ['Folic acid', 'Iron supplements'];
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+          child: Text(
+            'Current Symptoms & Medications',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 20,
+              color: AppColors.textPrimary,
+            ),
+          ),
+        ),
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: [
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Colors.orange.shade50, Colors.white],
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.orange.shade200),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.sick, color: Colors.orange.shade600, size: 20),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Symptoms',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.orange.shade600,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      ...symptoms.map((symptom) => Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: Row(
+                          children: [
+                            Icon(Icons.circle, color: Colors.orange.shade400, size: 6),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                symptom,
+                                style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Colors.blue.shade50, Colors.white],
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.blue.shade200),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.medication, color: Colors.blue.shade600, size: 20),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Medications',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.blue.shade600,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      ...medications.map((med) => Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: Row(
+                          children: [
+                            Icon(Icons.circle, color: Colors.blue.shade400, size: 6),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                med,
+                                style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   // ==================== SMART TIP CARD ====================
   Widget _buildSmartTip(int week) {
+    final tip = _getWeeklyTip(week);
+    
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       child: AnimatedContainer(
@@ -795,10 +1054,10 @@ class _MotherDashboardScreenState extends State<MotherDashboardScreen> {
                           ),
                         ),
                         const SizedBox(width: 12),
-                        const Expanded(
+                        Expanded(
                           child: Text(
-                            'Try light walking daily and sleep on your left side for better blood flow.',
-                            style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
+                            tip,
+                            style: const TextStyle(fontSize: 14, color: AppColors.textSecondary),
                           ),
                         ),
                       ],
@@ -841,11 +1100,71 @@ class _MotherDashboardScreenState extends State<MotherDashboardScreen> {
     );
   }
 
+  // ==================== HELPER METHODS ====================
   String _greeting() {
     final hour = DateTime.now().hour;
     if (hour < 12) return 'Good morning';
     if (hour < 18) return 'Good afternoon';
     return 'Good evening';
+  }
+
+  String _getTrimester(int week) {
+    if (week < 13) return '1st Trimester';
+    if (week < 28) return '2nd Trimester';
+    return '3rd Trimester';
+  }
+
+  String _getBabySize(int week) {
+    if (week < 12) return 'Plum';
+    if (week < 16) return 'Lemon';
+    if (week < 20) return 'Bell Pepper';
+    if (week < 24) return 'Mango';
+    if (week < 28) return 'Eggplant';
+    if (week < 32) return 'Coconut';
+    if (week < 36) return 'Pineapple';
+    return 'Watermelon';
+  }
+
+  String _getBabyWeight(int week) {
+    if (week < 20) return '0.3 kg';
+    if (week < 24) return '0.6 kg';
+    if (week < 28) return '1.0 kg';
+    if (week < 32) return '1.7 kg';
+    if (week < 36) return '2.5 kg';
+    return '3.0 kg';
+  }
+
+  String _getWeeklyTip(int week) {
+    if (week < 12) return 'Take folic acid daily and avoid alcohol.';
+    if (week < 20) return 'Eat iron-rich foods to prevent anemia.';
+    if (week < 28) return 'Monitor baby movements daily.';
+    if (week < 34) return 'Sleep on your left side for better blood flow.';
+    return 'Prepare your hospital bag and birth plan.';
+  }
+
+  String _getBPStatus(int systolic, int diastolic) {
+    if (systolic < 120 && diastolic < 80) return 'Normal';
+    if (systolic < 130 && diastolic < 80) return 'Elevated';
+    if (systolic < 140 || diastolic < 90) return 'High - Stage 1';
+    return 'High - Stage 2';
+  }
+
+  Color _getBPColor(int systolic, int diastolic) {
+    if (systolic < 120 && diastolic < 80) return AppColors.successGreen;
+    if (systolic < 130 && diastolic < 80) return AppColors.warningOrange;
+    return AppColors.error;
+  }
+
+  String _getFHRStatus(int rate) {
+    if (rate >= 120 && rate <= 160) return 'Normal';
+    if (rate < 120) return 'Low';
+    return 'High';
+  }
+
+  Color _getFHRColor(int rate) {
+    if (rate >= 120 && rate <= 160) return AppColors.successGreen;
+    if (rate < 120) return AppColors.warningOrange;
+    return AppColors.error;
   }
 }
 

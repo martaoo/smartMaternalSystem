@@ -16,7 +16,23 @@ export class User {
 
   @Prop({ 
     required: true, 
-    enum: ['MOH_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'DISPATCHER', 'EMERGENCY_ADMIN', 'MOTHER'] 
+    enum: [
+      'MOH_ADMIN',
+      'SYSTEM_ADMIN',
+      'WOREDA_ADMIN',
+      'HOSPITAL_ADMIN',
+      'HEALTH_CENTER_ADMIN',
+      'DOCTOR',
+      'NURSE',
+      'MIDWIFE',
+      'DISPATCHER',
+      'EMERGENCY_ADMIN',
+      'MOTHER',
+      'LIAISON_OFFICER',
+      'HOSPITAL_APPROVER',
+      'GATEKEEPER',
+      'SPECIALIST',
+    ] 
   })
   role: string;
 
@@ -25,6 +41,10 @@ export class User {
 
   @Prop({ type: Types.ObjectId, ref: 'Woreda' })
   woredaId: Types.ObjectId;
+
+  /** Optional link for MOTHER app users to their Mother clinical record */
+  @Prop({ type: Types.ObjectId, ref: 'Mother' })
+  linkedMotherId?: Types.ObjectId;
 
   @Prop()
   assignedRegion: string; // For SYSTEM_ADMIN - the region/subcity they manage

@@ -54,7 +54,9 @@ export class AuthService {
         role: user.role,
         hospitalId: user.hospitalId,
         woredaId: user.woredaId,
-      }
+        phoneNumber: (user as any).phoneNumber,
+        linkedMotherId: (user as any).linkedMotherId,
+      },
     };
   }
 }

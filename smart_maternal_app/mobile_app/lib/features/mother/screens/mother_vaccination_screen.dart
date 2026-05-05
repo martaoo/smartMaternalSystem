@@ -363,7 +363,7 @@ class _MotherVaccinationScreenState extends State<MotherVaccinationScreen>
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
+      children: [
                         Text(item.vaccine, style: const TextStyle(fontWeight: FontWeight.w900)),
                         const SizedBox(height: 4),
                         Text(
@@ -502,7 +502,7 @@ class _MotherVaccinationScreenState extends State<MotherVaccinationScreen>
                             children: [
                               const Text('Record vaccination', style: TextStyle(fontWeight: FontWeight.w900)),
                               const SizedBox(height: 10),
-                              TextField(
+                TextField(
                                 controller: weightCtrl,
                                 keyboardType: TextInputType.number,
                                 decoration: InputDecoration(
@@ -513,9 +513,9 @@ class _MotherVaccinationScreenState extends State<MotherVaccinationScreen>
                               ),
                               const SizedBox(height: 10),
                               InkWell(
-                                onTap: () async {
-                                  final picked = await showDatePicker(
-                                    context: context,
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: context,
                                     initialDate: givenDate,
                                     firstDate: DateTime.now().subtract(const Duration(days: 365 * 5)),
                                     lastDate: DateTime.now().add(const Duration(days: 1)),
@@ -778,7 +778,7 @@ class _MotherVaccinationScreenState extends State<MotherVaccinationScreen>
       id: 'PH-${vaccine.hashCode}',
       vaccine: vaccine,
       ageLabel: ageLabel,
-      dueDate: dueDate,
+                  dueDate: dueDate,
       completed: false,
       administeredDate: null,
       note: null,
@@ -1217,7 +1217,7 @@ class _MotherTdTabState extends State<_MotherTdTab> with SingleTickerProviderSta
                     onPressed: () async {
                       await MockMotherRepository.setTdDate(pregnant: pregnant, doseKey: dose.keyName, dateGiven: selected);
                       if (!context.mounted) return;
-                      Navigator.pop(context);
+                Navigator.pop(context);
                       setState(() {});
                     },
                     style: ElevatedButton.styleFrom(
