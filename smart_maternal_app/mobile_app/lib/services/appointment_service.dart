@@ -6,10 +6,10 @@ import 'auth_service.dart';
 class AppointmentService {
   final AuthService _authService = AuthService();
   
-  // Base URLs to try
+  // Base URLs to try - using pregnancy endpoints instead
   final List<String> baseUrls = [
-    "http://10.0.2.2:3001/api/appointments",  // Standard Android emulator
-    "http://localhost:3001/api/appointments",  // Fallback for physical device
+    "http://10.0.2.2:3001/api/pregnancy/me/visits",  // Standard Android emulator
+    "http://localhost:3001/api/pregnancy/me/visits",  // Fallback for physical device
   ];
 
   Future<List<MotherAppointment>> getAppointments() async {
@@ -220,77 +220,119 @@ class AppointmentService {
   }
 
   MotherAppointment _parseAppointment(Map<String, dynamic> json) {
+    // Parse pregnancy visit data as appointment
+    final visitDate = json['visitDate'] != null ? DateTime.parse(json['visitDate']) : DateTime.now();
+    final nextVisitDate = json['nextVisitDate'] != null ? DateTime.parse(json['nextVisitDate']) : null;
+    final week = json['week'] ?? json['gestationalAge'] ?? 0;
+    final riskLevel = json['riskLevel'] ?? 'LOW';
+    final isHighRisk = riskLevel == 'HIGH';
+    
+    // Determine if this is a past visit or upcoming visit
+    final isPastVisit = nextVisitDate == null || nextVisitDate.isBefore(DateTime.now());
+    final appointmentDate = isPastVisit ? visitDate : nextVisitDate!;
+    
     return MotherAppointment(
-      id: json['_id'] ?? json['id'] ?? '',
-      title: json['title'] ?? '',
-      type: json['type'] ?? 'Consultation',
-      week: json['week'],
-      dateTime: DateTime.parse(json['dateTime'] ?? json['date'] ?? DateTime.now().toIso8601String()),
-      facility: json['facility'] ?? 'Health Center',
-      provider: json['provider'] ?? 'Healthcare Provider',
-      status: json['status'] ?? 'upcoming',
-      isHighRisk: json['isHighRisk'] ?? false,
-      notes: json['notes'],
+      id: json['_id']?.toString() ?? '',
+      title: _generateAppointmentTitle(week, isPastVisit),
+      type: _determineAppointmentType(week, json),
+      week: week,
+      dateTime: appointmentDate,
+      facility: 'Health Center', // Will be populated from hospital data
+      provider: 'Healthcare Provider', // Will be populated from health worker data
+      status: _determineStatus(appointmentDate, isPastVisit),
+      isHighRisk: isHighRisk,
+      notes: json['notes'] ?? json['recommendations'],
     );
+  }
+
+  String _generateAppointmentTitle(int week, bool isPastVisit) {
+    if (isPastVisit) {
+      return 'ANC Visit - Week $week (Completed)';
+    } else {
+      return 'ANC Visit - Week $week';
+    }
+  }
+
+  String _determineAppointmentType(int week, Map<String, dynamic> json) {
+    // Determine appointment type based on week and data
+    if (week <= 12) return 'First ANC';
+    if (week <= 28) return 'ANC Follow-up';
+    if (week <= 36) return 'ANC Visit';
+    if (json['ultrasoundFindings'] != null) return 'Ultrasound';
+    return 'ANC Visit';
+  }
+
+  String _determineStatus(DateTime appointmentDate, bool isPastVisit) {
+    if (isPastVisit) return 'completed';
+    if (appointmentDate.isBefore(DateTime.now())) return 'missed';
+    return 'upcoming';
   }
 
   // Fallback mock data if backend is not available
   List<MotherAppointment> _getMockAppointments() {
-    print('Using mock appointments data as fallback');
+    print('Using mock pregnancy-based appointments data as fallback');
+    final now = DateTime.now();
     return [
+      // Upcoming visits
       MotherAppointment(
-        id: 'APT-001',
-        title: 'ANC Visit - Week 28',
-        dateTime: DateTime.now().add(const Duration(days: 3)),
+        id: 'PREG-001',
+        title: 'ANC Visit - Week 32',
+        week: 32,
+        dateTime: now.add(const Duration(days: 7)),
         status: 'upcoming',
-        type: 'ANC',
+        type: 'ANC Follow-up',
         facility: 'Adama Health Center',
         provider: 'Dr. Tigist Bekele',
-        notes: 'Bring your ANC card',
+        notes: 'Routine checkup, monitor blood pressure',
         isHighRisk: false,
       ),
       MotherAppointment(
-        id: 'APT-002',
-        title: 'Ultrasound Scan',
-        dateTime: DateTime.now().add(const Duration(days: 10)),
+        id: 'PREG-002',
+        title: 'ANC Visit - Week 36',
+        week: 36,
+        dateTime: now.add(const Duration(days: 21)),
         status: 'upcoming',
-        type: 'Ultrasound',
-        facility: 'Adama Hospital',
-        provider: 'Dr. Yonas Desta',
-        notes: 'Full bladder required',
+        type: 'ANC Visit',
+        facility: 'Adama Health Center',
+        provider: 'Dr. Tigist Bekele',
+        notes: 'Final ANC visit before delivery',
         isHighRisk: false,
       ),
+      // Past visits
       MotherAppointment(
-        id: 'APT-003',
-        title: 'Blood Test',
-        dateTime: DateTime.now().add(const Duration(days: 5)),
-        status: 'upcoming',
-        type: 'Lab',
-        facility: 'Adama Health Center Lab',
-        provider: 'Lab Technician',
-        notes: 'Fasting required',
-        isHighRisk: false,
-      ),
-      MotherAppointment(
-        id: 'APT-004',
-        title: 'First ANC Registration',
-        dateTime: DateTime.now().subtract(const Duration(days: 45)),
+        id: 'PREG-003',
+        title: 'ANC Visit - Week 12 (Completed)',
+        week: 12,
+        dateTime: now.subtract(const Duration(days: 140)),
         status: 'completed',
-        type: 'ANC',
+        type: 'First ANC',
         facility: 'Adama Health Center',
         provider: 'Dr. Tigist Bekele',
-        notes: 'Initial registration completed',
+        notes: 'Initial registration, blood tests, ultrasound',
         isHighRisk: false,
       ),
       MotherAppointment(
-        id: 'APT-005',
-        title: 'ANC Visit - Week 20',
-        dateTime: DateTime.now().subtract(const Duration(days: 20)),
+        id: 'PREG-004',
+        title: 'ANC Visit - Week 20 (Completed)',
+        week: 20,
+        dateTime: now.subtract(const Duration(days: 84)),
         status: 'completed',
-        type: 'ANC',
+        type: 'ANC Follow-up',
         facility: 'Adama Health Center',
         provider: 'Dr. Tigist Bekele',
-        notes: 'Normal development',
+        notes: 'Normal development, fetal heartbeat detected',
+        isHighRisk: false,
+      ),
+      MotherAppointment(
+        id: 'PREG-005',
+        title: 'ANC Visit - Week 28 (Completed)',
+        week: 28,
+        dateTime: now.subtract(const Duration(days: 42)),
+        status: 'completed',
+        type: 'ANC Visit',
+        facility: 'Adama Health Center',
+        provider: 'Dr. Tigist Bekele',
+        notes: 'Anemia detected, iron supplements prescribed',
         isHighRisk: false,
       ),
     ];

@@ -5,13 +5,17 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
+import { MothersService } from '../mothers/mothers.service';
 
 @ApiTags('Pregnancy')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('pregnancy')
 export class PregnancyController {
-  constructor(private readonly pregnancyService: PregnancyService) {}
+  constructor(
+    private readonly pregnancyService: PregnancyService,
+    private readonly mothersService: MothersService,
+  ) {}
 
   @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
   @Post()
@@ -107,6 +111,20 @@ export class PregnancyController {
       user.role,
       user.hospitalId?.toString(),
       user.woredaId?.toString()
+    );
+  }
+
+  @Roles('MOTHER')
+  @Get('me/visits')
+  @ApiOperation({ summary: 'Pregnancy visit history for logged-in mother (mobile app)' })
+  @ApiResponse({ status: 200, description: 'Visit records returned (empty if no linked mother profile)' })
+  async getMyVisits(@Request() req) {
+    const mother = await this.mothersService.findMotherForAuthenticatedAppUser(req.user);
+    if (!mother) {
+      return [];
+    }
+    return this.pregnancyService.findVisitsForMotherProfile(
+      (mother as any)._id.toString(),
     );
   }
 

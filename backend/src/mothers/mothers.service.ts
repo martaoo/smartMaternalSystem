@@ -150,6 +150,43 @@ export class MothersService {
     return this.motherModel.findOne({ phone }).exec();
   }
 
+  /**
+   * Resolve Mother profile for a logged-in MOTHER app user.
+   * Prefer explicit linkedMotherId on User, then phone match.
+   */
+  async findMotherForAuthenticatedAppUser(user: {
+    linkedMotherId?: Types.ObjectId | string | { _id?: Types.ObjectId };
+    phoneNumber?: string;
+  }): Promise<MotherDocument | null> {
+    const linked = user.linkedMotherId as any;
+    if (linked) {
+      const id =
+        typeof linked === 'string'
+          ? linked
+          : linked._id?.toString?.() ?? linked.toString?.();
+      if (id) {
+        const byLink = await this.motherModel.findById(id).exec();
+        if (byLink) return byLink;
+      }
+    }
+
+    const raw = (user.phoneNumber || '').trim();
+    if (!raw) {
+      return null;
+    }
+
+    let m = await this.motherModel.findOne({ phone: raw }).exec();
+    if (m) return m;
+
+    const digits = raw.replace(/\D/g, '');
+    if (digits.length >= 8) {
+      m = await this.motherModel
+        .findOne({ phone: { $regex: new RegExp(`${digits}$`) } })
+        .exec();
+    }
+    return m;
+  }
+
   async search(query: string, userRole: string, userHospitalId?: string, userWoredaId?: string): Promise<Mother[]> {
     let searchQuery: any = {
       $or: [

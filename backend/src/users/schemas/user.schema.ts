@@ -42,6 +42,10 @@ export class User {
   @Prop({ type: Types.ObjectId, ref: 'Woreda' })
   woredaId: Types.ObjectId;
 
+  /** Optional link for MOTHER app users to their Mother clinical record */
+  @Prop({ type: Types.ObjectId, ref: 'Mother' })
+  linkedMotherId?: Types.ObjectId;
+
   @Prop()
   assignedRegion: string; // For SYSTEM_ADMIN - the region/subcity they manage
 

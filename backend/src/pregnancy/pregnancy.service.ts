@@ -154,6 +154,17 @@ export class PregnancyService {
     );
   }
 
+  /** Pregnancy visits for the mother herself (mobile app); no staff role filter. */
+  async findVisitsForMotherProfile(motherId: string): Promise<Pregnancy[]> {
+    return this.pregnancyModel
+      .find({ motherId: new Types.ObjectId(motherId) })
+      .populate('motherId', 'name phone age address')
+      .populate('healthWorkerId', 'name email role')
+      .populate('hospitalId', 'name type address')
+      .sort({ visitDate: -1 })
+      .exec();
+  }
+
   // =========================
   // FIND ALL
   // =========================
