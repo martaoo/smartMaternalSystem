@@ -28,7 +28,7 @@ export default function CreateMaternalReferral() {
     para: undefined,
     clinicalCondition: '',
     reasonForReferral: '',
-    notes: '',
+    clinicalNotes: '',
     doctorName: user?.name || '',
   });
 
@@ -116,7 +116,7 @@ export default function CreateMaternalReferral() {
         patientName: selectedMother?.name || 'Unknown Mother',
         patientPhone: selectedMother?.phone || '',
         reasonForReferral: formData.reasonForReferral,
-        clinicalNotes: `${formData.notes || ''}${formData.gestationalAge ? `\nGestational Age: ${formData.gestationalAge} weeks` : ''}${formData.expectedDeliveryDate ? `\nEDD: ${formData.expectedDeliveryDate}` : ''}${formData.gravida ? `\nGravida: ${formData.gravida}` : ''}${formData.para ? `\nPara: ${formData.para}` : ''}${formData.clinicalCondition ? `\nClinical Condition: ${formData.clinicalCondition}` : ''}`.trim(),
+        clinicalNotes: `${formData.clinicalNotes || ''}${formData.gestationalAge ? `\nGestational Age: ${formData.gestationalAge} weeks` : ''}${formData.expectedDeliveryDate ? `\nEDD: ${formData.expectedDeliveryDate}` : ''}${formData.gravida ? `\nGravida: ${formData.gravida}` : ''}${formData.para ? `\nPara: ${formData.para}` : ''}${formData.clinicalCondition ? `\nClinical Condition: ${formData.clinicalCondition}` : ''}`.trim(),
         doctorName: formData.doctorName,
       };
 

@@ -8,8 +8,18 @@ async function bootstrap() {
 
   // Enable CORS
   app.enableCors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: [
+      process.env.FRONTEND_URL || 'http://localhost:3000',
+      'http://localhost:3000',
+      'http://192.168.137.167:3000',
+      'https://localhost:3000',
+      'https://192.168.137.167:3000'
+    ],
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    preflightContinue: false,
+    optionsSuccessStatus: 204
   });
 
   // Global validation pipe

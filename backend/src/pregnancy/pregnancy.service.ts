@@ -608,7 +608,7 @@ export class PregnancyService {
     console.log('User hospitalId type:', typeof userHospitalId);
     console.log('Pregnancies to filter:', pregnancies.length);
     
-    if (userRole === 'SUPER_ADMIN' || userRole === 'SYSTEM_ADMIN') {
+    if (userRole === 'SYSTEM_ADMIN') {
       console.log('Admin access granted - returning all pregnancies');
       return pregnancies;
     }

@@ -95,7 +95,7 @@ export interface CreateMaternalReferralRequest {
   para?: number;
   clinicalCondition?: string;
   reasonForReferral: string;
-  notes: string;
+  clinicalNotes: string;
   doctorName?: string;
 }
 

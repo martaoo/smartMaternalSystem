@@ -16,13 +16,13 @@ async function bootstrap() {
       await usersService.update((existingAdmin as any)._id.toString(), {
         name: existingAdmin.name,
         email: existingAdmin.email,
-        role: UserRole.MOH_ADMIN,
+        role: UserRole.SYSTEM_ADMIN,
         password: 'admin123', // This will be hashed by the service
       });
 
       console.log('Admin password reset to: admin123');
       console.log('Email: admin@maternal.gov.et');
-      console.log('Role: SUPER_ADMIN');
+      console.log('Role: SYSTEM_ADMIN');
     } else {
       console.log('Admin user not found');
     }

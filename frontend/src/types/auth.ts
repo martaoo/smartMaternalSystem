@@ -1,6 +1,6 @@
 export type UserRole =
-  | 'MOH_ADMIN'
   | 'SUPER_ADMIN'
+  | 'MOH_ADMIN'
   | 'SYSTEM_ADMIN'
   | 'WOREDA_ADMIN'
   | 'HOSPITAL_ADMIN'

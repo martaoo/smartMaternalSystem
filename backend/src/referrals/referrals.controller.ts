@@ -141,7 +141,7 @@ async getCheckedIn(@Req() req) {
     return this.referralsService.submitFeedback(id, dto.feedbackNote, req.user.id);
   }
   @Get('liaison/outbox')
-  @Roles(UserRole.LIAISON_OFFICER, UserRole.DOCTOR, UserRole.HOSPITAL_ADMIN, UserRole.NURSE, UserRole.MIDWIFE)
+  @Roles(UserRole.LIAISON_OFFICER, UserRole.DOCTOR, UserRole.HOSPITAL_ADMIN, UserRole.HEALTH_CENTER_ADMIN, UserRole.NURSE, UserRole.MIDWIFE)
   async getLiaisonOutbox(@Req() req) {
     const hospitalId = req.user.hospitalId;
     if (!hospitalId) {

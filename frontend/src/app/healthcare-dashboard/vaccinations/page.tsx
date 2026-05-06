@@ -35,6 +35,9 @@ interface VaccinationRecord {
   notes?: string;
   followUpRequired: boolean;
   followUpDate?: string;
+  reminder3DaySent?: boolean;
+  reminderSameDaySent?: boolean;
+  reminderSent?: boolean;
 }
 
 export default function VaccinationsManagement() {
@@ -286,6 +289,7 @@ export default function VaccinationsManagement() {
     }
 
     // Calculate next dose date based on interval
+    if (!record.administeredDate) return null;
     const administeredDate = new Date(record.administeredDate);
     const intervalWeeks = vaccine.intervalWeeks || 4; // Default 4 weeks
     const nextDate = new Date(administeredDate);
