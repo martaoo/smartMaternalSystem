@@ -63,19 +63,19 @@ export default function HospitalDashboard() {
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <button className="w-full bg-green-600 text-white px-4 py-3 rounded-lg hover:bg-green-700 transition-colors duration-200" onClick={() => setShowAddUser(true)}>
-                  Add User
+                  Add Staff
                 </button>
                 <Link
                   href="/hospital-dashboard/users"
                   className="w-full inline-flex items-center justify-center bg-indigo-600 text-white px-4 py-3 rounded-lg hover:bg-indigo-700 transition-colors duration-200"
                 >
-                  View Users
+                  Manage Users
                 </Link>
-                <button className="w-full bg-green-600 text-white px-4 py-3 rounded-lg hover:bg-green-700 transition-colors duration-200">
-                  Add Patient Record
+                <button className="w-full bg-purple-600 text-white px-4 py-3 rounded-lg hover:bg-purple-700 transition-colors duration-200">
+                  Number of Mothers Registered
                 </button>
                 <button className="w-full bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 transition-colors duration-200">
-                  Manage Staff
+                  Number of Children Registered
                 </button>
                 <button className="w-full bg-indigo-600 text-white px-4 py-3 rounded-lg hover:bg-indigo-700 transition-colors duration-200">
                   View Reports

@@ -2,99 +2,72 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { UsersService } from './users/users.service';
 import { HospitalsService } from './hospitals/hospitals.service';
-import { WoredasService } from './woredas/woredas.service';
 import { UserRole } from './common/enums/user-role.enum';
 
 async function bootstrap() {
   const app = await NestFactory.createApplicationContext(AppModule);
-  
+
   try {
     const usersService = app.get(UsersService);
     const hospitalsService = app.get(HospitalsService);
-    const woredasService = app.get(WoredasService);
 
-    // Create a test woreda
-    const woreda = await woredasService.create({
-      name: 'Test Woreda',
-      city: 'Bole',
-      region: 'Addis Ababa',
-    });
+    // Create harHC hospital if it doesn't exist
+    let hospital;
+    try {
+      hospital = await hospitalsService.create({
+        name: 'harHC',
+        type: 'HEALTH_CENTER',
+        location: 'Harar, Ethiopia',
+        contact: '+251911000000',
+        woredaId: '000000000000000000000000', // Default woreda
+      });
+      console.log('Created harHC hospital');
+      console.log('Hospital ID:', (hospital as any)._id);
+    } catch (error) {
+      console.log('harHC hospital already exists or error:', error.message);
+      // Try to find existing
+      const existingHospitals = await hospitalsService.findAll();
+      hospital = existingHospitals.find(h => h.name === 'harHC');
+    }
 
-    console.log('Test Woreda created');
-    console.log('Woreda ID:', (woreda as any)._id);
+    // Create system admin if doesn't exist
+    try {
+      await usersService.create({
+        name: 'System Administrator',
+        email: 'admin@maternal.gov.et',
+        password: 'admin123',
+        role: UserRole.SUPER_ADMIN,
+        phoneNumber: '+251900000001',
+      });
+      console.log('System Admin created');
+      console.log('Email: admin@maternal.gov.et');
+      console.log('Password: admin123');
+    } catch (error) {
+      console.log('System Admin already exists or error:', error.message);
+    }
 
-    // Create a test hospital
-    const hospital = await hospitalsService.create({
-      name: 'Test General Hospital',
-      type: 'HOSPITAL',
-      location: '123 Main St, Addis Ababa',
-      contact: '+251911000000',
-      woredaId: (woreda as any)._id.toString(),
-    });
-
-    console.log('Test Hospital created');
-    console.log('Hospital ID:', (hospital as any)._id);
-
-    await usersService.create({
-      name: 'System Administrator',
-      email: 'admin@maternal.gov.et',
-      password: 'admin123', // Service will hash this automatically
-      role: UserRole.MOH_ADMIN,
-      phoneNumber: '+251900000001',
-    });
-
-    console.log('System Admin created');
-    console.log('Email: admin@maternal.gov.et');
-    console.log('Password: admin123');
-    console.log('Role: MOH_ADMIN');
-
-    // Create a test doctor
-    await usersService.create({
-      name: 'Test Doctor',
-      email: 'doctor@test.et',
-      password: 'doc123',
-      role: UserRole.DOCTOR,
-      hospitalId: (hospital as any)._id.toString(),
-      phoneNumber: '+251911123456',
-      department: 'Obstetrics',
-      licenseNumber: 'MD001234',
-    });
-
-    console.log('Test Doctor created');
-    console.log('Email: doctor@test.et');
-    console.log('Password: doc123');
-    
-    // Create a test hospital admin
-    await usersService.create({
-      name: 'Hospital Administrator',
-      email: 'hospital@admin.et',
-      password: 'admin123', // Service will hash this automatically
-      role: UserRole.HOSPITAL_ADMIN,
-      hospitalId: (hospital as any)._id.toString(),
-      phoneNumber: '+251911000002',
-    });
-
-    console.log('Hospital Admin created');
-    console.log('Email: hospital@admin.et');
-    console.log('Password: admin123');
-    console.log('Hospital ID:', (hospital as any)._id.toString());
-    
-    // Fix any hospital admin users without hospitalId
-    const hospitalAdmins = await usersService.findByRole('HOSPITAL_ADMIN');
-    for (const admin of hospitalAdmins) {
-      if (!admin.hospitalId) {
-        await usersService.update((admin as any)._id.toString(), {
-          name: admin.name,
-          email: admin.email,
-          role: admin.role as UserRole,
+    // Create liaison officer for harHC if doesn't exist
+    if (hospital) {
+      try {
+        await usersService.create({
+          name: 'Liaison Officer',
+          email: 'liaison@test.et',
+          password: 'liaison123',
+          role: UserRole.LIAISON_OFFICER,
           hospitalId: (hospital as any)._id.toString(),
+          phoneNumber: '+251913333333',
         });
-        console.log(`Fixed hospital admin ${admin.email} - assigned to hospital`);
+        console.log('Liaison Officer created');
+        console.log('Email: liaison@test.et');
+        console.log('Password: liaison123');
+        console.log('Assigned to hospital: harHC');
+      } catch (error) {
+        console.log('Liaison Officer already exists or error:', error.message);
       }
     }
-    
+
   } catch (error) {
-    console.error('Error creating admin:', error.message);
+    console.error('Error in seed:', error.message);
   } finally {
     await app.close();
   }

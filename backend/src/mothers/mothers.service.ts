@@ -38,14 +38,28 @@ export class MothersService {
   const motherData = {
     ...createMotherDto,
 
-    // ✅ ensure consistency with referral flow
-    woredaId: userWoredaId
-      ? new Types.ObjectId(userWoredaId)
-      : undefined,
+    // ✅ use woredaId from the mother data sent from frontend
+    woredaId: createMotherDto.woredaId
+      ? new Types.ObjectId(createMotherDto.woredaId)
+      : (userWoredaId ? new Types.ObjectId(userWoredaId) : undefined),
 
     healthCenter: new Types.ObjectId(healthCenterId),
 
     registeredBy: createMotherDto.registeredBy || 'System',
+
+    // ✅ mobile app credentials for mother account
+    tempUsername: createMotherDto.tempUsername,
+    tempPassword: createMotherDto.tempPassword,
+    phone: createMotherDto.phone,
+
+    // ✅ medical conditions and risk factors
+    rhFactor: createMotherDto.rhFactor,
+    hivStatus: createMotherDto.hivStatus,
+    hepatitisB: createMotherDto.hepatitisB,
+    hypertension: createMotherDto.hypertension,
+    diabetes: createMotherDto.diabetes,
+    anemia: createMotherDto.anemia,
+    previousCSection: createMotherDto.previousCSection,
 
     // OPTIONAL: if your schema supports email
     email: (createMotherDto as any).email || undefined,
