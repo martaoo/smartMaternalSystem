@@ -65,7 +65,7 @@ class MotherService {
     }
   }
 
-  /// Get mother's profile information
+  /// Get mother's profile information from backend
   Future<MotherProfile?> getMotherProfile() async {
     try {
       final token = await _authService.getToken();
@@ -73,7 +73,110 @@ class MotherService {
         throw Exception('User not authenticated');
       }
 
-      // Try to get user info first, then try to get linked mother profile
+      http.Response? response;
+      String? workingUrl;
+      
+      for (String baseUrl in baseUrls) {
+        try {
+          final url = "$baseUrl/mothers/me/profile";
+          print('Trying mother profile URL: $url');
+          
+          response = await http.get(
+            Uri.parse(url),
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": "Bearer $token",
+            },
+          ).timeout(Duration(seconds: 10));
+          
+          workingUrl = url;
+          print('Connected to mother profile: $url');
+          print('Response status: ${response.statusCode}');
+          break;
+        } catch (e) {
+          print('Failed to connect to $baseUrl: $e');
+          continue;
+        }
+      }
+      
+      if (response == null) {
+        print('Failed to connect to any mother profile backend URL');
+        // Fallback to user info
+        return await _getFallbackProfile();
+      }
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final Map<String, dynamic> responseData = jsonDecode(response.body);
+        if (responseData['data'] != null) {
+          return _parseMotherProfile(responseData['data']);
+        }
+      }
+      
+      print('Failed to load mother profile: ${response.statusCode}');
+      return await _getFallbackProfile();
+    } catch (e) {
+      print('Error loading mother profile: $e');
+      return await _getFallbackProfile();
+    }
+  }
+
+  /// Get dashboard summary with mother profile and latest pregnancy data
+  Future<DashboardSummary?> getDashboardSummary() async {
+    try {
+      final token = await _authService.getToken();
+      if (token == null) {
+        throw Exception('User not authenticated');
+      }
+
+      http.Response? response;
+      String? workingUrl;
+      
+      for (String baseUrl in baseUrls) {
+        try {
+          final url = "$baseUrl/mothers/me/summary";
+          print('Trying dashboard summary URL: $url');
+          
+          response = await http.get(
+            Uri.parse(url),
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": "Bearer $token",
+            },
+          ).timeout(Duration(seconds: 10));
+          
+          workingUrl = url;
+          print('Connected to dashboard summary: $url');
+          print('Response status: ${response.statusCode}');
+          break;
+        } catch (e) {
+          print('Failed to connect to $baseUrl: $e');
+          continue;
+        }
+      }
+      
+      if (response == null) {
+        print('Failed to connect to any dashboard summary backend URL');
+        return _getMockDashboardSummary();
+      }
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final Map<String, dynamic> responseData = jsonDecode(response.body);
+        if (responseData['data'] != null) {
+          return _parseDashboardSummary(responseData['data']);
+        }
+      }
+      
+      print('Failed to load dashboard summary: ${response.statusCode}');
+      return _getMockDashboardSummary();
+    } catch (e) {
+      print('Error loading dashboard summary: $e');
+      return _getMockDashboardSummary();
+    }
+  }
+
+  /// Fallback method to get basic profile from auth service
+  Future<MotherProfile?> _getFallbackProfile() async {
+    try {
       final userName = await _authService.getUserName();
       final userEmail = await _authService.getUserEmail();
       
@@ -81,13 +184,12 @@ class MotherService {
         return MotherProfile(
           name: userName,
           email: userEmail,
-          // Additional profile info would come from backend if available
         );
       }
       
       return null;
     } catch (e) {
-      print('Error loading mother profile: $e');
+      print('Error in fallback profile: $e');
       return null;
     }
   }
@@ -183,6 +285,62 @@ class MotherService {
 
   // Helper methods for data parsing and conversion
   
+  MotherProfile _parseMotherProfile(Map<String, dynamic> json) {
+    return MotherProfile(
+      name: json['name'] ?? 'Unknown',
+      email: json['email'] ?? '',
+      phone: json['phone'],
+      address: json['address'],
+      bloodType: json['bloodType'],
+      age: json['age'],
+      expectedDeliveryDate: json['expectedDeliveryDate'] != null 
+          ? DateTime.parse(json['expectedDeliveryDate']) 
+          : null,
+      gravida: json['gravida'],
+      para: json['para'],
+      lmp: json['lmp'] != null ? DateTime.parse(json['lmp']) : null,
+      highRisk: json['highRisk'] ?? false,
+      registrationDate: json['registrationDate'] != null 
+          ? DateTime.parse(json['registrationDate']) 
+          : null,
+    );
+  }
+
+  DashboardSummary _parseDashboardSummary(Map<String, dynamic> json) {
+    final motherData = json['mother'];
+    final pregnancyData = json['latestPregnancy'];
+    
+    return DashboardSummary(
+      motherProfile: motherData != null ? _parseMotherProfile(motherData) : null,
+      latestPregnancy: pregnancyData != null ? _parsePregnancyVisit(pregnancyData) : null,
+    );
+  }
+
+  DashboardSummary _getMockDashboardSummary() {
+    print('Using mock dashboard summary data as fallback');
+    final mockProfile = MotherProfile(
+      name: 'Demo Mother',
+      email: 'demo@example.com',
+      phone: '+251123456789',
+      address: 'Addis Ababa, Ethiopia',
+      bloodType: 'O+',
+      age: 28,
+      expectedDeliveryDate: DateTime.now().add(Duration(days: 60)),
+      gravida: 2,
+      para: 1,
+      lmp: DateTime.now().subtract(Duration(days: 120)),
+      highRisk: false,
+      registrationDate: DateTime.now().subtract(Duration(days: 90)),
+    );
+
+    final mockPregnancy = _getMockPregnancyVisits().first;
+
+    return DashboardSummary(
+      motherProfile: mockProfile,
+      latestPregnancy: mockPregnancy,
+    );
+  }
+
   PregnancyVisit _parsePregnancyVisit(Map<String, dynamic> json) {
     return PregnancyVisit(
       id: json['_id']?.toString() ?? '',
@@ -452,6 +610,13 @@ class MotherProfile {
   final String? address;
   final DateTime? dateOfBirth;
   final String? bloodType;
+  final int? age;
+  final DateTime? expectedDeliveryDate;
+  final int? gravida;
+  final int? para;
+  final DateTime? lmp;
+  final bool highRisk;
+  final DateTime? registrationDate;
 
   MotherProfile({
     required this.name,
@@ -460,6 +625,23 @@ class MotherProfile {
     this.address,
     this.dateOfBirth,
     this.bloodType,
+    this.age,
+    this.expectedDeliveryDate,
+    this.gravida,
+    this.para,
+    this.lmp,
+    this.highRisk = false,
+    this.registrationDate,
+  });
+}
+
+class DashboardSummary {
+  final MotherProfile? motherProfile;
+  final PregnancyVisit? latestPregnancy;
+
+  DashboardSummary({
+    this.motherProfile,
+    this.latestPregnancy,
   });
 }
 

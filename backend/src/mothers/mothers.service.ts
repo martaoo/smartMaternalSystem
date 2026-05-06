@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Inject } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Mother, MotherDocument } from './schemas/mother.schema';
@@ -6,7 +6,9 @@ import { CreateMotherDto } from './dto/create-mother.dto';
 
 @Injectable()
 export class MothersService {
-  constructor(@InjectModel(Mother.name) private motherModel: Model<MotherDocument>) {}
+  constructor(
+    @InjectModel(Mother.name) private motherModel: Model<MotherDocument>,
+  ) {}
 
   async create(
     createMotherDto: CreateMotherDto,
@@ -235,5 +237,23 @@ async findByPhoneOrEmail(phone: string, email?: string): Promise<Mother | null> 
       .populate('assignedHealthWorker', 'name email role')
       .sort({ registrationDate: -1 })
       .exec();
+  }
+
+  async getLatestPregnancy(motherId: string): Promise<any> {
+    // Use the native MongoDB connection to access the Pregnancy collection
+    const db = this.motherModel.db;
+    const pregnancyCollection = db.collection('pregnancies');
+    
+    return pregnancyCollection.findOne({ motherId: new Types.ObjectId(motherId) })
+      .then((result: any) => {
+        if (result) {
+          // Convert ObjectId fields to strings for consistency
+          if (result._id) result._id = result._id.toString();
+          if (result.healthWorkerId) result.healthWorkerId = result.healthWorkerId.toString();
+          if (result.hospitalId) result.hospitalId = result.hospitalId.toString();
+          if (result.motherId) result.motherId = result.motherId.toString();
+        }
+        return result;
+      });
   }
 }

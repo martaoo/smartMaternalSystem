@@ -125,4 +125,40 @@ export class MothersController {
       user.hospitalId?.toString()
     );
   }
+
+  @Roles('MOTHER')
+  @Get('me/profile')
+  @ApiOperation({ summary: 'Get mother profile for logged-in mother (mobile app)' })
+  @ApiResponse({ status: 200, description: 'Mother profile retrieved successfully' })
+  @ApiResponse({ status: 404, description: 'Mother profile not found' })
+  async getMyProfile(@Request() req) {
+    const mother = await this.mothersService.findMotherForAuthenticatedAppUser(req.user);
+    if (!mother) {
+      return { message: 'Mother profile not found', data: null };
+    }
+    return { message: 'Mother profile retrieved successfully', data: mother };
+  }
+
+  @Roles('MOTHER')
+  @Get('me/summary')
+  @ApiOperation({ summary: 'Get mother dashboard summary with latest pregnancy info (mobile app)' })
+  @ApiResponse({ status: 200, description: 'Dashboard summary retrieved successfully' })
+  @ApiResponse({ status: 404, description: 'Mother profile not found' })
+  async getMySummary(@Request() req) {
+    const mother = await this.mothersService.findMotherForAuthenticatedAppUser(req.user);
+    if (!mother) {
+      return { message: 'Mother profile not found', data: null };
+    }
+    
+    // Get latest pregnancy record
+    const latestPregnancy = await this.mothersService.getLatestPregnancy((mother as any)._id.toString());
+    
+    return {
+      message: 'Dashboard summary retrieved successfully',
+      data: {
+        mother: mother,
+        latestPregnancy: latestPregnancy
+      }
+    };
+  }
 }

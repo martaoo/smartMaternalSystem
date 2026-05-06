@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../services/auth_service.dart';
-import '../data/mock_mother_repository.dart';
+import '../../../services/mother_service.dart';
 import 'mother_danger_signs_screen.dart';
 
 class MotherDashboardScreen extends StatefulWidget {
@@ -16,6 +16,35 @@ class _MotherDashboardScreenState extends State<MotherDashboardScreen> {
   bool _expandedTip = false;
   int _selectedQuickAction = -1;
   final AuthService _authService = AuthService();
+  final MotherService _motherService = MotherService();
+  
+  DashboardSummary? _dashboardData;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDashboardData();
+  }
+
+  Future<void> _loadDashboardData() async {
+    try {
+      final dashboardData = await _motherService.getDashboardSummary();
+      if (mounted) {
+        setState(() {
+          _dashboardData = dashboardData;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      print('Error loading dashboard data: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -44,13 +73,7 @@ class _MotherDashboardScreenState extends State<MotherDashboardScreen> {
                     child: Opacity(opacity: value, child: child),
                   );
                 },
-                child: FutureBuilder<String?>(
-                  future: _authService.getUserName(),
-                  builder: (context, snapshot) {
-                    final userName = snapshot.data ?? 'Mother';
-                    return _buildHeroHeader(userName, greeting);
-                  },
-                ),
+                child: _buildHeroHeader(greeting),
               ),
             ),
             
@@ -119,7 +142,7 @@ class _MotherDashboardScreenState extends State<MotherDashboardScreen> {
                     child: Opacity(opacity: value, child: child),
                   );
                 },
-                child: _buildAIAlertCard('Low'),
+                child: _buildAIAlertCard(_dashboardData?.latestPregnancy?.riskLevel.name ?? 'low'),
               ),
             ),
             
@@ -137,7 +160,7 @@ class _MotherDashboardScreenState extends State<MotherDashboardScreen> {
                     child: Opacity(opacity: value, child: child),
                   );
                 },
-                child: _buildSmartTip(28),
+                child: _buildSmartTip(_dashboardData?.latestPregnancy?.week ?? 28),
               ),
             ),
             
@@ -149,7 +172,7 @@ class _MotherDashboardScreenState extends State<MotherDashboardScreen> {
   }
 
   // ==================== LARGER HERO HEADER (400px height) ====================
-  Widget _buildHeroHeader(String userName, String greeting) {
+  Widget _buildHeroHeader(String greeting) {
     return Container(
       margin: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -309,7 +332,7 @@ class _MotherDashboardScreenState extends State<MotherDashboardScreen> {
                   const SizedBox(height: 6),
                   // Name - LARGER
                   Text(
-                    userName,
+                    _dashboardData?.motherProfile?.name ?? 'Mother',
                     style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w800,
@@ -340,13 +363,13 @@ class _MotherDashboardScreenState extends State<MotherDashboardScreen> {
                           children: [
                             _buildEnhancedInfoChip(
                               icon: Icons.calendar_today,
-                              label: 'Week 24',
+                              label: 'Week ${_dashboardData?.latestPregnancy?.week ?? 24}',
                               color: AppColors.honeyGold,
                             ),
                             const SizedBox(width: 8),
                             _buildEnhancedInfoChip(
                               icon: Icons.favorite,
-                              label: '2nd Trim', // Much shorter to prevent overflow
+                              label: _getTrimester(_dashboardData?.latestPregnancy?.week ?? 24),
                               color: AppColors.secondaryBrown,
                             ),
                           ],
@@ -391,11 +414,19 @@ class _MotherDashboardScreenState extends State<MotherDashboardScreen> {
                     ),
                     child: Row(
                       children: [
-                        _buildMiniInfo('Due Date', 'Aug 15', Icons.event),
+                        _buildMiniInfo('Due Date', 
+                          _dashboardData?.motherProfile?.expectedDeliveryDate != null
+                            ? _formatShortDate(_dashboardData!.motherProfile!.expectedDeliveryDate!)
+                            : 'Not set', 
+                          Icons.event),
                         const SizedBox(width: 16),
-                        _buildMiniInfo('Baby Size', 'Eggplant', Icons.child_care),
+                        _buildMiniInfo('Baby Size', 
+                          _getBabySize(_dashboardData?.latestPregnancy?.week ?? 28), 
+                          Icons.child_care),
                         const SizedBox(width: 16),
-                        _buildMiniInfo('Est. Weight', '1.2 kg', Icons.monitor_weight),
+                        _buildMiniInfo('Est. Weight', 
+                          _getBabyWeight(_dashboardData?.latestPregnancy?.week ?? 28), 
+                          Icons.monitor_weight),
                       ],
                     ),
                   ),
@@ -454,10 +485,25 @@ class _MotherDashboardScreenState extends State<MotherDashboardScreen> {
 
   // ==================== STATS ROW ====================
   Widget _buildStatsRow() {
+    final pregnancy = _dashboardData?.latestPregnancy;
+    final motherProfile = _dashboardData?.motherProfile;
+    
     final stats = [
-      _StatItem('Next ANC Visit', 'May 12, 2024', Icons.calendar_month, AppColors.secondaryBrown),
-      _StatItem('Baby\'s Heartbeat', '142 bpm', Icons.favorite, AppColors.successGreen),
-      _StatItem('Est. Due Date', 'Aug 15, 2024', Icons.event, AppColors.medicalTeal),
+      _StatItem('Next ANC Visit', 
+        pregnancy?.nextVisitDate != null 
+          ? _formatDate(pregnancy!.nextVisitDate!)
+          : 'Not scheduled', 
+        Icons.calendar_month, AppColors.secondaryBrown),
+      _StatItem('Baby\'s Heartbeat', 
+        pregnancy?.fetalHeartRate != null 
+          ? '${pregnancy!.fetalHeartRate} bpm'
+          : 'Not measured', 
+        Icons.favorite, AppColors.successGreen),
+      _StatItem('Est. Due Date', 
+        motherProfile?.expectedDeliveryDate != null 
+          ? _formatDate(motherProfile!.expectedDeliveryDate!)
+          : 'Not calculated', 
+        Icons.event, AppColors.medicalTeal),
     ];
 
     return Padding(
@@ -651,11 +697,30 @@ class _MotherDashboardScreenState extends State<MotherDashboardScreen> {
 
   // ==================== HEALTH METRICS SECTION ====================
   Widget _buildHealthMetricsSection() {
+    final pregnancy = _dashboardData?.latestPregnancy;
+    final labResults = pregnancy?.labResults;
+    
     final metrics = [
-      _MetricData('Blood Pressure', '118/76', 'Normal', Icons.favorite, AppColors.successGreen),
-      _MetricData('Weight', '64 kg', '+0.5 kg', Icons.monitor_weight, AppColors.secondaryBrown),
-      _MetricData('Baby Heartbeat', '142 bpm', 'Healthy', Icons.favorite_border, AppColors.medicalTeal),
-      _MetricData('Blood Sugar', '92 mg/dL', 'Normal', Icons.science, AppColors.successGreen),
+      _MetricData('Blood Pressure', 
+        pregnancy?.systolicBP != null && pregnancy?.diastolicBP != null
+          ? '${pregnancy!.systolicBP}/${pregnancy!.diastolicBP}'
+          : 'Not measured',
+        'Normal', Icons.favorite, AppColors.successGreen),
+      _MetricData('Weight', 
+        pregnancy?.weight != null
+          ? '${pregnancy!.weight!.toStringAsFixed(1)} kg'
+          : 'Not measured',
+        'Stable', Icons.monitor_weight, AppColors.secondaryBrown),
+      _MetricData('Baby Heartbeat', 
+        pregnancy?.fetalHeartRate != null
+          ? '${pregnancy!.fetalHeartRate} bpm'
+          : 'Not measured',
+        'Healthy', Icons.favorite_border, AppColors.medicalTeal),
+      _MetricData('Blood Sugar', 
+        labResults?.bloodSugar != null
+          ? '${labResults!.bloodSugar!.toStringAsFixed(0)} mg/dL'
+          : 'Not measured',
+        'Normal', Icons.science, AppColors.successGreen),
     ];
 
     return Column(
@@ -968,6 +1033,51 @@ class _MotherDashboardScreenState extends State<MotherDashboardScreen> {
     if (hour < 12) return 'Good morning';
     if (hour < 18) return 'Good afternoon';
     return 'Good evening';
+  }
+
+  String _getTrimester(int week) {
+    if (week <= 12) return '1st Trim';
+    if (week <= 28) return '2nd Trim';
+    return '3rd Trim';
+  }
+
+  String _formatDate(DateTime date) {
+    final months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    return '${months[date.month - 1]} ${date.day}, ${date.year}';
+  }
+
+  String _formatShortDate(DateTime date) {
+    final months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    return '${months[date.month - 1]} ${date.day}';
+  }
+
+  String _getBabySize(int week) {
+    if (week <= 8) return 'Poppy Seed';
+    if (week <= 12) return 'Lime';
+    if (week <= 16) return 'Avocado';
+    if (week <= 20) return 'Banana';
+    if (week <= 24) return 'Eggplant';
+    if (week <= 28) return 'Butternut Squash';
+    if (week <= 32) return 'Pineapple';
+    if (week <= 36) return 'Honeydew';
+    return 'Watermelon';
+  }
+
+  String _getBabyWeight(int week) {
+    if (week <= 12) return '0.5 oz';
+    if (week <= 16) return '3.5 oz';
+    if (week <= 20) return '10 oz';
+    if (week <= 24) return '1.3 lbs';
+    if (week <= 28) return '2.2 lbs';
+    if (week <= 32) return '3.8 lbs';
+    if (week <= 36) return '5.8 lbs';
+    return '7.0 lbs';
   }
 }
 

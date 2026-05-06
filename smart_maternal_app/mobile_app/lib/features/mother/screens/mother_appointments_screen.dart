@@ -525,6 +525,8 @@ class _MotherAppointmentsScreenState extends State<MotherAppointmentsScreen> wit
           return status == _ApptStatus.completed;
         case _StatusFilter.missed:
           return status == _ApptStatus.missed;
+        case _StatusFilter.cancelled:
+          return status == _ApptStatus.cancelled;
       }
     }).toList();
 
