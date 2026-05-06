@@ -11,6 +11,7 @@ export interface UserForEdit {
   role: string;
   hospitalId?: string | { name?: string } | null;
   woredaId?: string | { name?: string } | null;
+  regionId?: string | { name?: string } | null;
   phoneNumber?: string;
 }
 
@@ -30,6 +31,7 @@ interface AddUserFormValues {
   role: string;
   hospitalId?: string;
   woredaId?: string;
+  regionId?: string;
   phoneNumber?: string;
 }
 
@@ -83,11 +85,13 @@ export function AddUserForm({
     role: allowedRoles?.[0] ?? 'DOCTOR',
     hospitalId: fixedHospitalId ?? (isFacilityAdmin ? (authUser?.hospitalId ?? '') : ''),
     woredaId: isFacilityAdmin ? (authUser?.woredaId ?? '') : '',
+    regionId: '',
     phoneNumber: '',
   });
   const [hospitals, setHospitals] = useState<any[]>([]);
   const [filteredHospitals, setFilteredHospitals] = useState<any[]>([]);
   const [woredas, setWoredas] = useState<any[]>([]);
+  const [regions, setRegions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -102,6 +106,15 @@ export function AddUserForm({
     if (canAssignWoreda) {
       api.getWoredas().then(setWoredas).catch(console.error);
     }
+    api.getRegions()
+      .then((data) => {
+        console.log('[AddUserForm] Regions fetched:', data);
+        setRegions(Array.isArray(data) ? data : []);
+      })
+      .catch((err) => {
+        console.error('[AddUserForm] Failed to fetch regions:', err);
+        setRegions([]);
+      });
   }, [isSuperAdmin, canAssignWoreda]);
 
   // Auto-assign woreda from hospital (super admin only)
@@ -119,7 +132,27 @@ export function AddUserForm({
   }, [formData.hospitalId, hospitals, woredas, isSuperAdmin]);
 
   useEffect(() => {
+    // Auto-populate woreda when hospital is selected for HOSPITAL_ADMIN role
+    if (formData.role === 'HOSPITAL_ADMIN' && formData.hospitalId) {
+      const selectedHospital = hospitals.find((hospital: any) => hospital._id === formData.hospitalId);
+      if (selectedHospital?.woredaId) {
+        const woredaId = typeof selectedHospital.woredaId === 'object' 
+          ? selectedHospital.woredaId._id 
+          : selectedHospital.woredaId;
+        setFormData(prev => ({ ...prev, woredaId }));
+      }
+    }
+  }, [formData.hospitalId, formData.role, hospitals]);
+
+  useEffect(() => {
     if (userToEdit) {
+      console.log('[AddUserForm] Editing user:', userToEdit);
+      console.log('[AddUserForm] User role:', userToEdit.role);
+      console.log('[AddUserForm] User regionId:', userToEdit.regionId);
+      const extractedRegionId = typeof userToEdit.regionId === 'object'
+        ? (userToEdit.regionId as any)?._id ?? ''
+        : (userToEdit.regionId as string) ?? '';
+      console.log('[AddUserForm] Extracted regionId:', extractedRegionId);
       setFormData({
         email: userToEdit.email || '',
         password: '',
@@ -134,6 +167,7 @@ export function AddUserForm({
           typeof userToEdit.woredaId === 'object'
             ? (userToEdit.woredaId as any)?._id ?? ''
             : (userToEdit.woredaId as string) ?? '',
+        regionId: extractedRegionId,
         phoneNumber: userToEdit.phoneNumber ?? '',
       });
     }
@@ -178,6 +212,13 @@ export function AddUserForm({
     setError('');
 
     try {
+      // Validate phone number format
+      if (formData.phoneNumber && !/^09\d{8}$/.test(formData.phoneNumber)) {
+        setError('Phone number must start with 09 followed by 8 digits (e.g., 0911234567)');
+        setLoading(false);
+        return;
+      }
+
       const dataToSend: any = { ...formData };
 
       if (!isSuperAdmin && isFacilityAdmin) {
@@ -194,11 +235,10 @@ export function AddUserForm({
         delete dataToSend.woredaId;
       }
 
-      // Validate WOREDA_ADMIN has a woreda selected
-      if (formData.role === 'WOREDA_ADMIN' && !dataToSend.woredaId) {
-        setError('Please select a woreda for the Woreda Admin.');
-        setLoading(false);
-        return;
+      
+      // If hospital is fixed, ensure it's included even if not in form
+      if (fixedHospitalId) {
+        dataToSend.hospitalId = fixedHospitalId;
       }
 
       if (userToEdit?._id) {
@@ -230,7 +270,7 @@ export function AddUserForm({
     'MIDWIFE',
     'DISPATCHER',
     'EMERGENCY_ADMIN',
-    'MOTHER',
+    'EMERGENCY_ADMIN',
   ];
 
   const roles = allowedRoles && allowedRoles.length > 0 ? allowedRoles : defaultRoles;
@@ -238,6 +278,8 @@ export function AddUserForm({
   const facilityOptions = isHealthCenterAdminRole
     ? filteredHospitals.filter((h: any) => normalizeFacilityType(h) === 'HEALTH_CENTER')
     : filteredHospitals;
+
+  console.log('[AddUserForm] Render - role:', formData.role, 'regionId:', formData.regionId, 'regions count:', regions.length);
 
   return (
     <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-3 sm:p-4">
@@ -396,9 +438,16 @@ export function AddUserForm({
             <input
               type="text"
               value={formData.phoneNumber}
-              onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
+              onChange={(e) => {
+                const value = e.target.value.replace(/\D/g, '').slice(0, 10);
+                setFormData({ ...formData, phoneNumber: value });
+              }}
+              placeholder="0911234567"
+              pattern="09\d{8}"
+              maxLength={10}
               className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
             />
+            <p className="text-xs text-gray-500 mt-1">Must start with 09 followed by 8 digits (e.g., 0911234567)</p>
           </div>
 
           <div className="flex flex-col sm:flex-row sm:justify-end sm:items-center gap-2">

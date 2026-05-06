@@ -22,12 +22,7 @@ const getDashboardForRole = (role: string): string => {
       return '/healthcare-dashboard';
     case 'LIAISON_OFFICER':
       return '/liaison-dashboard';
-    case 'SPECIALIST':
-    case 'HOSPITAL_APPROVER':
-      return '/receiving-dashboard';
-    case 'GATEKEEPER':
-      return '/gate-dashboard';
-    case 'DISPATCHER':
+        case 'DISPATCHER':
       return '/dispatch-dashboard';
     case 'WOREDA_ADMIN':
       return '/woreda-dashboard';

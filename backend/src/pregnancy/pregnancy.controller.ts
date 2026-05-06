@@ -275,7 +275,8 @@ export class PregnancyController {
     await this.pregnancyService.delete(
       id,
       user.role,
-      user.hospitalId?.toString()
+      user.hospitalId?.toString(),
+      user.woredaId?.toString()
     );
   }
 }

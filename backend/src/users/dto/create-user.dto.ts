@@ -1,4 +1,4 @@
-import { IsEmail, IsEnum, IsString, MinLength, IsOptional, IsMongoId, ValidateIf, IsNotEmpty } from 'class-validator';
+import { IsEmail, IsEnum, IsString, MinLength, IsOptional, IsMongoId, ValidateIf, IsNotEmpty, Matches } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { UserRole } from '../../common/enums/user-role.enum';
 
@@ -59,10 +59,12 @@ export class CreateUserDto {
   @ApiPropertyOptional({ example: 'Addis Ababa', description: 'Assigned region for SYSTEM_ADMIN' })
   @ValidateIf(o => ['SYSTEM_ADMIN'].includes(o.role))
   @IsString()
+  @IsNotEmpty()
   assignedRegion?: string;
 
-  @ApiPropertyOptional({ example: '+251911234567', description: 'Phone number' })
+  @ApiPropertyOptional({ example: '0911234567', description: 'Phone number (must start with 09)' })
   @IsOptional()
   @IsString()
+  @Matches(/^09\d{8}$/, { message: 'Phone number must start with 09 followed by 8 digits (e.g., 0911234567)' })
   phoneNumber?: string;
 }

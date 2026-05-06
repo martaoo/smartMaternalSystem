@@ -173,7 +173,7 @@ export default function MotherDetail() {
                 📅 ANC Schedule
               </a>
               <a
-                href={`/healthcare-dashboard/pregnancy/new`}
+                href={`/healthcare-dashboard/pregnancy/new?motherId=${motherId}`}
                 className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
               >
                 New Pregnancy Visit
@@ -276,6 +276,52 @@ export default function MotherDetail() {
                     <p className="text-gray-900">{mother.medicalHistory}</p>
                   </div>
                 )}
+                
+                {/* Medical Conditions */}
+                <div className="md:col-span-2">
+                  <h3 className="text-sm font-medium text-gray-500">Medical Conditions</h3>
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">Blood Type:</span>
+                      <span className="text-sm font-medium text-gray-900">{mother.bloodType || 'Unknown'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">RH Factor:</span>
+                      <span className="text-sm font-medium text-gray-900">{mother.rhFactor || 'Unknown'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">HIV Status:</span>
+                      <span className="text-sm font-medium text-gray-900">{mother.hivStatus || 'Unknown'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">Hepatitis B:</span>
+                      <span className="text-sm font-medium text-gray-900">{mother.hepatitisB || 'Unknown'}</span>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Risk Factors */}
+                <div className="md:col-span-2">
+                  <h3 className="text-sm font-medium text-gray-500">Risk Factors</h3>
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">Hypertension:</span>
+                      <span className="text-sm font-medium text-gray-900">{mother.hypertension ? 'YES' : 'NO'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">Diabetes:</span>
+                      <span className="text-sm font-medium text-gray-900">{mother.diabetes ? 'YES' : 'NO'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">Anemia:</span>
+                      <span className="text-sm font-medium text-gray-900">{mother.anemia ? 'YES' : 'NO'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">Previous C-Section:</span>
+                      <span className="text-sm font-medium text-gray-900">{mother.previousCSection ? 'YES' : 'NO'}</span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -454,7 +500,7 @@ export default function MotherDetail() {
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
               <div className="space-y-3">
                 <a
-                  href={`/healthcare-dashboard/pregnancy/new`}
+                  href={`/healthcare-dashboard/pregnancy/new?motherId=${motherId}`}
                   className="block w-full px-4 py-2 bg-green-600 text-white text-center rounded-lg hover:bg-green-700 transition-colors"
                 >
                   New Pregnancy Visit

@@ -1,19 +1,20 @@
 "use client"
 
 import * as React from "react"
-import { useParams } from "next/navigation"
+import { useRouter, useParams } from "next/navigation"
 import { toast } from "sonner"
 
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { uploadReferralDoc } from "@/services/files"
 import { submitFeedback } from "@/services/referrals"
 import { useReferral, useRespondReferral, useSendReferral } from "@/hooks/useReferrals"
 import type { User } from "@/types/auth"
-import { referralsApi } from "@/lib/healthcare-api"
+import { hospitalsApi, referralsApi } from "@/lib/healthcare-api"
+import { API_BASE } from "@/lib/api"
 
 function statusVariant(status?: string) {
   switch (status) {
@@ -33,23 +34,14 @@ function statusVariant(status?: string) {
 export default function ReferralDetailsPage() {
   const params = useParams<{ id: string }>()
   const id = params.id
+  const router = useRouter()
 
   const referral = useReferral(id)
   const respond = useRespondReferral()
   const send = useSendReferral()
 
-  const [targetHospitalId, setTargetHospitalId] = React.useState("")
-  const [liaisonNote, setLiaisonNote] = React.useState("")
-  const [feedbackNote, setFeedbackNote] = React.useState("")
-  const [file, setFile] = React.useState<File | null>(null)
-  const [isUploading, setIsUploading] = React.useState(false)
-  const [unlockCode, setUnlockCode] = React.useState("")
-  const [isUnlocking, setIsUnlocking] = React.useState(false)
-  const [qrDataUrl, setQrDataUrl] = React.useState<string | null>(null)
-  const [generatingQr, setGeneratingQr] = React.useState(false)
-
   const user = React.useMemo<User | null>(() => {
-    const raw = typeof window !== "undefined" ? localStorage.getItem("user") : null
+    const raw = typeof window !== 'undefined' ? localStorage.getItem('user') : null
     if (!raw) return null
     try {
       return JSON.parse(raw)
@@ -58,16 +50,100 @@ export default function ReferralDetailsPage() {
     }
   }, [])
 
+  // Extract hospital IDs from referral data
   const fromHospitalId =
     typeof (referral.data as any)?.fromHospital === "object"
       ? (referral.data as any)?.fromHospital?._id
       : (referral.data as any)?.fromHospital
+
   const toHospitalId =
     typeof (referral.data as any)?.toHospital === "object"
       ? (referral.data as any)?.toHospital?._id
       : (referral.data as any)?.toHospital
+
   const isSenderHospital = !!user?.hospitalId && !!fromHospitalId && user.hospitalId === fromHospitalId
   const isReceiverHospital = !!user?.hospitalId && !!toHospitalId && user.hospitalId === toHospitalId
+
+  // Fetch full mother details for medical information
+  React.useEffect(() => {
+    const motherId = referral.data
+      ? typeof referral.data.motherId === 'object'
+        ? referral.data.motherId?._id
+        : referral.data.motherId
+      : null
+
+    if (!motherId) {
+      setMotherDetails(null)
+      return
+    }
+
+    fetch(`${API_BASE}/mothers/${motherId}`)
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error(`Failed to fetch mother details: ${res.status}`)
+        }
+        return res.json()
+      })
+      .then((data) => {
+        setMotherDetails(data)
+      })
+      .catch((err) => {
+        console.error('Error fetching mother details:', err)
+        setMotherDetails(null)
+      })
+  }, [referral.data?.motherId])
+
+  // Move loadHospitals outside useEffect so it can be called from JSX
+  const loadHospitals = async () => {
+    setIsLoadingHospitals(true)
+    try {
+      // Use the proper API method
+      const data = await hospitalsApi.getAll()
+      console.log('Raw API response:', data) // Debug raw response
+      const list = Array.isArray(data)
+        ? data.filter((hospital) => {
+            const currentHospitalId = typeof fromHospitalId === 'object' ? fromHospitalId?._id : fromHospitalId
+            return hospital._id !== currentHospitalId
+          })
+        : []
+      console.log('Filtered hospitals list:', list) // Debug filtered list
+      setHospitals(list)
+    } catch (err: any) {
+      console.error('Error loading hospitals:', err)
+      setHospitals([])
+    } finally {
+      setIsLoadingHospitals(false)
+    }
+  }
+
+  React.useEffect(() => {
+    if (user?.role === 'LIAISON_OFFICER' && referral.data?.status === 'DRAFT' && isSenderHospital) {
+      loadHospitals()
+    }
+  }, [user?.role, referral.data?.status, fromHospitalId, isSenderHospital])
+
+  const [targetHospitalId, setTargetHospitalId] = React.useState("")
+  const [selectedHospital, setSelectedHospital] = React.useState<any>(null)
+  const [hospitalSearch, setHospitalSearch] = React.useState("")
+  const [hospitals, setHospitals] = React.useState<any[]>([])
+  const [isLoadingHospitals, setIsLoadingHospitals] = React.useState(false)
+  const filteredHospitals = React.useMemo(() => {
+    const query = hospitalSearch.toLowerCase().trim()
+    return hospitals.filter((hospital) =>
+      hospital.name?.toLowerCase().includes(query) ||
+      hospital.type?.toLowerCase().includes(query) ||
+      hospital.location?.toLowerCase().includes(query),
+    )
+  }, [hospitals, hospitalSearch])
+  const [liaisonNote, setLiaisonNote] = React.useState("")
+  const [feedbackNote, setFeedbackNote] = React.useState("")
+  const [file, setFile] = React.useState<File | null>(null)
+  const [isUploading, setIsUploading] = React.useState(false)
+  const [unlockCode, setUnlockCode] = React.useState("")
+  const [isUnlocking, setIsUnlocking] = React.useState(false)
+  const [qrDataUrl, setQrDataUrl] = React.useState<string | null>(null)
+  const [generatingQr, setGeneratingQr] = React.useState(false)
+  const [motherDetails, setMotherDetails] = React.useState<any>(null)
   const canUploadAttachments =
     isSenderHospital && (user?.role === "DOCTOR" || user?.role === "LIAISON_OFFICER")
   const canViewAttachments =
@@ -139,7 +215,7 @@ export default function ReferralDetailsPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Summary</CardTitle>
+              <CardTitle>Basic Information</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
               {referral.isLoading && <p className="text-slate-600">Loading...</p>}
@@ -147,26 +223,82 @@ export default function ReferralDetailsPage() {
               {referral.data && (
                 <>
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-600">Referral Code</span>
+                    <span className="text-slate-600">Emergency Status:</span>
+                    <span className={`ml-1 px-3 py-1 rounded-full text-xs font-medium ${
+                      referral.data?.emergency ? 'bg-red-100 text-red-800 border border-red-200' : 'bg-green-100 text-green-800 border border-green-200'
+                    }`}>
+                      {referral.data?.emergency ? '🚨 EMERGENCY' : '✅ Routine'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-600">Priority Level:</span>
+                    <span className={`ml-1 px-2 py-1 rounded-full text-xs font-medium ${
+                      (referral.data as any).priority === 'HIGH' ? 'bg-red-100 text-red-800' :
+                      (referral.data as any).priority === 'URGENT' ? 'bg-red-600 text-white' :
+                      (referral.data as any).priority === 'MEDIUM' ? 'bg-yellow-100 text-yellow-800' :
+                      (referral.data as any).priority === 'LOW' ? 'bg-blue-100 text-blue-800' :
+                      'bg-gray-100 text-gray-800'
+                    }`}>
+                      {(referral.data as any).priority || 'Unknown'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-600">Referral ID:</span>
+                    <span className="font-medium text-xs">{referral.data._id}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-600">Referral Code:</span>
                     <span className="font-medium">{referral.data.referralCode ?? "—"}</span>
                   </div>
-                  {"reasonForReferral" in referral.data && (
-                    <div className="pt-2">
-                      <div className="text-slate-600">Reason</div>
-                      <div className="font-medium">{(referral.data as any).reasonForReferral ?? "—"}</div>
-                    </div>
-                  )}
-                  {"liaisonNote" in referral.data && (referral.data as any).liaisonNote && (
-                    <div className="pt-2">
-                      <div className="text-slate-600">Liaison Note</div>
-                      <div className="font-medium">{(referral.data as any).liaisonNote}</div>
-                    </div>
-                  )}
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-600">Referral ID</span>
-                    <span className="font-medium">{referral.data._id}</span>
+                    <span className="text-slate-600">Status:</span>
+                    <Badge variant={statusVariant(referral.data?.status) as any}>
+                      {referral.data?.status ?? "—"}
+                    </Badge>
                   </div>
-
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-600">Patient Name:</span>
+                    <span className="font-medium">
+                      {(referral.data as any)?.patientName || 
+                       (typeof referral.data?.motherId === 'object' ? referral.data?.motherId?.name : '') || 
+                       'Unknown'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-600">Patient Phone:</span>
+                    <span className="font-medium">
+                      {(referral.data as any)?.patientPhone || 
+                       (typeof referral.data?.motherId === 'object' ? referral.data?.motherId?.phone : '') || 
+                       'Unknown'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-600">Doctor/Referrer:</span>
+                    <span className="font-medium">
+                      {(referral.data as any)?.doctorName || 
+                       (typeof referral.data?.createdBy === 'object' ? referral.data?.createdBy?.fullName || referral.data?.createdBy?.name : '') || 
+                       'Unknown'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-600">From Hospital:</span>
+                    <span className="font-medium">
+                      {typeof referral.data?.fromHospital === 'object' ? referral.data?.fromHospital?.name : referral.data?.fromHospital || 'Unknown'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-600">To Hospital:</span>
+                    <span className="font-medium">
+                      {typeof referral.data?.toHospital === 'object' ? referral.data?.toHospital?.name : referral.data?.toHospital || 'Not specified'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-600">Created:</span>
+                    <span className="font-medium">
+                      {referral.data?.createdAt ? new Date(referral.data.createdAt).toLocaleString() : 'Unknown'}
+                    </span>
+                  </div>
+                                    
                   {canGenerateQr && (
                     <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
                       <div className="mb-3 text-sm text-slate-700">
@@ -202,6 +334,116 @@ export default function ReferralDetailsPage() {
             </CardContent>
           </Card>
 
+          {/* Reason for Referral */}
+          {(referral.data as any)?.reasonForReferral && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Reason for Referral</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                  <p className="text-sm leading-relaxed text-slate-700">
+                    {(referral.data as any).reasonForReferral}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Clinical Notes */}
+          {(referral.data as any)?.clinicalNotes && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Clinical Notes</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                  <p className="text-sm leading-relaxed text-blue-800">
+                    {(referral.data as any).clinicalNotes}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Liaison Notes */}
+          {(referral.data as any)?.liaisonNote && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Liaison Notes</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="bg-amber-50 p-4 rounded-lg border border-amber-200">
+                  <p className="text-sm leading-relaxed text-amber-800">
+                    {(referral.data as any).liaisonNote}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Medical Information */}
+          {(motherDetails || (referral.data as any)?.motherSnapshot) && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Medical Information & Risk Factors</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {/* Basic Medical Info */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <h4 className="font-medium text-slate-700">Basic Information</h4>
+                      <div className="space-y-1">
+                        <p className="text-sm"><span className="font-medium">Blood Type:</span> {motherDetails?.bloodType ?? (referral.data as any)?.motherSnapshot?.bloodType ?? 'Unknown'}</p>
+                        <p className="text-sm"><span className="font-medium">RH Factor:</span> {motherDetails?.rhFactor ?? (referral.data as any)?.motherSnapshot?.rhFactor ?? 'Unknown'}</p>
+                        <p className="text-sm"><span className="font-medium">HIV Status:</span> {motherDetails?.hivStatus ?? (referral.data as any)?.motherSnapshot?.hivStatus ?? 'Unknown'}</p>
+                        <p className="text-sm"><span className="font-medium">Hepatitis B:</span> {motherDetails?.hepatitisB ?? (referral.data as any)?.motherSnapshot?.hepatitisB ?? 'Unknown'}</p>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <h4 className="font-medium text-slate-700">Risk Factors</h4>
+                      <div className="space-y-1">
+                        <p className="text-sm"><span className="font-medium">Hypertension:</span> 
+                          <span className={`ml-1 px-2 py-1 rounded text-xs ${motherDetails?.hypertension ?? (referral.data as any)?.motherSnapshot?.hypertension ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
+                            {motherDetails?.hypertension ?? (referral.data as any)?.motherSnapshot?.hypertension ? 'YES' : 'NO'}
+                          </span>
+                        </p>
+                        <p className="text-sm"><span className="font-medium">Diabetes:</span> 
+                          <span className={`ml-1 px-2 py-1 rounded text-xs ${motherDetails?.diabetes ?? (referral.data as any)?.motherSnapshot?.diabetes ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
+                            {motherDetails?.diabetes ?? (referral.data as any)?.motherSnapshot?.diabetes ? 'YES' : 'NO'}
+                          </span>
+                        </p>
+                        <p className="text-sm"><span className="font-medium">Anemia:</span> 
+                          <span className={`ml-1 px-2 py-1 rounded text-xs ${motherDetails?.anemia ?? (referral.data as any)?.motherSnapshot?.anemia ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
+                            {motherDetails?.anemia ?? (referral.data as any)?.motherSnapshot?.anemia ? 'YES' : 'NO'}
+                          </span>
+                        </p>
+                        <p className="text-sm"><span className="font-medium">Previous C-Section:</span> 
+                          <span className={`ml-1 px-2 py-1 rounded text-xs ${motherDetails?.previousCSection ?? (referral.data as any)?.motherSnapshot?.previousCSection ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
+                            {motherDetails?.previousCSection ?? (referral.data as any)?.motherSnapshot?.previousCSection ? 'YES' : 'NO'}
+                          </span>
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Pregnancy Information */}
+                  {(motherDetails?.pregnancies?.[0] || (referral.data as any)?.motherSnapshot?.pregnancyInfo) && (
+                    <div className="border-t pt-4">
+                      <h4 className="font-medium text-slate-700 mb-2">Current Pregnancy</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <p className="text-sm"><span className="font-medium">Gestational Age:</span> {motherDetails?.pregnancies?.[0]?.gestationalAge ?? (referral.data as any)?.motherSnapshot?.pregnancyInfo?.gestationalAge ?? 'Unknown'}</p>
+                        <p className="text-sm"><span className="font-medium">EDD:</span> {motherDetails?.pregnancies?.[0]?.edd ? new Date(motherDetails.pregnancies[0].edd).toLocaleDateString() : (referral.data as any)?.motherSnapshot?.pregnancyInfo?.edd ? new Date((referral.data as any).motherSnapshot.pregnancyInfo.edd).toLocaleDateString() : 'Unknown'}</p>
+                        <p className="text-sm"><span className="font-medium">Parity:</span> {motherDetails?.parity ?? (referral.data as any)?.motherSnapshot?.parity ?? 'Unknown'}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Unlock for receiving hospital staff */}
           {(referral.data as any)?.isUnlocked && referral.data?.status === "COMPLETED" && (
             <Card>
@@ -214,92 +456,100 @@ export default function ReferralDetailsPage() {
             </Card>
           )}
 
-          {(user?.role === "SPECIALIST" ||
-            user?.role === "DOCTOR" ||
-            user?.role === "NURSE" ||
-            user?.role === "MIDWIFE") &&
-            (referral.data?.status === "ACCEPTED" || referral.data?.status === "CHECKED_IN") &&
-            !(referral.data as any)?.isUnlocked && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Unlock Mother Details</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <Input
-                    value={unlockCode}
-                    onChange={(e) => setUnlockCode(e.target.value)}
-                    placeholder="Enter referral code (e.g. REF-...)"
+          {(user?.role === 'LIAISON_OFFICER' && referral.data?.status === 'DRAFT' && isSenderHospital) && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  🏥 Send Referral to Receiving Facility
+                </CardTitle>
+                <CardDescription>
+                  Choose from available hospitals, clinics, or health centers to send this referral to the receiving liaison officer
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <div className="mb-2 text-sm font-medium text-slate-700">🏥 Select Destination Facility</div>
+                  <div className="flex gap-2">
+                      <select
+                        value={targetHospitalId}
+                        onChange={(e) => {
+                          const hospital = hospitals.find(h => h._id === e.target.value)
+                          setSelectedHospital(hospital || null)
+                          setTargetHospitalId(e.target.value)
+                        }}
+                        className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">Choose a facility...</option>
+                        {hospitals.map((hospital) => (
+                          <option key={hospital._id} value={hospital._id}>
+                            {hospital.name} - {hospital.type} ({hospital.location})
+                          </option>
+                        ))}
+                      </select>
+                      {isLoadingHospitals && (
+                        <div className="text-xs text-slate-500 mt-1">Loading hospitals...</div>
+                      )}
+                    </div>
+                  {selectedHospital && (
+                    <div className="mt-2 p-2 bg-blue-50 rounded text-sm">
+                      <strong>Selected:</strong> {selectedHospital.name} - {selectedHospital.type}
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <div className="text-sm font-medium text-slate-700 mb-2 flex items-center gap-2">
+                    📝 Optional Liaison Note
+                    <span className="text-xs text-slate-500 font-normal">(Will be visible to receiving liaison officer)</span>
+                  </div>
+                  <textarea
+                    value={liaisonNote}
+                    onChange={(e) => setLiaisonNote(e.target.value)}
+                    placeholder="Add important information, special instructions, or context for the receiving liaison officer..."
+                    rows={3}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
                   />
+                  <div className="text-xs text-slate-500 mt-1">
+                    💡 This note will help the receiving liaison officer understand the referral context and priority
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-3">
                   <Button
-                    disabled={isUnlocking || !unlockCode.trim()}
+                    disabled={send.isPending || !targetHospitalId}
                     onClick={async () => {
-                      setIsUnlocking(true)
                       try {
-                        await referralsApi.unlock({ referralCode: unlockCode.trim() })
-                        toast.success("Unlocked")
-                        setUnlockCode("")
+                        await send.mutateAsync({ id, targetHospitalId, liaisonNote })
+                        toast.success('Referral sent successfully')
                         referral.refetch()
                       } catch (err: any) {
-                        toast.error(err?.response?.data?.message ?? err?.message ?? "Unlock failed")
-                      } finally {
-                        setIsUnlocking(false)
+                        toast.error(err?.response?.data?.message ?? err?.message ?? 'Send failed')
                       }
                     }}
                   >
-                    {isUnlocking ? "Unlocking..." : "Unlock"}
+                    Send Referral
                   </Button>
-                  <p className="text-xs text-slate-600">
-                    Until you unlock, you will only see referral highlights.
-                  </p>
-                </CardContent>
-              </Card>
-            )}
-
-          {(user?.role === "LIAISON_OFFICER" ||
-            user?.role === "DOCTOR" ||
-            user?.role === "NURSE" ||
-            user?.role === "MIDWIFE") && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Finalize & Send</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <Input
-                  value={targetHospitalId}
-                  onChange={(e) => setTargetHospitalId(e.target.value)}
-                  placeholder="Target Hospital ID"
-                />
-                <Input
-                  value={liaisonNote}
-                  onChange={(e) => setLiaisonNote(e.target.value)}
-                  placeholder="Liaison note to receiving hospital (optional)"
-                />
-                <Button
-                  disabled={send.isPending || !targetHospitalId.trim()}
-                  onClick={async () => {
-                    try {
-                      await send.mutateAsync({
-                        id,
-                        targetHospitalId: targetHospitalId.trim(),
-                        liaisonNote: liaisonNote.trim() || undefined,
-                      })
-                      toast.success("Referral sent")
-                      setTargetHospitalId("")
-                      setLiaisonNote("")
-                      referral.refetch()
-                    } catch (err: any) {
-                      toast.error(err?.response?.data?.message ?? err?.message ?? "Send failed")
-                    }
-                  }}
-                >
-                  {send.isPending ? "Sending..." : "Send Referral"}
-                </Button>
+                  <Button variant="secondary" onClick={() => {
+                    setSelectedHospital(null)
+                    setTargetHospitalId("")
+                    setHospitalSearch("")
+                    setLiaisonNote("")
+                  }}>
+                    Clear
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           )}
 
-          {(user?.role === "HOSPITAL_APPROVER" || user?.role === "LIAISON_OFFICER") && (
-            <Card>
+          {(user?.role === "SPECIALIST" ||
+            user?.role === "DOCTOR" ||
+            user?.role === "NURSE" ||
+            user?.role === "MIDWIFE" ||
+            user?.role === "LIAISON_OFFICER") &&
+            (referral.data?.status === "ACCEPTED" || referral.data?.status === "CHECKED_IN") &&
+            !(referral.data as any)?.isUnlocked && (
+              <Card>
               <CardHeader>
                 <CardTitle>Respond (Accept / Reject)</CardTitle>
               </CardHeader>
@@ -346,80 +596,147 @@ export default function ReferralDetailsPage() {
             </Card>
           )}
 
-          {canUploadAttachments && (
+          {/* Attached Files */}
+          {referral.data?.attachments && Array.isArray(referral.data.attachments) && referral.data.attachments.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle>Attach Files</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  📎 Attached Documents
+                  <Badge variant="secondary" className="text-xs">
+                    {referral.data.attachments.length} file{referral.data.attachments.length > 1 ? 's' : ''}
+                  </Badge>
+                </CardTitle>
+                <CardDescription>
+                  Medical documents, test results, and other relevant files attached to this referral
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
-                <input
-                  type="file"
-                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                />
-                <Button disabled={!file || isUploading} onClick={onUpload}>
-                  {isUploading ? "Uploading..." : "Upload"}
-                </Button>
-                <p className="text-xs text-slate-600">
-                  Attachments are sender-side only and remain hidden from receiver until unlock.
-                </p>
+                <div className="grid gap-3">
+                  {referral.data.attachments.map((url: string, idx: number) => {
+                    const fileName = url.split('/').pop() || `Document ${idx + 1}`;
+                    const fileExt = fileName.split('.').pop()?.toLowerCase();
+                    const getFileIcon = (ext: string) => {
+                      switch(ext) {
+                        case 'pdf': return '📄';
+                        case 'doc':
+                        case 'docx': return '📝';
+                        case 'jpg':
+                        case 'jpeg':
+                        case 'png': return '🖼️';
+                        case 'xls':
+                        case 'xlsx': return '📊';
+                        default: return '📎';
+                      }
+                    };
+                    
+                    return (
+                      <div key={`${url}-${idx}`} className="flex items-center justify-between p-3 border rounded-lg bg-slate-50 hover:bg-slate-100 transition-colors">
+                        <div className="flex items-center gap-3">
+                          <span className="text-2xl">{getFileIcon(fileExt || '')}</span>
+                          <div>
+                            <p className="font-medium text-sm text-slate-900">{fileName}</p>
+                            <p className="text-xs text-slate-500">
+                              {fileExt ? fileExt.toUpperCase() : 'Unknown'} • Document {idx + 1}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <a
+                            href={url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-100 rounded-md hover:bg-blue-200 transition-colors"
+                          >
+                            👁️ View
+                          </a>
+                          <a
+                            href={url}
+                            download={fileName}
+                            className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-green-700 bg-green-100 rounded-md hover:bg-green-200 transition-colors"
+                          >
+                            ⬇️ Download
+                          </a>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </CardContent>
             </Card>
           )}
 
-          {canViewAttachments && Array.isArray((referral.data as any)?.attachments) && (referral.data as any).attachments.length > 0 && (
+          {/* Action Buttons for Health Workers */}
+          {isSenderHospital && (user?.role === "DOCTOR" || user?.role === "NURSE" || user?.role === "MIDWIFE" || user?.role === "LIAISON_OFFICER") && (
             <Card>
               <CardHeader>
-                <CardTitle>Attachments</CardTitle>
+                <CardTitle>Actions</CardTitle>
+                <CardDescription>
+                  Manage this referral - edit details or delete if needed
+                </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-2 text-sm">
-                {(referral.data as any).attachments.map((url: string, idx: number) => (
-                  <a
-                    key={`${url}-${idx}`}
-                    href={url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="block text-blue-600 hover:underline break-all"
-                  >
-                    Document {idx + 1}
-                  </a>
-                ))}
+              <CardContent className="space-y-4">
+                <div className="flex flex-wrap gap-3">
+                  {/* Edit Button - Not available for LIAISON_OFFICER */}
+                  {user?.role !== 'LIAISON_OFFICER' && (
+                    <Button
+                      onClick={() => router.push(`/healthcare-dashboard/referrals/create/${typeof referral.data?.motherId === 'object' ? referral.data.motherId?._id : referral.data?.motherId}?referralId=${referral.data?._id}`)}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                      ✏️ Edit Referral
+                    </Button>
+                  )}
+                  
+                  {/* Delete Button - Only for DRAFT status */}
+                  {referral.data?.status === 'DRAFT' && (
+                    <Button
+                      variant="destructive"
+                      onClick={async () => {
+                        if (window.confirm('Are you sure you want to delete this referral? This action cannot be undone.')) {
+                          try {
+                            await referralsApi.delete(referral.data._id)
+                            toast.success("Referral deleted successfully")
+                            router.push('/healthcare-dashboard/referrals')
+                          } catch (err: any) {
+                            toast.error(err?.response?.data?.message ?? err?.message ?? "Delete failed")
+                          }
+                        }
+                      }}
+                      className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                    >
+                      🗑️ Delete Referral
+                    </Button>
+                  )}
+                </div>
+                
+                {/* Status-specific guidance */}
+                <div className="text-sm text-slate-600 bg-slate-50 p-3 rounded-lg">
+                  {referral.data?.status === 'DRAFT' && (
+                    <p>💡 <strong>Draft Status:</strong> You can edit this referral or delete it. When ready, send it to the target hospital.</p>
+                  )}
+                  {referral.data?.status === 'SENT' && (
+                    <p>💡 <strong>Sent Status:</strong> You can edit this referral if needed. The target hospital will review and respond.</p>
+                  )}
+                  {referral.data?.status === 'ACCEPTED' && (
+                    <p>💡 <strong>Accepted Status:</strong> You can edit this referral if needed. The receiving hospital has accepted this referral.</p>
+                  )}
+                  {referral.data?.status === 'REJECTED' && (
+                    <>
+                      <p>💡 <strong>Rejected Status:</strong> You can edit this referral and resend it if needed.</p>
+                      {referral.data?.decisionMeta?.justification && (
+                        <p className="text-xs text-rose-700">
+                          Rejection reason: {referral.data.decisionMeta.justification}
+                        </p>
+                      )}
+                    </>
+                  )}
+                  {referral.data?.status === 'COMPLETED' && (
+                    <p>💡 <strong>Completed Status:</strong> This referral has been completed. You can still edit the details if needed.</p>
+                  )}
+                </div>
               </CardContent>
             </Card>
           )}
 
-          {(user?.role === "DOCTOR" ||
-            user?.role === "NURSE" ||
-            user?.role === "MIDWIFE" ||
-            user?.role === "LIAISON_OFFICER") && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Submit Feedback (Complete)</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <Input
-                  value={feedbackNote}
-                  onChange={(e) => setFeedbackNote(e.target.value)}
-                  placeholder="Feedback note"
-                />
-                <Button
-                  variant="secondary"
-                  disabled={!feedbackNote.trim()}
-                  onClick={async () => {
-                    try {
-                      await submitFeedback(id, feedbackNote.trim())
-                      toast.success("Feedback submitted")
-                      setFeedbackNote("")
-                      referral.refetch()
-                    } catch (err: any) {
-                      toast.error(err?.response?.data?.message ?? err?.message ?? "Submit failed")
-                    }
-                  }}
-                >
-                  Submit
-                </Button>
-              </CardContent>
-            </Card>
-          )}
         </div>
       </div>
     </ProtectedRoute>

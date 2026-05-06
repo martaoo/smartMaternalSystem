@@ -32,10 +32,16 @@ export class UsersController {
     if (user.role === 'SYSTEM_ADMIN') {
       console.log(`DEBUG Controller - Creating user as ${user.role}`);
       return this.usersService.create(createUserDto);
-    }
-
-    if (user.role === 'HOSPITAL_ADMIN' || user.role === 'HEALTH_CENTER_ADMIN') {
-      // Force hospital to creator's own hospital — frontend cannot override this
+    } else if (user.role === 'SYSTEM_ADMIN') {
+      console.log('DEBUG Controller - Creating user as SYSTEM_ADMIN');
+      return this.usersService.createWithRoleValidation(
+        createUserDto,
+        user.role,
+        undefined,
+        user.regionId?.toString(),
+      );
+    } else if (user.role === 'HOSPITAL_ADMIN') {
+      console.log('DEBUG Controller - Creating user as HOSPITAL_ADMIN');
       return this.usersService.createWithRoleValidation(
         createUserDto,
         user.role,
@@ -84,7 +90,12 @@ export class UsersController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async findAll(@Request() req) {
     const user = req.user;
-    return this.usersService.findAllWithRoleFilter(user.role, user.hospitalId?.toString());
+    console.log('[UsersController] findAll - user role:', user.role, 'regionId:', user.regionId?.toString());
+    return this.usersService.findAllWithRoleFilter(
+      user.role,
+      user.hospitalId?.toString(),
+      user.regionId?.toString(),
+    );
   }
 
   @Roles('SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN')
@@ -95,7 +106,12 @@ export class UsersController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async findByRole(@Param('role') role: string, @Request() req) {
     const user = req.user;
-    return this.usersService.findByRoleWithFilter(role, user.role, user.hospitalId?.toString());
+    return this.usersService.findByRoleWithFilter(
+      role,
+      user.role,
+      user.hospitalId?.toString(),
+      user.regionId?.toString(),
+    );
   }
 
   @Roles('SYSTEM_ADMIN', 'HOSPITAL_ADMIN')
@@ -111,7 +127,12 @@ export class UsersController {
       return this.usersService.findByIdWithRoleFilter(req.user.sub, 'SYSTEM_ADMIN');
     }
     const user = req.user;
-    return this.usersService.findByIdWithRoleFilter(id, user.role, user.hospitalId?.toString());
+    return this.usersService.findByIdWithRoleFilter(
+      id,
+      user.role,
+      user.hospitalId?.toString(),
+      user.regionId?.toString(),
+    );
   }
 
   @Roles('SYSTEM_ADMIN', 'HOSPITAL_ADMIN')

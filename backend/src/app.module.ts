@@ -4,6 +4,7 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { HospitalsModule } from './hospitals/hospitals.module';
 import { WoredasModule } from './woredas/woredas.module';
+import { RegionsModule } from './regions/regions.module';
 import { MothersModule } from './mothers/mothers.module';
 import { PregnancyModule } from './pregnancy/pregnancy.module';
 import { ChildrenModule } from './children/children.module';
@@ -28,6 +29,7 @@ import { ReferralsModule } from './referrals/referrals.module';
     ReferralsModule,
     HospitalsModule,
     WoredasModule,
+    RegionsModule,
     MothersModule,
     PregnancyModule,
     ChildrenModule,

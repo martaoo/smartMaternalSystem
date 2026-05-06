@@ -59,11 +59,16 @@ export class NotificationService {
     });
   }
 
-  async notifyReferralResponded(referralId: string, status: string, recipients: string[]) {
+  async notifyReferralResponded(referralId: string, status: string, recipients: string[], justification?: string) {
+    const message =
+      status === 'REJECTED'
+        ? `Referral has been rejected. Reason: ${justification ?? 'No reason provided'}`
+        : `Referral has been accepted and is now awaiting patient check-in.`;
+
     return this.notify({
       referralId,
       type: 'REFERRAL_RESPONDED',
-      message: `Referral has been ${status.toLowerCase()}`,
+      message,
       recipients,
     });
   }

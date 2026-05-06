@@ -511,8 +511,9 @@ export class PregnancyService {
     id: string,
     userRole: string,
     userHospitalId?: string,
+    userWoredaId?: string,
   ): Promise<void> {
-    await this.findById(id, userRole, userHospitalId);
+    await this.findById(id, userRole, userHospitalId, userWoredaId);
     await this.pregnancyModel.findByIdAndDelete(id);
   }
 

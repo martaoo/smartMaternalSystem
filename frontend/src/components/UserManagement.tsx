@@ -12,7 +12,7 @@ interface User {
   role: string;
   hospitalId?: string | { name?: string } | null;
   woredaId?: string | { name?: string } | null;
-  assignedRegion?: string;
+  regionId?: string | { name?: string } | null;
   phoneNumber?: string;
   createdAt: string;
 }
@@ -51,7 +51,11 @@ export function UserManagement() {
   const fetchUsers = async () => {
     try {
       const response = await api.getUsers();
-      setAllUsers(Array.isArray(response) ? response : []);
+      const users = Array.isArray(response) ? response : [];
+      console.log('[UserManagement] Fetched users:', users);
+      const systemAdmins = users.filter((u: any) => u.role === 'SYSTEM_ADMIN');
+      console.log('[UserManagement] System admins:', systemAdmins);
+      setAllUsers(users);
     } catch (err: any) {
       // 403 = role not allowed to list users — show empty list silently
       if (err?.message === 'Forbidden resource') {
@@ -172,7 +176,7 @@ export function UserManagement() {
     if (hospital && hospital.woredaId) {
       const woreda = woredas.find(w => w._id === hospital.woredaId._id);
       if (woreda) {
-        return `${woreda.name} (${woreda.region})`;
+        return `${woreda.name} (${woreda.regionId?.name || '-'})`;
       }
     }
     
@@ -208,43 +212,50 @@ export function UserManagement() {
   };
 
   // Check if current user can edit/delete a specific user
+  const normalizeId = (value: any) => {
+    if (!value) return undefined;
+    if (typeof value === 'string') return value;
+    return value._id || value.id || undefined;
+  };
+
+  const isUserInRegion = (targetUser: User): boolean => {
+    if (!user?.regionId) return false;
+
+    const targetRegionId = normalizeId(targetUser.regionId);
+    const targetWoredaId = normalizeId(targetUser.woredaId);
+    const targetHospitalId = normalizeId(targetUser.hospitalId);
+
+    // Check if user is directly assigned to the same region
+    if (targetRegionId === user.regionId) return true;
+
+    // Check if user's woreda is in the same region
+    const woredaInRegion = targetWoredaId && woredas.some(w => w._id === targetWoredaId && normalizeId(w.regionId) === user.regionId);
+    
+    // Check if user's hospital is in the same region (via woreda)
+    const hospitalInRegion = targetHospitalId && hospitals.some(h => {
+      const hospitalWoredaId = normalizeId(h.woredaId);
+      return h._id === targetHospitalId && hospitalWoredaId && woredas.some(w => w._id === hospitalWoredaId && normalizeId(w.regionId) === user.regionId);
+    });
+
+    return !!woredaInRegion || !!hospitalInRegion;
+  };
+
   const canEditUser = (targetUser: User) => {
     if (!user) return false;
-    
-    // Debug logging for MOTHER role
-    if (targetUser.role === 'MOTHER') {
-      console.log('DEBUG MOTHER user:', targetUser);
-      console.log('DEBUG MOTHER fields:', Object.keys(targetUser));
-    }
-    
+
     switch (user.role) {
       case 'SUPER_ADMIN':
-        return true; // Super Admin can edit anyone
-      
+        return true;
+
       case 'SYSTEM_ADMIN':
-        // System Admin can edit all users in their assigned region
-        if (!user.assignedRegion) return false;
-        
-        // Check if target user is in System Admin's region
-        const isInRegion = targetUser.assignedRegion === user.assignedRegion;
-        
-        // Check if target user has woreda in System Admin's region
-        const hasWoredaInRegion = targetUser.woredaId && 
-          woredas.some(w => w._id === targetUser.woredaId && w.region === user.assignedRegion);
-        
-        // Check if target user has hospital in System Admin's region
-        const hasHospitalInRegion = targetUser.hospitalId && 
-          hospitals.some(h => h._id === targetUser.hospitalId && 
-            h.woredaId && woredas.some(w => w._id === h.woredaId._id && w.region === user.assignedRegion));
-        
-        return isInRegion || hasWoredaInRegion || hasHospitalInRegion;
-      
+        // System Admin can edit any user in their region
+        return targetUser._id === user.id || isUserInRegion(targetUser);
+
       case 'WOREDA_ADMIN':
-        // Can edit users in their woreda
-        return (targetUser.woredaId && typeof targetUser.woredaId === 'string' && targetUser.woredaId === user.woredaId) ||
-               (targetUser.hospitalId && typeof targetUser.hospitalId === 'string' && 
-                hospitals.some(h => h._id === targetUser.hospitalId && h.woredaId === user.woredaId));
-      
+        return targetUser._id === user.id ||
+          (normalizeId(targetUser.woredaId) === normalizeId(user.woredaId)) ||
+          (normalizeId(targetUser.hospitalId) && hospitals.some(h => h._id === normalizeId(targetUser.hospitalId) && normalizeId(h.woredaId) === normalizeId(user.woredaId)));
+
       case 'HOSPITAL_ADMIN':
         // Can edit users in their hospital
         return (targetUser.hospitalId && typeof targetUser.hospitalId === 'string' && targetUser.hospitalId === user.hospitalId);
@@ -254,13 +265,11 @@ export function UserManagement() {
         return (targetUser.hospitalId && typeof targetUser.hospitalId === 'string' && targetUser.hospitalId === user.hospitalId);
       
       default:
-        // Other roles can only edit themselves
         return targetUser._id === user.id;
     }
   };
 
   const canDeleteUser = (targetUser: User) => {
-    // Same logic as edit, but can't delete themselves
     if (!user) return false;
     return canEditUser(targetUser) && targetUser._id !== user.id;
   };
