@@ -68,7 +68,7 @@ export default function MOHDashboard() {
         {/* Header */}
         <header className="bg-white shadow-sm border-b border-gray-200">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center py-4">
+            <div className="flex flex-wrap justify-between items-center py-4 gap-y-2">
               <div className="flex items-center">
                 <div className="h-10 w-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center mr-3">
                   <svg className="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -80,11 +80,14 @@ export default function MOHDashboard() {
                   <p className="text-sm text-gray-500">Ministry of Health Administration</p>
                 </div>
               </div>
-              <div className="flex items-center space-x-4">
-                <span className="text-sm text-gray-700">Welcome, {user?.name}</span>
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-gray-700 whitespace-nowrap">Welcome, {user?.name}</span>
+                <Link href="/moh-dashboard/profile" className="text-sm text-blue-600 hover:underline whitespace-nowrap">
+                  My Profile
+                </Link>
                 <button
                   onClick={logout}
-                  className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors duration-200"
+                  className="whitespace-nowrap bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors duration-200 text-sm"
                 >
                   Logout
                 </button>

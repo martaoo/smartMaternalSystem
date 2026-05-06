@@ -28,6 +28,7 @@ export function UserManagement() {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
+  const [visibleCount, setVisibleCount] = useState(10);
 
   useEffect(() => {
     fetchUsers();
@@ -40,6 +41,11 @@ export function UserManagement() {
       const response = await api.getUsers();
       setAllUsers(Array.isArray(response) ? response : []);
     } catch (err: any) {
+      // 403 = role not allowed to list users — show empty list silently
+      if (err?.message === 'Forbidden resource') {
+        setAllUsers([]);
+        return;
+      }
       setError(err.message || 'Failed to fetch users');
     } finally {
       setLoading(false);
@@ -161,6 +167,34 @@ export function UserManagement() {
     return '-';
   };
 
+  const getFacilityAndWoredaInfo = (user: User) => {
+    const hospitalName = getHospitalName(user.hospitalId);
+    const woredaName = user.assignedRegion || getWoredaFromHospital(user) || getWoredaName(user.woredaId) || '-';
+    
+    // If no facility assigned, just show woreda
+    if (hospitalName === '-') {
+      return woredaName === '-' ? '-' : woredaName;
+    }
+    
+    // If no woreda assigned, just show facility
+    if (woredaName === '-') {
+      return hospitalName;
+    }
+    
+    // Show both facility and woreda together
+    return `${hospitalName} • ${woredaName}`;
+  };
+
+  const getFacilityType = (user: User) => {
+    if (!user.hospitalId) return null;
+    
+    const hospital = hospitals.find(h => h._id === user.hospitalId);
+    if (!hospital) return null;
+    
+    const type = String(hospital?.type ?? '').trim().toUpperCase().replace(/\s+/g, '_');
+    return type === 'HEALTH_CENTER' ? 'Health Center' : 'Hospital';
+  };
+
   // Check if current user can edit/delete a specific user
   const canEditUser = (targetUser: User) => {
     if (!user) return false;
@@ -227,6 +261,10 @@ export function UserManagement() {
     return matchesSearch && matchesRole;
   });
 
+  const visibleUsers = filteredUsers.slice(0, visibleCount);
+  const hasMore = visibleCount < filteredUsers.length;
+  const hasLess = visibleCount > 10;
+
   const getRoleBadgeColor = (role: string) => {
     switch (role) {
       case 'SUPER_ADMIN': return 'bg-purple-100 text-purple-800';
@@ -273,12 +311,12 @@ export function UserManagement() {
             type="text"
             placeholder="Search users..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => { setSearchTerm(e.target.value); setVisibleCount(10); }}
             className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <select
             value={roleFilter}
-            onChange={(e) => setRoleFilter(e.target.value)}
+            onChange={(e) => { setRoleFilter(e.target.value); setVisibleCount(10); }}
             className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="">All Roles</option>
@@ -321,10 +359,7 @@ export function UserManagement() {
                 Role
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Hospital
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Woreda/Region
+                Facility & Location
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Phone
@@ -338,7 +373,7 @@ export function UserManagement() {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {filteredUsers.map((user) => (
+            {visibleUsers.map((user) => (
               <tr key={user._id} className="hover:bg-gray-50">
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="text-sm font-medium text-gray-900">{user.name}</div>
@@ -352,14 +387,14 @@ export function UserManagement() {
                   </span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-500">
-                    {getHospitalName(user.hospitalId)}
+                  <div className="text-sm text-gray-900">
+                    {getFacilityAndWoredaInfo(user)}
                   </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-500">
-                    {user.assignedRegion || getWoredaFromHospital(user) || getWoredaName(user.woredaId) || '-'}
-                  </div>
+                  {getFacilityType(user) && (
+                    <div className="text-xs text-gray-500 mt-1">
+                      {getFacilityType(user)}
+                    </div>
+                  )}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="text-sm text-gray-500">{user.phoneNumber || '-'}</div>
@@ -398,6 +433,34 @@ export function UserManagement() {
         {filteredUsers.length === 0 && (
           <div className="text-center py-8">
             <p className="text-gray-500">No users found</p>
+          </div>
+        )}
+
+        {/* Pagination footer */}
+        {filteredUsers.length > 0 && (
+          <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
+            <p className="text-sm text-gray-500">
+              Showing <span className="font-medium">{visibleUsers.length}</span> of{' '}
+              <span className="font-medium">{filteredUsers.length}</span> users
+            </p>
+            <div className="flex gap-2">
+              {hasLess && (
+                <button
+                  onClick={() => setVisibleCount((c) => Math.max(10, c - 10))}
+                  className="px-4 py-2 text-sm border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  Show Less
+                </button>
+              )}
+              {hasMore && (
+                <button
+                  onClick={() => setVisibleCount((c) => c + 10)}
+                  className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  Show More ({filteredUsers.length - visibleCount} remaining)
+                </button>
+              )}
+            </div>
           </div>
         )}
       </div>

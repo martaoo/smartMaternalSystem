@@ -1,11 +1,12 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, UseGuards, Request, BadRequestException } from '@nestjs/common';
 import { PregnancyService } from './pregnancy.service';
+import { PregnancyReminderService } from './pregnancy-reminder.service';
+import { AncScheduleService } from './anc-schedule.service';
 import { CreatePregnancyDto } from './dto/create-pregnancy.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
-import { MothersService } from '../mothers/mothers.service';
 
 @ApiTags('Pregnancy')
 @ApiBearerAuth()
@@ -14,8 +15,120 @@ import { MothersService } from '../mothers/mothers.service';
 export class PregnancyController {
   constructor(
     private readonly pregnancyService: PregnancyService,
-    private readonly mothersService: MothersService,
+    private readonly pregnancyReminderService: PregnancyReminderService,
+    private readonly ancScheduleService: AncScheduleService,
   ) {}
+
+  // ── Manual trigger (dev/testing) ─────────────────────────────────────────────
+  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN')
+  @Post('reminders/trigger')
+  @ApiOperation({ summary: 'Manually trigger all ANC jobs (reminders + missed detection)' })
+  @ApiResponse({ status: 200, description: 'Jobs triggered' })
+  async triggerReminders() {
+    return this.ancScheduleService.triggerManually();
+  }
+
+  // ── Complete a visit ──────────────────────────────────────────────────────────
+  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
+  @Patch(':id/complete')
+  @ApiOperation({ summary: 'Mark a visit as completed' })
+  @ApiParam({ name: 'id', description: 'Visit ID' })
+  @ApiResponse({ status: 200, description: 'Visit marked as completed' })
+  async completeVisit(@Param('id') id: string, @Request() req) {
+    const user = req.user;
+    return this.pregnancyService.completeVisit(
+      id, user.role, user.hospitalId?.toString(), user._id?.toString(),
+    );
+  }
+
+  // ── Reschedule a visit (manual override) ─────────────────────────────────────
+  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
+  @Patch(':id/reschedule')
+  @ApiOperation({ summary: 'Reschedule a visit (requires overrideReason)' })
+  @ApiParam({ name: 'id', description: 'Visit ID' })
+  @ApiResponse({ status: 200, description: 'Visit rescheduled' })
+  @ApiResponse({ status: 400, description: 'overrideReason required or duplicate date' })
+  async rescheduleVisit(
+    @Param('id') id: string,
+    @Body() body: { newDate: string; overrideReason: string },
+    @Request() req,
+  ) {
+    const user = req.user;
+    if (!body.newDate || !body.overrideReason) {
+      throw new Error('newDate and overrideReason are required');
+    }
+    return this.pregnancyService.rescheduleVisit(
+      id,
+      new Date(body.newDate),
+      body.overrideReason,
+      user.role,
+      user.hospitalId?.toString(),
+      user._id?.toString(),
+    );
+  }
+
+  // ── Create manual visit ───────────────────────────────────────────────────────
+  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
+  @Post('manual')
+  @ApiOperation({ summary: 'Create a manual visit (ANC, PNC, Emergency, Custom) with override reason' })
+  @ApiResponse({ status: 201, description: 'Manual visit created' })
+  @ApiResponse({ status: 400, description: 'Validation error (duplicate, missing reason, past date without flag)' })
+  async createManualVisit(@Body() body: any, @Request() req) {
+    const user = req.user;
+    return this.pregnancyService.createManualVisit(
+      {
+        ...body,
+        visitDate: new Date(body.visitDate),
+      },
+      user.role,
+      user.hospitalId?.toString(),
+      user._id?.toString(),
+    );
+  }
+
+  // ── Full schedule (visits + vaccines + warnings) ──────────────────────────────
+  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
+  @Get('full-schedule/:motherId')
+  @ApiOperation({ summary: 'Get full schedule for a mother: all visits, vaccines, next visit, overdue, warnings' })
+  @ApiParam({ name: 'motherId', description: 'Mother ID' })
+  @ApiResponse({ status: 200, description: 'Full schedule retrieved' })
+  async getFullSchedule(@Param('motherId') motherId: string) {
+    return this.pregnancyService.getFullSchedule(motherId);
+  }
+
+  // ── ANC schedule for a mother ─────────────────────────────────────────────────
+  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
+  @Get('anc-schedule/:motherId')
+  @ApiOperation({ summary: 'Get full WHO ANC schedule for a mother (all 8 visits with status)' })
+  @ApiParam({ name: 'motherId', description: 'Mother ID' })
+  @ApiResponse({ status: 200, description: 'ANC schedule retrieved' })
+  async getAncSchedule(@Param('motherId') motherId: string) {
+    return this.ancScheduleService.getAncSchedule(motherId);
+  }
+
+  // ── Maternal vaccines ─────────────────────────────────────────────────────────
+  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
+  @Post('maternal-vaccines')
+  @ApiOperation({ summary: 'Record a maternal vaccine dose (TT, Influenza, etc.)' })
+  @ApiResponse({ status: 201, description: 'Vaccine recorded' })
+  async recordMaternalVaccine(@Body() body: any, @Request() req) {
+    const user = req.user;
+    return this.ancScheduleService.recordMaternalVaccine({
+      ...body,
+      givenBy: user._id?.toString(),
+      givenAt: user.hospitalId?.toString(),
+      givenDate: body.givenDate ? new Date(body.givenDate) : new Date(),
+    });
+  }
+
+  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
+  @Get('maternal-vaccines/:motherId')
+  @ApiOperation({ summary: 'Get maternal vaccine history for a mother' })
+  @ApiParam({ name: 'motherId', description: 'Mother ID' })
+  @ApiResponse({ status: 200, description: 'Vaccine history retrieved' })
+  async getMaternalVaccineHistory(@Param('motherId') motherId: string) {
+    return this.ancScheduleService.getMaternalVaccineHistory(motherId);
+  }
 
   @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
   @Post()
@@ -111,20 +224,6 @@ export class PregnancyController {
       user.role,
       user.hospitalId?.toString(),
       user.woredaId?.toString()
-    );
-  }
-
-  @Roles('MOTHER')
-  @Get('me/visits')
-  @ApiOperation({ summary: 'Pregnancy visit history for logged-in mother (mobile app)' })
-  @ApiResponse({ status: 200, description: 'Visit records returned (empty if no linked mother profile)' })
-  async getMyVisits(@Request() req) {
-    const mother = await this.mothersService.findMotherForAuthenticatedAppUser(req.user);
-    if (!mother) {
-      return [];
-    }
-    return this.pregnancyService.findVisitsForMotherProfile(
-      (mother as any)._id.toString(),
     );
   }
 

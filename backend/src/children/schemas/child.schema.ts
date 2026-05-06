@@ -58,6 +58,41 @@ export class Child {
 
   @Prop()
   deathCause?: string;
+
+  // ── Birth Certificate fields ──────────────────────────────────────────────
+  @Prop({ default: false })
+  verified: boolean;
+
+  @Prop({ type: Date })
+  verifiedAt?: Date;
+
+  @Prop()
+  verifiedBy?: string;
+
+  @Prop({ unique: true, sparse: true })
+  certificateNumber?: string;
+
+  @Prop({ type: Date })
+  certificateIssuedDate?: Date;
+
+  @Prop()
+  fatherName?: string;
+
+  @Prop()
+  fatherPhone?: string;
+
+  @Prop()
+  birthLocation?: string; // specific room/ward within facility
+
+  // ── Woreda notification ───────────────────────────────────────────────────
+  @Prop({ default: false })
+  sentToWoreda: boolean;
+
+  @Prop({ type: Date })
+  sentToWoredaAt?: Date;
+
+  @Prop()
+  sentToWoredaBy?: string; // name of the health worker who sent it
 }
 
 export const ChildSchema = SchemaFactory.createForClass(Child);

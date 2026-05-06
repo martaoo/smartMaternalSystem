@@ -40,7 +40,6 @@ async function bootstrap() {
       email: 'admin@maternal.gov.et',
       password: 'admin123', // Service will hash this automatically
       assignedRegion: 'Addis Ababa',
-      role: UserRole.MOH_ADMIN,
       phoneNumber: '+251900000001',
     });
 

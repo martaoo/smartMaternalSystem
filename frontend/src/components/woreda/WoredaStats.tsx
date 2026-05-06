@@ -50,7 +50,7 @@ export function WoredaStats({ mothers, children, facilities }: WoredaStatsProps)
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
       {/* Total Mothers Card */}
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="bg-white rounded-lg shadow p-6 border-l-4 border-blue-500">
         <div className="flex items-center">
           <div className="p-2 bg-blue-100 rounded-lg">
             <svg className="h-6 w-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -61,14 +61,14 @@ export function WoredaStats({ mothers, children, facilities }: WoredaStatsProps)
             <p className="text-sm font-medium text-gray-600">Total Mothers</p>
             <p className="text-2xl font-bold text-gray-900">{totalMothers}</p>
             <div className="text-xs text-gray-500 mt-1">
-              {activeMothers} active, {deliveredMothers} delivered
+              {activeMothers} active · {deliveredMothers} delivered
             </div>
           </div>
         </div>
       </div>
 
       {/* Total Births Card */}
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="bg-white rounded-lg shadow p-6 border-l-4 border-green-500">
         <div className="flex items-center">
           <div className="p-2 bg-green-100 rounded-lg">
             <svg className="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -76,7 +76,7 @@ export function WoredaStats({ mothers, children, facilities }: WoredaStatsProps)
             </svg>
           </div>
           <div className="ml-4">
-            <p className="text-sm font-medium text-gray-600">Total Births</p>
+            <p className="text-sm font-medium text-gray-600">Registered Children</p>
             <p className="text-2xl font-bold text-gray-900">{totalBirths}</p>
             <div className="text-xs text-gray-500 mt-1">
               {recentBirths} in last 30 days
@@ -85,39 +85,64 @@ export function WoredaStats({ mothers, children, facilities }: WoredaStatsProps)
         </div>
       </div>
 
-      {/* Facilities Card */}
-      <div className="bg-white rounded-lg shadow p-6">
+      {/* Hospitals Card */}
+      <div className="bg-white rounded-lg shadow p-6 border-l-4 border-indigo-500">
         <div className="flex items-center">
-          <div className="p-2 bg-purple-100 rounded-lg">
-            <svg className="h-6 w-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="p-2 bg-indigo-100 rounded-lg">
+            <svg className="h-6 w-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
             </svg>
           </div>
           <div className="ml-4">
-            <p className="text-sm font-medium text-gray-600">Facilities</p>
-            <p className="text-2xl font-bold text-gray-900">{facilities.length}</p>
+            <p className="text-sm font-medium text-gray-600">Hospitals</p>
+            <p className="text-2xl font-bold text-gray-900">{totalHospitals}</p>
             <div className="text-xs text-gray-500 mt-1">
-              {totalHospitals} hospitals, {totalHealthCenters} health centers
+              in this woreda
             </div>
           </div>
         </div>
       </div>
 
-      {/* Verification Status Card */}
-      <div className="bg-white rounded-lg shadow p-6">
+      {/* Health Centers Card */}
+      <div className="bg-white rounded-lg shadow p-6 border-l-4 border-teal-500">
         <div className="flex items-center">
-          <div className="p-2 bg-yellow-100 rounded-lg">
-            <svg className="h-6 w-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          <div className="p-2 bg-teal-100 rounded-lg">
+            <svg className="h-6 w-6 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
             </svg>
           </div>
           <div className="ml-4">
-            <p className="text-sm font-medium text-gray-600">Verification Status</p>
-            <p className="text-2xl font-bold text-gray-900">{verifiedChildren}</p>
+            <p className="text-sm font-medium text-gray-600">Health Centers</p>
+            <p className="text-2xl font-bold text-gray-900">{totalHealthCenters}</p>
             <div className="text-xs text-gray-500 mt-1">
-              {pendingVerification} pending verification
+              in this woreda
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Verification Status Card — full width */}
+      <div className="bg-white rounded-lg shadow p-6 border-l-4 border-yellow-500 md:col-span-2 lg:col-span-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="p-2 bg-yellow-100 rounded-lg">
+              <svg className="h-6 w-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-600">Birth Certificate Status</p>
+              <div className="flex items-center gap-6 mt-1">
+                <span className="text-sm"><span className="font-bold text-green-600 text-lg">{verifiedChildren}</span> <span className="text-gray-500">issued</span></span>
+                <span className="text-sm"><span className="font-bold text-yellow-600 text-lg">{pendingVerification}</span> <span className="text-gray-500">pending</span></span>
+                <span className="text-sm"><span className="font-bold text-gray-700 text-lg">{totalBirths}</span> <span className="text-gray-500">total</span></span>
+              </div>
+            </div>
+          </div>
+          <a href="/woreda-dashboard/birth-certificates"
+            className="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 whitespace-nowrap">
+            📄 Manage Certificates
+          </a>
         </div>
       </div>
 
@@ -133,39 +158,6 @@ export function WoredaStats({ mothers, children, facilities }: WoredaStatsProps)
             <div className="ml-4">
               <p className="text-sm font-medium text-red-800">High Risk Mothers Alert</p>
               <p className="text-lg font-bold text-red-900">{highRiskMothers} mothers require immediate attention</p>
-            </div>
-            <div className="ml-auto">
-              <button 
-                onClick={() => window.location.href = '/woreda-dashboard?tab=mothers'}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm"
-              >
-                View Mothers
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Pending Verification Alert */}
-      {pendingVerification > 0 && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 lg:col-span-4">
-          <div className="flex items-center">
-            <div className="p-2 bg-yellow-100 rounded-lg">
-              <svg className="h-6 w-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-yellow-800">Pending Birth Registrations</p>
-              <p className="text-lg font-bold text-yellow-900">{pendingVerification} children need verification for official registration</p>
-            </div>
-            <div className="ml-auto">
-              <button 
-                onClick={() => window.location.href = '/woreda-dashboard?tab=children'}
-                className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 text-sm"
-              >
-                Verify Children
-              </button>
             </div>
           </div>
         </div>

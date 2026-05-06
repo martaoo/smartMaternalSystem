@@ -50,6 +50,8 @@ export default function RegisterMother() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
+  const [emergencyPhoneError, setEmergencyPhoneError] = useState<string | null>(null);
   const [woredas, setWoredas] = useState<any[]>([]);
   const [filteredWoredas, setFilteredWoredas] = useState<any[]>([]);
   const [loadingWoredas, setLoadingWoredas] = useState(true);
@@ -126,11 +128,69 @@ export default function RegisterMother() {
         console.log('Parsed user object:', user);
         setCurrentUser(user);
         
+        // Auto-assign health center based on logged-in user
         if (user.hospitalId) {
           setFormData(prev => ({
             ...prev,
             healthCenter: user.hospitalId
           }));
+          
+          // Find the hospital details to auto-assign woreda and region
+          try {
+            const hospitals = await api.getHospitals();
+            const userHospital = hospitals.find((h: any) => h._id === user.hospitalId);
+            
+            if (userHospital) {
+              setUserHospital(userHospital);
+              
+              // Auto-assign woreda if hospital has one
+              if (userHospital.woredaId || userHospital.woreda) {
+                const hospitalWoredaId = userHospital.woredaId?._id || userHospital.woredaId || userHospital.woreda;
+                setFormData(prev => ({
+                  ...prev,
+                  woredaId: hospitalWoredaId
+                }));
+                
+                // Auto-assign region if woreda has one
+                try {
+                  const woredas = await api.getWoredas();
+                  const hospitalWoreda = woredas.find((w: any) => w._id === hospitalWoredaId);
+                  if (hospitalWoreda && hospitalWoreda.region) {
+                    setFormData(prev => ({
+                      ...prev,
+                      region: hospitalWoreda.region
+                    }));
+                  }
+                } catch (woredaErr) {
+                  console.error('Error fetching woredas for auto-assignment:', woredaErr);
+                }
+              }
+            }
+          } catch (hospitalErr) {
+            console.error('Error fetching hospitals for auto-assignment:', hospitalErr);
+          }
+        }
+        
+        // For Woreda Admin, auto-assign woreda
+        if (user.woredaId) {
+          setFormData(prev => ({
+            ...prev,
+            woredaId: user.woredaId
+          }));
+          
+          // Auto-assign region if woreda has one
+          try {
+            const woredas = await api.getWoredas();
+            const userWoreda = woredas.find((w: any) => w._id === user.woredaId);
+            if (userWoreda && userWoreda.region) {
+              setFormData(prev => ({
+                ...prev,
+                region: userWoreda.region
+              }));
+            }
+          } catch (woredaErr) {
+            console.error('Error fetching woredas for auto-assignment:', woredaErr);
+          }
         }
       }
       console.log('=== USER DEBUG END ===');
@@ -220,6 +280,14 @@ export default function RegisterMother() {
       ...prev,
       [name]: value
     }));
+
+    // Real-time Ethiopian phone validation
+    if (name === 'phone') {
+      setPhoneError(value ? validateEthiopianPhone(value) : null);
+    }
+    if (name === 'emergencyContact') {
+      setEmergencyPhoneError(value ? validateEthiopianPhone(value) : null);
+    }
     
     // Implement 4-level cascading logic
     if (name === 'region') {
@@ -298,6 +366,30 @@ export default function RegisterMother() {
     }
   };
 
+  /**
+   * Ethiopian phone number formats accepted:
+   *  09XXXXXXXX  — Ethio Telecom mobile (10 digits)
+   *  07XXXXXXXX  — Safaricom Ethiopia mobile (10 digits)
+   *  +2519XXXXXXX — International format mobile
+   *  +2517XXXXXXX — International format mobile
+   *  0116XXXXXX  — Addis Ababa landline (10 digits)
+   */
+  const validateEthiopianPhone = (value: string): string | null => {
+    if (!value) return null; // empty is handled by required
+    const cleaned = value.replace(/[\s\-()]/g, '');
+    const patterns = [
+      /^09\d{8}$/,          // 09XXXXXXXX
+      /^07\d{8}$/,          // 07XXXXXXXX
+      /^\+2519\d{8}$/,      // +2519XXXXXXXX
+      /^\+2517\d{8}$/,      // +2517XXXXXXXX
+      /^2519\d{8}$/,        // 2519XXXXXXXX (without +)
+      /^2517\d{8}$/,        // 2517XXXXXXXX (without +)
+      /^011[0-9]\d{6}$/,    // Addis landline 0116XXXXXX
+    ];
+    if (patterns.some(p => p.test(cleaned))) return null;
+    return 'Enter a valid Ethiopian number: 09XXXXXXXX, 07XXXXXXXX, or +2519XXXXXXXX';
+  };
+
   const handleHospitalSelect = (hospitalId: string) => {
     const selectedHospital = filteredHospitals.find(h => h._id === hospitalId);
     if (selectedHospital) {
@@ -340,6 +432,20 @@ export default function RegisterMother() {
       if (!isValidObjectId(formData.woredaId)) {
         console.error('Invalid woredaId format:', formData.woredaId);
         throw new Error(`Invalid woreda ID format. Received: "${formData.woredaId}"`);
+      }
+
+      // Validate Ethiopian phone numbers before submitting
+      const phoneValidationError = validateEthiopianPhone(formData.phone);
+      if (phoneValidationError) {
+        setPhoneError(phoneValidationError);
+        throw new Error('Please enter a valid Ethiopian phone number for the mother.');
+      }
+      if (formData.emergencyContact) {
+        const emergencyValidationError = validateEthiopianPhone(formData.emergencyContact);
+        if (emergencyValidationError) {
+          setEmergencyPhoneError(emergencyValidationError);
+          throw new Error('Please enter a valid Ethiopian phone number for the emergency contact.');
+        }
       }
 
       const motherData = {
@@ -480,8 +586,18 @@ export default function RegisterMother() {
                     value={formData.phone}
                     onChange={handleInputChange}
                     required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="09XXXXXXXX or +2519XXXXXXXX"
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                      phoneError ? 'border-red-400 bg-red-50' : 'border-gray-300'
+                    }`}
                   />
+                  {phoneError ? (
+                    <p className="text-xs text-red-600 mt-1">⚠ {phoneError}</p>
+                  ) : formData.phone && !phoneError ? (
+                    <p className="text-xs text-green-600 mt-1">✓ Valid Ethiopian number</p>
+                  ) : (
+                    <p className="text-xs text-gray-400 mt-1">Format: 09XXXXXXXX, 07XXXXXXXX, or +2519XXXXXXXX</p>
+                  )}
                 </div>
 
                 <div>
@@ -520,114 +636,117 @@ export default function RegisterMother() {
               </div>
             </div>
 
-            {/* 4-Level Cascading Dropdown Section */}
+            {/* Location & Facility Assignment - Auto-assigned from logged-in user */}
             <div>
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Location & Facility Assignment</h2>
+              
+              {/* Current User Facility Summary */}
+              {currentUser && (
+                <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg">
+                  <div className="flex items-center space-x-3">
+                    <div className="flex-shrink-0">
+                      <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
+                        <span className="text-white font-semibold">
+                          {currentUser.name?.charAt(0)?.toUpperCase() || 'U'}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-sm font-semibold text-gray-900">Your Assigned Facility</h3>
+                      {userHospital ? (
+                        <div className="mt-1">
+                          <div className="font-medium text-gray-900">
+                            {userHospital.name}
+                          </div>
+                          <div className="text-sm text-gray-600">
+                            {userHospital.type === 'HEALTH_CENTER' ? 'Health Center' : 'Hospital'} • 
+                            {(() => {
+                              const woreda = woredas.find(w => w._id === formData.woredaId);
+                              return woreda ? ` ${woreda.name}` : '';
+                            })()}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-sm text-gray-600">
+                          No facility assigned to your profile
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm text-blue-800">
+                  <strong>Automatic Assignment:</strong> Region, Woreda, and Facility are automatically assigned based on your logged-in profile.
+                </p>
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Region Dropdown */}
+                {/* Region Display - Auto-assigned from logged-in user */}
                 <div>
                   <label htmlFor="region" className="block text-sm font-medium text-gray-700 mb-2">
                     Region *
                   </label>
-                  <select
-                    id="region"
-                    name="region"
-                    value={formData.region}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="">Select Region</option>
-                    {ethiopianRegions.map((region) => (
-                      <option key={region} value={region}>
-                        {region}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-700">
+                    {formData.region || 'No region assigned'}
+                  </div>
+                  {formData.region && (
+                    <p className="text-xs text-green-600 mt-1">
+                      Automatically assigned from your profile
+                    </p>
+                  )}
                 </div>
 
-                {/* Woreda Dropdown */}
+                {/* Woreda Display - Auto-assigned from logged-in user */}
                 <div>
                   <label htmlFor="woredaId" className="block text-sm font-medium text-gray-700 mb-2">
                     Woreda *
                   </label>
-                  <select
-                    id="woredaId"
-                    name="woredaId"
-                    value={formData.woredaId}
-                    onChange={handleInputChange}
-                    required
-                    disabled={loadingWoredas || !formData.region}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="">
-                      {!formData.region 
-                        ? 'Please select a region first' 
-                        : loadingWoredas 
-                        ? 'Loading woredas...' 
-                        : filteredWoredas.length === 0
-                        ? 'No woredas found in this region'
-                        : 'Select Woreda'
+                  <div className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-700">
+                    {(() => {
+                      if (formData.woredaId) {
+                        const woreda = woredas.find(w => w._id === formData.woredaId);
+                        return woreda ? woreda.name : 'Loading woreda...';
                       }
-                    </option>
-                    {filteredWoredas.map((woreda) => (
-                      <option key={woreda._id} value={woreda._id}>
-                        {woreda.name}
-                      </option>
-                    ))}
-                  </select>
-                  {formData.region && filteredWoredas.length === 0 && (
-                    <p className="text-xs text-orange-600 mt-1">
-                      No woredas found in this region. Please check if woredas are properly assigned to regions.
-                    </p>
-                  )}
-                  {formData.region && filteredWoredas.length > 0 && (
+                      return loadingWoredas ? 'Loading...' : 'No woreda assigned';
+                    })()}
+                  </div>
+                  {formData.woredaId && (
                     <p className="text-xs text-green-600 mt-1">
-                      Found {filteredWoredas.length} woreda(s) in {formData.region}
+                      Automatically assigned from your profile
                     </p>
                   )}
                 </div>
 
-                {/* Health Center Dropdown */}
+                {/* Health Center Display - Auto-assigned from logged-in user */}
                 <div>
                   <label htmlFor="healthCenter" className="block text-sm font-medium text-gray-700 mb-2">
-                    Health Center *
+                    Assigned Facility *
                   </label>
-                  <select
-                    id="healthCenter"
-                    name="healthCenter"
-                    value={formData.healthCenter}
-                    onChange={(e) => handleHospitalSelect(e.target.value)}
-                    required
-                    disabled={loadingHospitals || !formData.woredaId}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="">
-                      {!formData.woredaId 
-                        ? 'Please select a woreda first' 
-                        : loadingHospitals 
-                        ? 'Loading health centers...' 
-                        : filteredHospitals.length === 0
-                        ? 'No health centers found in this woreda'
-                        : 'Select Health Center'
-                      }
-                    </option>
-                    {filteredHospitals.map((hospital) => (
-                      <option key={hospital._id} value={hospital._id}>
-                        {hospital.name}
-                      </option>
-                    ))}
-                  </select>
-                  {formData.woredaId && filteredHospitals.length === 0 && (
-                    <p className="text-xs text-orange-600 mt-1">
-                      No health centers found in this woreda. Please contact administrator to add health centers to this woreda.
-                    </p>
+                  {userHospital ? (
+                    <div className="w-full px-3 py-3 border border-gray-200 rounded-lg bg-blue-50">
+                      <div className="flex items-center space-x-2">
+                        <div className="flex-shrink-0">
+                          <div className={`w-3 h-3 rounded-full ${userHospital.type === 'HEALTH_CENTER' ? 'bg-green-500' : 'bg-blue-500'}`}></div>
+                        </div>
+                        <div className="flex-1">
+                          <div className="font-medium text-gray-900">
+                            {userHospital.name}
+                          </div>
+                          <div className="text-sm text-gray-600">
+                            {userHospital.type === 'HEALTH_CENTER' ? 'Health Center' : 'Hospital'}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-700">
+                      {loadingHospitals ? 'Loading facility information...' : 'No facility assigned'}
+                    </div>
                   )}
-                  {formData.woredaId && filteredHospitals.length > 0 && (
-                    <p className="text-xs text-green-600 mt-1">
-                      Found {filteredHospitals.length} health center(s) in {selectedWoredaName}
-                    </p>
-                  )}
+                  <p className="text-xs text-green-600 mt-1">
+                    <strong>✓</strong> Automatically assigned from your profile
+                  </p>
                 </div>
 
                 {/* Mother Dropdown */}
@@ -686,8 +805,18 @@ export default function RegisterMother() {
                     name="emergencyContact"
                     value={formData.emergencyContact}
                     onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="09XXXXXXXX or +2519XXXXXXXX"
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                      emergencyPhoneError ? 'border-red-400 bg-red-50' : 'border-gray-300'
+                    }`}
                   />
+                  {emergencyPhoneError ? (
+                    <p className="text-xs text-red-600 mt-1">⚠ {emergencyPhoneError}</p>
+                  ) : formData.emergencyContact && !emergencyPhoneError ? (
+                    <p className="text-xs text-green-600 mt-1">✓ Valid Ethiopian number</p>
+                  ) : (
+                    <p className="text-xs text-gray-400 mt-1">Format: 09XXXXXXXX, 07XXXXXXXX, or +2519XXXXXXXX</p>
+                  )}
                 </div>
 
                 <div>

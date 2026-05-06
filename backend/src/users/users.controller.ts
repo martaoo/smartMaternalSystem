@@ -2,6 +2,7 @@ import { Controller, Get, Post, Patch, Delete, Body, Param, UseGuards, Request, 
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { UpdateSelfDto } from './dto/update-self.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -22,27 +23,65 @@ export class UsersController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' })
   async create(@Body() createUserDto: CreateUserDto, @Request() req) {
-    console.log('DEBUG Controller - Create user request received');
-    console.log('DEBUG Controller - Request user:', req.user);
-    console.log('DEBUG Controller - User role:', req.user?.role);
-    
-    const user = req.user;
-    
-    if (user.role === 'SUPER_ADMIN') {
-      console.log('DEBUG Controller - Creating user as SUPER_ADMIN');
+    const creator = req.user;
+
+    if (creator.role === 'SUPER_ADMIN') {
+      // Super admin can freely assign anything
       return this.usersService.create(createUserDto);
-    } else if (user.role === 'HOSPITAL_ADMIN' || user.role === 'HEALTH_CENTER_ADMIN') {
-      console.log(`DEBUG Controller - Creating user as ${user.role}`);
-      return this.usersService.createWithRoleValidation(
-        createUserDto, 
-        user.role, 
-        user.hospitalId?.toString()
-      );
-    } else {
-      console.log('DEBUG Controller - Insufficient permissions for role:', user.role);
-      throw new ForbiddenException('Insufficient permissions to create users');
     }
+
+    if (creator.role === 'HOSPITAL_ADMIN' || creator.role === 'HEALTH_CENTER_ADMIN') {
+      // Force hospital to creator's own hospital — frontend cannot override this
+      return this.usersService.createWithRoleValidation(
+        createUserDto,
+        creator.role,
+        creator.hospitalId?.toString(),
+        creator.woredaId?.toString(),
+      );
+    }
+
+    if (creator.role === 'SYSTEM_ADMIN') {
+      // System admin can only create users within their assigned region
+      // Inject assignedRegion from the creator so it cannot be spoofed
+      const dto = {
+        ...createUserDto,
+        assignedRegion: creator.assignedRegion ?? createUserDto.assignedRegion,
+      };
+      return this.usersService.create(dto);
+    }
+
+    if (creator.role === 'WOREDA_ADMIN') {
+      // Woreda admin cannot create users (existing rule)
+      throw new ForbiddenException('Woreda Admin cannot create users');
+    }
+
+    throw new ForbiddenException('Insufficient permissions to create users');
   }
+
+  // ─── Self-profile endpoints (any authenticated user) ───────────────────────
+
+  @Get('me')
+  @ApiOperation({ summary: 'Get current user profile' })
+  @ApiResponse({ status: 200, description: 'Profile retrieved successfully' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async getMe(@Request() req) {
+    // The JWT strategy spreads the full Mongoose user object into req.user,
+    // so _id is a Mongoose ObjectId. userId is also set as the raw sub string.
+    const id = req.user._id?.toString() ?? req.user.userId ?? req.user.sub;
+    return this.usersService.getOwnProfile(id);
+  }
+
+  @Patch('me')
+  @ApiOperation({ summary: 'Update current user profile (name, email, phone, password)' })
+  @ApiResponse({ status: 200, description: 'Profile updated successfully' })
+  @ApiResponse({ status: 400, description: 'Bad request (e.g. wrong current password)' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async updateMe(@Request() req, @Body() body: UpdateSelfDto) {
+    const id = req.user._id?.toString() ?? req.user.userId ?? req.user.sub;
+    return this.usersService.updateSelf(id, body);
+  }
+
+  // ─── Admin endpoints ─────────────────────────────────────────────────────────
 
   @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN')
   @Get()
@@ -73,6 +112,10 @@ export class UsersController {
   @ApiResponse({ status: 404, description: 'User not found' })
   @ApiResponse({ status: 403, description: 'Forbidden - Cannot access this user' })
   async findById(@Param('id') id: string, @Request() req) {
+    // 'me' is handled by GET /users/me — should never reach here
+    if (id === 'me') {
+      return this.usersService.findByIdWithRoleFilter(req.user.sub, 'SUPER_ADMIN');
+    }
     const user = req.user;
     return this.usersService.findByIdWithRoleFilter(id, user.role, user.hospitalId?.toString());
   }

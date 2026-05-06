@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
 import { mothersApi, childrenApi } from '@/lib/healthcare-api';
@@ -66,40 +67,76 @@ export default function WoredaDashboard() {
   const [activeTab, setActiveTab] = useState<'overview' | 'children' | 'mothers' | 'facilities'>('overview');
 
   useEffect(() => {
-    fetchWoredaData();
-  }, []);
+    // Wait until user is loaded before fetching
+    if (user !== undefined) {
+      fetchWoredaData();
+    }
+  }, [user]);
 
   const fetchWoredaData = async () => {
     try {
       setLoading(true);
       setError(null);
       
-      // Fetch data for the woreda admin's assigned woreda
       const woreda = user?.woredaId;
       
       if (!woreda) {
-        throw new Error('No woreda assigned to this admin');
+        // User is loaded but has no woredaId — show a clear message instead of crashing
+        setError('No woreda is assigned to your account. Please contact your administrator to assign a woreda.');
+        setLoading(false);
+        return;
       }
 
       // Fetch all data in parallel
       const [childrenResponse, mothersResponse, facilitiesResponse] = await Promise.all([
-        // Get children by woreda (we'll need to add this endpoint)
-        childrenApi.getAll().catch(() => []), // Fallback to all children
-        mothersApi.getAll().catch(() => []), // Fallback to all mothers  
-        api.getHospitals().catch(() => []), // Fallback to all hospitals
+        childrenApi.getAll().catch(() => []),
+        mothersApi.getAll().catch(() => []),
+        api.getHospitals().catch(() => []),
       ]);
 
-      // Filter data by woreda on frontend (until backend supports woreda filtering)
-      const filteredChildren = Array.isArray(childrenResponse) 
-        ? childrenResponse.filter((child: any) => child.woreda === woreda || child.birthFacility?.woreda === woreda)
-        : [];
-        
-      const filteredMothers = Array.isArray(mothersResponse)
-        ? mothersResponse.filter((mother: any) => mother.healthCenter?.woreda === woreda || mother.woreda === woreda)
-        : [];
-        
+      // Filter facilities by woreda — hospitals store woredaId as ObjectId or populated object
       const filteredFacilities = Array.isArray(facilitiesResponse)
-        ? facilitiesResponse.filter((facility: any) => facility.woreda === woreda)
+        ? facilitiesResponse.filter((facility: any) => {
+            const fWoreda =
+              facility.woredaId?._id?.toString() ??
+              facility.woredaId?.toString() ??
+              facility.woreda?._id?.toString() ??
+              facility.woreda?.toString() ??
+              '';
+            return fWoreda === woreda.toString();
+          })
+        : [];
+
+      // Get the IDs of facilities in this woreda for child/mother filtering
+      const facilityIds = new Set(filteredFacilities.map((f: any) => f._id?.toString()));
+
+      // Filter children whose birth hospital is in this woreda
+      const filteredChildren = Array.isArray(childrenResponse)
+        ? childrenResponse.filter((child: any) => {
+            const hospitalId =
+              child.birthHospital?._id?.toString() ??
+              child.birthHospital?.toString() ??
+              child.birthFacility?._id?.toString() ??
+              child.birthFacility?.toString() ??
+              '';
+            return facilityIds.has(hospitalId);
+          })
+        : [];
+
+      // Filter mothers whose health center is in this woreda
+      const filteredMothers = Array.isArray(mothersResponse)
+        ? mothersResponse.filter((mother: any) => {
+            const hcId =
+              mother.healthCenter?._id?.toString() ??
+              mother.healthCenter?.toString() ??
+              '';
+            const mWoreda =
+              mother.woredaId?._id?.toString() ??
+              mother.woredaId?.toString() ??
+              mother.woreda?.toString() ??
+              '';
+            return facilityIds.has(hcId) || mWoreda === woreda.toString();
+          })
         : [];
 
       setChildren(filteredChildren);
@@ -161,7 +198,7 @@ export default function WoredaDashboard() {
         {/* Header */}
         <header className="bg-white shadow-sm border-b border-gray-200">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center py-4">
+            <div className="flex flex-wrap justify-between items-center py-4 gap-y-2">
               <div className="flex items-center">
                 <div className="h-10 w-10 bg-gradient-to-r from-green-600 to-teal-600 rounded-lg flex items-center justify-center mr-3">
                   <svg className="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -174,11 +211,14 @@ export default function WoredaDashboard() {
                   <p className="text-sm text-gray-500">Woreda: {user?.woredaId || 'Not Assigned'}</p>
                 </div>
               </div>
-              <div className="flex items-center space-x-4">
-                <span className="text-sm text-gray-700">Welcome, {user?.name}</span>
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-gray-700 whitespace-nowrap">Welcome, {user?.name}</span>
+                <Link href="/woreda-dashboard/profile" className="text-sm text-blue-600 hover:underline whitespace-nowrap">
+                  My Profile
+                </Link>
                 <button
                   onClick={() => window.location.href = '/auth'}
-                  className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors duration-200"
+                  className="whitespace-nowrap bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors duration-200 text-sm"
                 >
                   Logout
                 </button>
@@ -231,6 +271,12 @@ export default function WoredaDashboard() {
               >
                 Facilities ({facilities.length})
               </button>
+              <Link
+                href="/woreda-dashboard/birth-certificates"
+                className="py-4 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-green-600 hover:border-green-500 whitespace-nowrap"
+              >
+                📄 Birth Certificates
+              </Link>
             </nav>
           </div>
         </div>

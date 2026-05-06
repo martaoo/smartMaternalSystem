@@ -18,6 +18,248 @@ export class PregnancyService {
   ) {}
 
   // =========================
+  // COMPLETE A VISIT
+  // =========================
+  async completeVisit(
+    id: string,
+    userRole: string,
+    userHospitalId?: string,
+    userId?: string,
+  ): Promise<Pregnancy> {
+    const visit = await this.findById(id, userRole, userHospitalId);
+
+    if (visit.visitStatus === 'COMPLETED') {
+      throw new BadRequestException('Visit is already marked as completed');
+    }
+
+    const updated = await this.pregnancyModel
+      .findByIdAndUpdate(
+        id,
+        {
+          visitStatus: 'COMPLETED',
+          updatedBy: userId ? new Types.ObjectId(userId) : undefined,
+        },
+        { new: true, runValidators: false },
+      )
+      .exec();
+
+    return updated;
+  }
+
+  // =========================
+  // RESCHEDULE A VISIT (manual override)
+  // =========================
+  async rescheduleVisit(
+    id: string,
+    newDate: Date,
+    overrideReason: string,
+    userRole: string,
+    userHospitalId?: string,
+    userId?: string,
+  ): Promise<Pregnancy> {
+    if (!overrideReason?.trim()) {
+      throw new BadRequestException('overrideReason is required when rescheduling a visit');
+    }
+
+    const visit = await this.findById(id, userRole, userHospitalId);
+
+    // Check for duplicate: same mother, same date (excluding this record)
+    const duplicate = await this.pregnancyModel.findOne({
+      _id: { $ne: new Types.ObjectId(id) },
+      motherId: visit.motherId,
+      visitDate: {
+        $gte: new Date(new Date(newDate).setHours(0, 0, 0, 0)),
+        $lte: new Date(new Date(newDate).setHours(23, 59, 59, 999)),
+      },
+      visitStatus: { $ne: 'MISSED' },
+    });
+    if (duplicate) {
+      throw new BadRequestException(
+        `A visit already exists for this mother on ${newDate.toDateString()}. Duplicate visits are not allowed.`,
+      );
+    }
+
+    // WHO deviation check
+    const { deviates, note } = this.checkWhoDeviation(visit.gestationalAge, newDate, visit.visitDate);
+
+    const updated = await this.pregnancyModel
+      .findByIdAndUpdate(
+        id,
+        {
+          visitDate: newDate,
+          nextVisitDate: newDate,
+          visitStatus: 'RESCHEDULED',
+          manualOverride: true,
+          overrideReason,
+          deviatesFromWhoSchedule: deviates,
+          whoDeviationNote: note,
+          updatedBy: userId ? new Types.ObjectId(userId) : undefined,
+          // Reset reminders so they fire again for the new date
+          visitReminderSent: false,
+          reminder3DaySent: false,
+          reminderSameDaySent: false,
+        },
+        { new: true, runValidators: false },
+      )
+      .populate('motherId', 'name phone age address')
+      .exec();
+
+    return updated;
+  }
+
+  // =========================
+  // CREATE MANUAL VISIT (override layer)
+  // =========================
+  async createManualVisit(
+    data: {
+      motherId: string;
+      visitDate: Date;
+      visitType: 'ANC' | 'PNC' | 'EMERGENCY' | 'CUSTOM';
+      notes?: string;
+      overrideReason: string;
+      retrospectiveEntry?: boolean;
+      gestationalAge?: number;
+      week?: number;
+      riskLevel?: 'LOW' | 'MODERATE' | 'HIGH';
+    },
+    userRole: string,
+    userHospitalId?: string,
+    userId?: string,
+  ): Promise<Pregnancy> {
+    if (!data.overrideReason?.trim()) {
+      throw new BadRequestException('overrideReason is required for manual visits');
+    }
+
+    // Past date requires retrospectiveEntry flag
+    if (data.visitDate < new Date() && !data.retrospectiveEntry) {
+      throw new BadRequestException(
+        'Past dates require retrospectiveEntry = true to confirm this is a retrospective record',
+      );
+    }
+
+    // Duplicate check
+    const duplicate = await this.pregnancyModel.findOne({
+      motherId: new Types.ObjectId(data.motherId),
+      visitDate: {
+        $gte: new Date(new Date(data.visitDate).setHours(0, 0, 0, 0)),
+        $lte: new Date(new Date(data.visitDate).setHours(23, 59, 59, 999)),
+      },
+      visitStatus: { $ne: 'MISSED' },
+    });
+    if (duplicate) {
+      throw new BadRequestException(
+        `A visit already exists for this mother on ${data.visitDate.toDateString()}`,
+      );
+    }
+
+    // WHO deviation check (only for ANC visits)
+    let deviates = false;
+    let whoDeviationNote: string | undefined;
+    if (data.visitType === 'ANC' && data.gestationalAge) {
+      const result = this.checkWhoDeviation(data.gestationalAge, data.visitDate, data.visitDate);
+      deviates = result.deviates;
+      whoDeviationNote = result.note;
+    }
+
+    const visit = await new this.pregnancyModel({
+      motherId: new Types.ObjectId(data.motherId),
+      visitDate: data.visitDate,
+      visitType: data.visitType,
+      notes: data.notes,
+      overrideReason: data.overrideReason,
+      retrospectiveEntry: data.retrospectiveEntry ?? false,
+      manualOverride: true,
+      visitStatus: 'SCHEDULED',
+      gestationalAge: data.gestationalAge ?? 0,
+      week: data.week ?? 0,
+      riskLevel: data.riskLevel ?? 'LOW',
+      hospitalId: userHospitalId ? new Types.ObjectId(userHospitalId) : undefined,
+      healthWorkerId: userId ? new Types.ObjectId(userId) : undefined,
+      createdBy: userId ? new Types.ObjectId(userId) : undefined,
+      deviatesFromWhoSchedule: deviates,
+      whoDeviationNote,
+      visitReminderSent: false,
+      reminder3DaySent: false,
+      reminderSameDaySent: false,
+    }).save();
+
+    return visit;
+  }
+
+  // =========================
+  // FULL SCHEDULE (visits + vaccines)
+  // =========================
+  async getFullSchedule(motherId: string): Promise<{
+    visits: any[];
+    vaccines: any[];
+    nextVisit: any | null;
+    overdueVisits: any[];
+    warnings: string[];
+  }> {
+    const [visits, vaccines] = await Promise.all([
+      this.pregnancyModel
+        .find({ motherId: new Types.ObjectId(motherId) })
+        .populate('healthWorkerId', 'name role')
+        .sort({ visitDate: 1 })
+        .lean()
+        .exec(),
+      this.pregnancyModel.db
+        .collection('maternalvaccines')
+        .find({ motherId: new Types.ObjectId(motherId) })
+        .sort({ givenDate: 1 })
+        .toArray(),
+    ]);
+
+    const now = new Date();
+
+    const overdueVisits = visits.filter(
+      v => v.visitStatus === 'SCHEDULED' && new Date(v.visitDate) < now,
+    );
+
+    const nextVisit = visits
+      .filter(v => v.visitStatus === 'SCHEDULED' && new Date(v.visitDate) >= now)
+      .sort((a, b) => new Date(a.visitDate).getTime() - new Date(b.visitDate).getTime())[0] ?? null;
+
+    const warnings: string[] = [];
+    visits.forEach(v => {
+      if (v.deviatesFromWhoSchedule && v.whoDeviationNote) {
+        warnings.push(`Visit on ${new Date(v.visitDate).toDateString()}: ${v.whoDeviationNote}`);
+      }
+    });
+
+    return { visits, vaccines, nextVisit, overdueVisits, warnings };
+  }
+
+  // =========================
+  // WHO DEVIATION CHECK
+  // =========================
+  private checkWhoDeviation(
+    gestationalAge: number,
+    proposedDate: Date,
+    originalDate: Date,
+  ): { deviates: boolean; note?: string } {
+    // Find the closest WHO target week for this gestational age
+    const WHO_WEEKS = [12, 20, 26, 30, 34, 36, 38, 40];
+    const closest = WHO_WEEKS.reduce((prev, curr) =>
+      Math.abs(curr - gestationalAge) < Math.abs(prev - gestationalAge) ? curr : prev,
+    );
+
+    // Calculate expected date based on closest WHO week
+    // If the proposed date is more than 14 days from the expected WHO date, flag it
+    const diffDays = Math.abs(
+      (proposedDate.getTime() - originalDate.getTime()) / (1000 * 60 * 60 * 24),
+    );
+
+    if (diffDays > 14) {
+      return {
+        deviates: true,
+        note: `Visit date deviates ${Math.round(diffDays)} days from the WHO-recommended schedule for week ${closest}. Consider reviewing.`,
+      };
+    }
+    return { deviates: false };
+  }
+
+  // =========================
   // CREATE
   // =========================
   async create(
@@ -43,16 +285,18 @@ export class PregnancyService {
       motherId: new Types.ObjectId(createPregnancyDto.motherId),
       healthWorkerId: new Types.ObjectId(userId),
       hospitalId: new Types.ObjectId(userHospitalId),
+      createdBy: new Types.ObjectId(userId),
       nextVisitDate: createPregnancyDto.nextVisitDate
         ? new Date(createPregnancyDto.nextVisitDate)
         : undefined,
     }).save();
 
-    await this.triggerReferralIfNeeded(
-      pregnancy,
-      userId,
-      userHospitalId,
-    );
+    // Silently attempt referral trigger — never let it crash the create
+    try {
+      await this.triggerReferralIfNeeded(pregnancy, userId, userHospitalId);
+    } catch {
+      // intentionally swallowed
+    }
 
     return pregnancy;
   }
@@ -67,7 +311,18 @@ export class PregnancyService {
     userHospitalId?: string,
     userId?: string,
   ): Promise<Pregnancy> {
-    await this.findById(id, userRole, userHospitalId);
+    const existing = await this.findById(id, userRole, userHospitalId);
+
+    // CRITICAL: Never auto-modify a manually overridden record
+    if (existing.manualOverride && !updatePregnancyDto.manualOverride) {
+      // Allow updates only if the caller explicitly acknowledges the override
+      // by passing overrideReason in the update payload
+      if (!updatePregnancyDto.overrideReason) {
+        throw new BadRequestException(
+          'This visit has a manual override. To modify it, provide an overrideReason in the request.',
+        );
+      }
+    }
 
     const updateData: any = { ...updatePregnancyDto };
 
@@ -75,22 +330,44 @@ export class PregnancyService {
       updateData.motherId = new Types.ObjectId(updateData.motherId);
     }
 
-    if (updateData.nextVisitDate) {
-      updateData.nextVisitDate = new Date(updateData.nextVisitDate);
+    // Convert all date strings to Date objects
+    if (updateData.visitDate) {
+      updateData.visitDate = new Date(updateData.visitDate);
     }
 
+    if (updateData.nextVisitDate) {
+      updateData.nextVisitDate = new Date(updateData.nextVisitDate);
+      // If nextVisitDate changed, reset the reminder so it gets sent again
+      const oldDate = existing.nextVisitDate
+        ? new Date(existing.nextVisitDate).toDateString()
+        : null;
+      const newDate = updateData.nextVisitDate.toDateString();
+      if (oldDate !== newDate) {
+        updateData.visitReminderSent = false;
+        updateData.visitReminderSentDate = undefined;
+      }
+    }
+
+    // Strip undefined values so Mongoose doesn't try to $unset them
+    Object.keys(updateData).forEach(key => {
+      if (updateData[key] === undefined) delete updateData[key];
+    });
+
+    if (userId) updateData.updatedBy = new Types.ObjectId(userId);
+
     const updated = await this.pregnancyModel
-      .findByIdAndUpdate(id, updateData, { new: true })
+      .findByIdAndUpdate(id, updateData, { new: true, runValidators: false })
       .populate('motherId', 'name phone age address')
       .populate('healthWorkerId', 'name email role')
       .populate('hospitalId', 'name type')
       .exec();
 
-    await this.triggerReferralIfNeeded(
-      updated,
-      userId,
-      userHospitalId,
-    );
+    // Silently attempt referral trigger — never let it crash the update
+    try {
+      await this.triggerReferralIfNeeded(updated, userId, userHospitalId);
+    } catch {
+      // intentionally swallowed
+    }
 
     return updated;
   }

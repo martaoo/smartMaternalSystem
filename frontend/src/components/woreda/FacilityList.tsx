@@ -29,9 +29,16 @@ interface FacilityListProps {
 export function FacilityList({ facilities, children }: FacilityListProps) {
   // Calculate birth statistics per facility
   const facilityStats = facilities.map(facility => {
-    const facilityChildren = children.filter(child => 
-      child.birthFacility._id === facility._id
-    );
+    const facilityChildren = children.filter((child: any) => {
+      // birthHospital can be a populated object or a raw ObjectId string
+      const childHospitalId =
+        child.birthHospital?._id?.toString() ??
+        child.birthHospital?.toString() ??
+        child.birthFacility?._id?.toString() ??
+        child.birthFacility?.toString() ??
+        '';
+      return childHospitalId === facility._id?.toString();
+    });
     
     // Recent births (last 30 days)
     const thirtyDaysAgo = new Date();
