@@ -19,13 +19,41 @@ export class HospitalsService {
   }
 
   async findAll(): Promise<Hospital[]> {
-    return this.hospitalModel.find().populate('woredaId').exec();
+    return this.hospitalModel.find().populate({ path: 'woredaId', populate: { path: 'regionId' } }).exec();
   }
 
-  async findAllWithRoleFilter(role: string, hospitalId?: string): Promise<Hospital[]> {
+  async findById(id: string): Promise<Hospital | null> {
+    return this.hospitalModel.findById(id).populate({ path: 'woredaId', populate: { path: 'regionId' } }).exec();
+  }
+
+  async findAllWithRoleFilter(role: string, hospitalId?: string, regionId?: string): Promise<Hospital[]> {
     if ((role === 'HOSPITAL_ADMIN' || role === 'HEALTH_CENTER_ADMIN') && hospitalId) {
-      return this.hospitalModel.find({ _id: hospitalId }).populate('woredaId').exec();
+      return this.hospitalModel.find({ _id: hospitalId }).populate({ path: 'woredaId', populate: { path: 'regionId' } }).exec();
     }
-    return this.hospitalModel.find().populate('woredaId').exec();
+    if (role === 'SYSTEM_ADMIN' && regionId) {
+      const hospitals = await this.hospitalModel.find().populate({ path: 'woredaId', populate: { path: 'regionId' } }).exec();
+      return hospitals.filter((h: any) => {
+        const woredaRegion = h.woredaId && typeof h.woredaId === 'object' ? (h.woredaId as any).regionId : null;
+        const region = woredaRegion && typeof woredaRegion === 'object' ? woredaRegion._id?.toString() : woredaRegion?.toString();
+        return region === regionId;
+      });
+    }
+    return this.hospitalModel.find().populate({ path: 'woredaId', populate: { path: 'regionId' } }).exec();
+  }
+
+  async update(id: string, updateHospitalDto: any): Promise<Hospital> {
+    const hospital = await this.hospitalModel.findById(id);
+    if (!hospital) {
+      throw new ConflictException('Hospital not found');
+    }
+    Object.assign(hospital, updateHospitalDto);
+    return hospital.save();
+  }
+
+  async remove(id: string): Promise<void> {
+    const result = await this.hospitalModel.findByIdAndDelete(id);
+    if (!result) {
+      throw new ConflictException('Hospital not found');
+    }
   }
 }

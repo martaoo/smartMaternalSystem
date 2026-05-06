@@ -258,7 +258,7 @@ export default function HealthcareDashboard() {
                 href="/healthcare-dashboard/pregnancy/new"
                 className="block px-4 py-3 bg-green-600 text-white text-center rounded-lg hover:bg-green-700 transition-colors"
               >
-                Pregnancy Visit
+                New Pregnancy Visit
               </a>
               <a
                 href="/healthcare-dashboard/children/register"

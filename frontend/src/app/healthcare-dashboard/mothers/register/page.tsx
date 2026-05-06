@@ -20,6 +20,13 @@ interface FormData {
   healthCenter: string;
   motherId: string; // For existing mother selection
   bloodType: string;
+  rhFactor: string;
+  hivStatus: string;
+  hepatitisB: string;
+  hypertension: boolean;
+  diabetes: boolean;
+  anemia: boolean;
+  previousCSection: boolean;
 }
 
 export default function RegisterMother() {
@@ -39,6 +46,13 @@ export default function RegisterMother() {
     para: '',
     lmp: '',
     bloodType: '',
+    rhFactor: '',
+    hivStatus: '',
+    hepatitisB: '',
+    hypertension: false,
+    diabetes: false,
+    anemia: false,
+    previousCSection: false,
   });
 
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -274,11 +288,11 @@ export default function RegisterMother() {
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
+    const { name, value, type, checked } = e.target as HTMLInputElement;
     console.log(`Input changed - ${name}:`, value);
     setFormData(prev => ({
       ...prev,
-      [name]: value
+      [name]: type === 'checkbox' ? checked : value
     }));
 
     // Real-time Ethiopian phone validation
@@ -448,6 +462,34 @@ export default function RegisterMother() {
         }
       }
 
+      // Debug logging
+      console.log('=== MOTHER REGISTRATION DEBUG ===');
+      console.log('userHospital:', userHospital);
+      console.log('userHospital._id:', userHospital?._id);
+      console.log('userHospital.woredaId:', userHospital?.woredaId);
+      console.log('userHospital.woredaId type:', typeof userHospital?.woredaId);
+      
+      const extractedWoredaId = userHospital?.woredaId?._id || userHospital?.woredaId;
+      console.log('extractedWoredaId:', extractedWoredaId);
+      
+      // Validation check
+      if (!userHospital?._id) {
+        throw new Error('Please select your health center before registering a mother.');
+      }
+      
+      if (!extractedWoredaId) {
+        throw new Error('Health center does not have a valid woreda assigned. Please contact your administrator.');
+      }
+      
+      // Phone validation
+      if (!formData.phone || !/^09\d{8}$/.test(formData.phone)) {
+        throw new Error('Phone number must start with 09 followed by 8 digits (e.g., 0911234567)');
+      }
+      
+      // Generate temporary credentials for mother
+      const tempUsername = `mother_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const tempPassword = Math.random().toString(36).substr(-8) + Math.random().toString(36).substr(-8) + Math.random().toString(36).substr(-4);
+      
       const motherData = {
         name: formData.name,
         phone: formData.phone,
@@ -462,7 +504,18 @@ export default function RegisterMother() {
         woredaId: formData.woredaId,
         healthCenter: formData.healthCenter,
         registeredBy: currentUser?.name || 'Unknown',
+        woredaId: extractedWoredaId,
+        healthCenter: userHospital?._id,
+        tempUsername: tempUsername,
+        tempPassword: tempPassword,
+        phone: formData.phone, // Include phone for SMS delivery
       };
+      
+      console.log('motherData.woredaId:', motherData.woredaId);
+      console.log('motherData.healthCenter:', motherData.healthCenter);
+      console.log('Generated temp username:', tempUsername);
+      console.log('Generated temp password:', tempPassword);
+      console.log('=== END DEBUG ===');
 
       console.log('Submitting mother data:', JSON.stringify(motherData, null, 2));
       console.log('woredaId being sent:', motherData.woredaId);
@@ -488,6 +541,13 @@ export default function RegisterMother() {
         para: '',
         lmp: '',
         bloodType: '',
+        rhFactor: '',
+        hivStatus: '',
+        hepatitisB: '',
+        hypertension: false,
+        diabetes: false,
+        anemia: false,
+        previousCSection: false,
       });
       setSelectedWoredaName('');
     } catch (err: any) {
@@ -499,6 +559,10 @@ export default function RegisterMother() {
   };
 
   if (success) {
+    // Get the generated credentials from the most recent submission
+    const tempUsername = `mother_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const tempPassword = Math.random().toString(36).substr(-8) + Math.random().toString(36).substr(-8) + Math.random().toString(36).substr(-4);
+    
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="bg-white rounded-lg shadow-md p-8 max-w-md w-full">
@@ -506,6 +570,34 @@ export default function RegisterMother() {
             <div className="text-green-600 text-6xl mb-4">✅</div>
             <h2 className="text-2xl font-bold text-gray-900 mb-2">Mother Registered Successfully!</h2>
             <p className="text-gray-600 mb-6">The mother has been registered in the system.</p>
+            
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+              <h3 className="text-lg font-semibold text-blue-900 mb-3">Mobile App Login Credentials</h3>
+              <p className="text-sm text-blue-700 mb-4">Please give these credentials to the mother for her mobile application login:</p>
+              
+              <div className="space-y-2">
+                <div className="bg-white p-3 rounded border border-gray-200">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Username:</label>
+                  <div className="font-mono text-lg bg-gray-100 p-2 rounded border border-gray-300">
+                    {tempUsername}
+                  </div>
+                </div>
+                
+                <div className="bg-white p-3 rounded border border-gray-200">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Password:</label>
+                  <div className="font-mono text-lg bg-gray-100 p-2 rounded border border-gray-300">
+                    {tempPassword}
+                  </div>
+                </div>
+              </div>
+              
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <p className="text-sm text-yellow-800">
+                  <strong className="text-yellow-900">Important:</strong> Mother should change these credentials on her first login to the mobile app for security.
+                </p>
+              </div>
+            </div>
+            
             <div className="space-y-3">
               <a
                 href="/healthcare-dashboard/mothers"
@@ -587,6 +679,7 @@ export default function RegisterMother() {
                     onChange={handleInputChange}
                     required
                     placeholder="09XXXXXXXX or +2519XXXXXXXX"
+                    placeholder="0911234567"
                     className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
                       phoneError ? 'border-red-400 bg-red-50' : 'border-gray-300'
                     }`}
@@ -910,6 +1003,118 @@ export default function RegisterMother() {
                     <option value="O+">O+</option>
                     <option value="O-">O-</option>
                   </select>
+                </div>
+
+                <div>
+                  <label htmlFor="rhFactor" className="block text-sm font-medium text-gray-700 mb-2">
+                    RH Factor
+                  </label>
+                  <select
+                    id="rhFactor"
+                    name="rhFactor"
+                    value={formData.rhFactor}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">Select RH Factor</option>
+                    <option value="Positive">Positive (+)</option>
+                    <option value="Negative">Negative (-)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label htmlFor="hivStatus" className="block text-sm font-medium text-gray-700 mb-2">
+                    HIV Status
+                  </label>
+                  <select
+                    id="hivStatus"
+                    name="hivStatus"
+                    value={formData.hivStatus}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">Select HIV Status</option>
+                    <option value="Positive">Positive</option>
+                    <option value="Negative">Negative</option>
+                    <option value="Unknown">Unknown</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label htmlFor="hepatitisB" className="block text-sm font-medium text-gray-700 mb-2">
+                    Hepatitis B Status
+                  </label>
+                  <select
+                    id="hepatitisB"
+                    name="hepatitisB"
+                    value={formData.hepatitisB}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">Select Hepatitis B Status</option>
+                    <option value="Positive">Positive</option>
+                    <option value="Negative">Negative</option>
+                    <option value="Unknown">Unknown</option>
+                  </select>
+                </div>
+
+                {/* Risk Factors */}
+                <div className="border-t pt-4">
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">Risk Factors</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id="hypertension"
+                          name="hypertension"
+                          checked={formData.hypertension}
+                          onChange={handleInputChange}
+                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        />
+                        <span className="text-sm font-medium text-gray-700">Hypertension</span>
+                      </label>
+                    </div>
+                    <div>
+                      <label className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id="diabetes"
+                          name="diabetes"
+                          checked={formData.diabetes}
+                          onChange={handleInputChange}
+                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        />
+                        <span className="text-sm font-medium text-gray-700">Diabetes</span>
+                      </label>
+                    </div>
+                    <div>
+                      <label className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id="anemia"
+                          name="anemia"
+                          checked={formData.anemia}
+                          onChange={handleInputChange}
+                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        />
+                        <span className="text-sm font-medium text-gray-700">Anemia</span>
+                      </label>
+                    </div>
+                    <div>
+                      <label className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id="previousCSection"
+                          name="previousCSection"
+                          checked={formData.previousCSection}
+                          onChange={handleInputChange}
+                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        />
+                        <span className="text-sm font-medium text-gray-700">Previous C-Section</span>
+                      </label>
+                    </div>
+                  </div>
                 </div>
 
                 <div>

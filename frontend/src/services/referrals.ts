@@ -25,6 +25,9 @@ export interface Referral {
   fromHospital?: { _id: string; name?: string } | string
   toHospital?: { _id: string; name?: string } | string
   createdBy?: { _id: string; fullName?: string; name?: string } | string
+  decisionMeta?: {
+    justification?: string
+  }
 }
 
 export async function createReferral(payload: any) {
@@ -66,8 +69,17 @@ export async function respondReferral(
 }
 
 export async function gateCheckIn(payload: any) {
-  const { data } = await http.patch(`/referrals/gate-check-in`, payload)
-  return data
+  // Use proxy approach since app uses session-based authentication
+  console.log('Making gateCheckIn call via proxy...')
+  
+  try {
+    const { data } = await http.patch(`/referrals/gate-check-in`, payload)
+    console.log('Gate check-in successful:', data)
+    return data
+  } catch (error: any) {
+    console.log('Gate check-in failed:', error.response?.data?.message || error.message)
+    throw error
+  }
 }
 
 export async function unlockClinicalData(payload: any) {

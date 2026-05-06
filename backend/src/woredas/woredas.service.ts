@@ -19,10 +19,14 @@ export class WoredasService {
   }
 
   async findAll(): Promise<Woreda[]> {
-    return this.woredaModel.find().exec();
+    return this.woredaModel.find().populate('regionId').exec();
   }
 
-  async findAllWithRoleFilter(role: string, woredaId?: string): Promise<Woreda[]> {
+  async findById(id: string): Promise<Woreda | null> {
+    return this.woredaModel.findById(id).populate('regionId').exec();
+  }
+
+  async findAllWithRoleFilter(role: string, woredaId?: string, regionId?: string): Promise<Woreda[]> {
     // SYSTEM_ADMIN can see all woredas
     if (role === 'SYSTEM_ADMIN' || role === 'MOH_ADMIN') {
       return this.woredaModel.find().exec();
@@ -30,7 +34,7 @@ export class WoredasService {
     
     // WOREDA_ADMIN can only see their woreda
     if (role === 'WOREDA_ADMIN' && woredaId) {
-      return this.woredaModel.find({ _id: woredaId }).exec();
+      return this.woredaModel.find({ _id: woredaId }).populate('regionId').exec();
     }
     
     // HOSPITAL_ADMIN - check if they have woredaId
@@ -43,6 +47,29 @@ export class WoredasService {
     }
     
     // Default: return all for other roles (like DOCTOR, NURSE)
-    return this.woredaModel.find().exec();
+    if (role === 'SYSTEM_ADMIN' && regionId) {
+      const woredas = await this.woredaModel.find().populate('regionId').exec();
+      return woredas.filter((w: any) => {
+        const woredaRegion = w.regionId && typeof w.regionId === 'object' ? (w.regionId as any)._id : w.regionId;
+        return woredaRegion?.toString() === regionId;
+      });
+    }
+    return this.woredaModel.find().populate('regionId').exec();
+  }
+
+  async update(id: string, updateWoredaDto: any): Promise<Woreda> {
+    const woreda = await this.woredaModel.findById(id);
+    if (!woreda) {
+      throw new ConflictException('Woreda not found');
+    }
+    Object.assign(woreda, updateWoredaDto);
+    return woreda.save();
+  }
+
+  async remove(id: string): Promise<void> {
+    const result = await this.woredaModel.findByIdAndDelete(id);
+    if (!result) {
+      throw new ConflictException('Woreda not found');
+    }
   }
 }

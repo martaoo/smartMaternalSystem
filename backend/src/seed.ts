@@ -2,12 +2,11 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { UsersService } from './users/users.service';
 import { HospitalsService } from './hospitals/hospitals.service';
-import { WoredasService } from './woredas/woredas.service';
 import { UserRole } from './common/enums/user-role.enum';
 
 async function bootstrap() {
   const app = await NestFactory.createApplicationContext(AppModule);
-  
+
   try {
     const usersService = app.get(UsersService);
     const hospitalsService = app.get(HospitalsService);
@@ -103,13 +102,19 @@ async function bootstrap() {
           email: admin.email,
           role: admin.role as UserRole,
           hospitalId: (hospital as any)._id.toString(),
+          phoneNumber: '+251913333333',
         });
-        console.log(`Fixed hospital admin ${admin.email} - assigned to hospital`);
+        console.log('Liaison Officer created');
+        console.log('Email: liaison@test.et');
+        console.log('Password: liaison123');
+        console.log('Assigned to hospital: harHC');
+      } catch (error) {
+        console.log('Liaison Officer already exists or error:', error.message);
       }
     }
-    
+
   } catch (error) {
-    console.error('Error creating admin:', error.message);
+    console.error('Error in seed:', error.message);
   } finally {
     await app.close();
   }

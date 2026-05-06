@@ -229,7 +229,6 @@ export default function RegisterChild() {
       setFormData({
         name: '',
         birthDate: '',
-        motherId: '',
         gender: 'MALE',
         birthHospital: '',
         deliveredBy: '',

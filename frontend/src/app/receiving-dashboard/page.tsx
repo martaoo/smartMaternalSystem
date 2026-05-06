@@ -19,7 +19,7 @@ export default function ReceivingDashboardPage() {
   const respond = useRespondReferral()
 
   return (
-    <ProtectedRoute requiredRole={["SPECIALIST", "HOSPITAL_APPROVER", "HOSPITAL_ADMIN"]}>
+    <ProtectedRoute requiredRole={["HOSPITAL_ADMIN"]}>
       <div className="min-h-screen bg-slate-50">
         <div className="mx-auto max-w-6xl p-6 space-y-6">
           <div className="flex items-center justify-between">
@@ -80,7 +80,7 @@ export default function ReceivingDashboardPage() {
                         <Button asChild variant="outline" size="sm">
                           <Link href={`/referrals/${r._id}`}>Review</Link>
                         </Button>
-                        {r.status === "CHECKED_IN" && (
+                        {r.status === "PENDING" && (
                           <>
                             <Button
                               size="sm"
@@ -124,9 +124,9 @@ export default function ReceivingDashboardPage() {
                             </Button>
                           </>
                         )}
-                        {r.status === "PENDING" && (
+                        {r.status === "CHECKED_IN" && (
                           <p className="text-[11px] text-slate-600 max-w-[130px]">
-                            Waiting for gate check-in before decision.
+                            Patient has checked in and is now awaiting unlock/completion.
                           </p>
                         )}
                       </div>

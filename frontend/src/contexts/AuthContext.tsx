@@ -19,12 +19,7 @@ const getDashboardForRole = (role: string): string => {
       return '/healthcare-dashboard';
     case 'LIAISON_OFFICER':
       return '/liaison-dashboard';
-    case 'SPECIALIST':
-    case 'HOSPITAL_APPROVER':
-      return '/receiving-dashboard';
-    case 'GATEKEEPER':
-      return '/gate-dashboard';
-    case 'DISPATCHER':
+        case 'DISPATCHER':
       return '/dispatch-dashboard';
     case 'WOREDA_ADMIN':
       return '/woreda-dashboard';
@@ -86,11 +81,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (savedUser) {
       try {
         const user = JSON.parse(savedUser);
-        // Ensure hospitalId and woredaId are strings
+        // Ensure hospitalId, woredaId, and regionId are strings
         const normalizedUser: User = {
           ...user,
           hospitalId: user.hospitalId ? String(user.hospitalId) : undefined,
           woredaId: user.woredaId ? String(user.woredaId) : undefined,
+          regionId: user.regionId ? String(user.regionId) : undefined,
         };
         dispatch({ type: 'LOGIN_SUCCESS', payload: normalizedUser });
       } catch (error) {
@@ -122,6 +118,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         woredaId: data.user.woredaId ? String(data.user.woredaId) : undefined,
         assignedRegion: data.user.assignedRegion ?? undefined,
         phoneNumber: data.user.phoneNumber ?? undefined,
+        regionId: data.user.regionId ? String(data.user.regionId) : undefined,
       };
 
       // Store both user and access token from API response

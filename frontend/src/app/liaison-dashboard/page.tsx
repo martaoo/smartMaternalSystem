@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { useCheckedInReferrals, useIncomingReferrals, useOutboxReferrals } from "@/hooks/useReferrals"
+import { useCheckedInReferrals, useIncomingReferrals, useOutboxReferrals, useRespondReferral } from "@/hooks/useReferrals"
 import { gateCheckIn } from "@/services/referrals"
 import type { User } from "@/types/auth"
 
@@ -21,6 +21,7 @@ export default function LiaisonDashboardPage() {
   const incoming = useIncomingReferrals()
   const outbox = useOutboxReferrals()
   const checkedIn = useCheckedInReferrals()
+  const respond = useRespondReferral()
 
   const [checkinCode, setCheckinCode] = React.useState("")
   const [isSubmittingCheckin, setIsSubmittingCheckin] = React.useState(false)
@@ -293,9 +294,55 @@ export default function LiaisonDashboardPage() {
                           By: {typeof r.createdBy === "object" ? pickName(r.createdBy) : "—"}
                         </div>
                       </div>
-                      <Button asChild variant="outline" size="sm">
-                        <Link href={`/referrals/${r._id}`}>Open</Link>
-                      </Button>
+                      <div className="flex flex-col gap-2">
+                        <Button asChild variant="outline" size="sm">
+                          <Link href={`/referrals/${r._id}`}>Open</Link>
+                        </Button>
+                        {r.status === "PENDING" && (
+                          <>
+                            <Button
+                              size="sm"
+                              onClick={async () => {
+                                try {
+                                  await respond.mutateAsync({ id: r._id, payload: { status: "ACCEPTED" } })
+                                  toast.success("Accepted")
+                                  incoming.refetch()
+                                  outbox.refetch()
+                                  checkedIn.refetch()
+                                } catch (err: any) {
+                                  toast.error(err?.response?.data?.message ?? err?.message ?? "Accept failed")
+                                }
+                              }}
+                            >
+                              Accept
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={async () => {
+                                const justification = window.prompt("Rejection reason:")
+                                if (!justification?.trim()) {
+                                  toast.error("Justification is required to reject.")
+                                  return
+                                }
+                                try {
+                                  await respond.mutateAsync({
+                                    id: r._id,
+                                    payload: { status: "REJECTED", justification: justification.trim() },
+                                  })
+                                  toast.success("Rejected")
+                                  incoming.refetch()
+                                  outbox.refetch()
+                                } catch (err: any) {
+                                  toast.error(err?.response?.data?.message ?? err?.message ?? "Reject failed")
+                                }
+                              }}
+                            >
+                              Reject
+                            </Button>
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}
