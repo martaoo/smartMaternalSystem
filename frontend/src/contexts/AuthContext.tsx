@@ -5,7 +5,6 @@ import { User, AuthState, LoginCredentials, RegisterCredentials } from '@/types/
 
 const getDashboardForRole = (role: string): string => {
   switch (role) {
-    case 'SUPER_ADMIN':
     case 'SYSTEM_ADMIN':
       return '/system-dashboard';
     case 'MOH_ADMIN':
@@ -103,7 +102,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (credentials: LoginCredentials) => {
     dispatch({ type: 'LOGIN_START' });
     try {
-      const response = await fetch('/api/auth/login', {
+      const response = await fetch('/api/proxy/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(credentials),
@@ -139,7 +138,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const register = async (credentials: RegisterCredentials) => {
     dispatch({ type: 'REGISTER_START' });
     try {
-      const response = await fetch('/api/auth/register', {
+      const response = await fetch('/api/proxy/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(credentials),
@@ -168,7 +167,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = () => {
     localStorage.removeItem('user');
     localStorage.removeItem('token');
-    fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
+    fetch('/api/proxy/auth/logout', { method: 'POST' }).catch(() => {});
     dispatch({ type: 'LOGOUT' });
   };
 

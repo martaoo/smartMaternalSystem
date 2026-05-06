@@ -23,8 +23,8 @@ export class WoredasService {
   }
 
   async findAllWithRoleFilter(role: string, woredaId?: string): Promise<Woreda[]> {
-    // SUPER_ADMIN can see all woredas
-    if (role === 'SUPER_ADMIN') {
+    // SYSTEM_ADMIN can see all woredas
+    if (role === 'SYSTEM_ADMIN' || role === 'MOH_ADMIN') {
       return this.woredaModel.find().exec();
     }
     
@@ -34,7 +34,7 @@ export class WoredasService {
     }
     
     // HOSPITAL_ADMIN - check if they have woredaId
-    if (role === 'HOSPITAL_ADMIN') {
+    if ((role === 'HOSPITAL_ADMIN' || role === 'HEALTH_CENTER_ADMIN')) {
       if (woredaId) {
         return this.woredaModel.find({ _id: woredaId }).exec();
       }

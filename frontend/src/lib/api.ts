@@ -2,11 +2,39 @@
 
 export const API_BASE = '/api/proxy';
 
+// Use API proxy for all environments to avoid CORS issues
+export const BACKEND_URL = '/api/proxy';
+
 export class UnauthorizedError extends Error {
   constructor() {
     super('Unauthorized');
     this.name = 'UnauthorizedError';
   }
+}
+
+// Helper function to get auth token from localStorage
+function getAuthToken(): string | undefined {
+  if (typeof window === 'undefined') return undefined;
+  try {
+    return localStorage.getItem('token') || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+// Helper function to create headers with auth
+export function createAuthHeaders(extraHeaders: Record<string, string> = {}): Record<string, string> {
+  const token = getAuthToken();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...extraHeaders,
+  };
+  
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  
+  return headers;
 }
 
 export async function handleResponse(response: Response) {
@@ -43,14 +71,14 @@ export async function handleResponse(response: Response) {
 export const api = {
   // Auth
   login: (credentials: { email: string; password: string }) =>
-    fetch(`/api/auth/login`, {
+    fetch(`${BACKEND_URL}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(credentials),
     }).then(handleResponse),
 
   register: (data: any) =>
-    fetch(`/api/auth/register`, {
+    fetch(`${BACKEND_URL}/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -58,101 +86,106 @@ export const api = {
 
   // Users
   getUsers: () =>
-    fetch(`${API_BASE}/users`).then(handleResponse),
+    fetch(`${BACKEND_URL}/users`, {
+      headers: createAuthHeaders(),
+    }).then(handleResponse),
 
   getMe: () =>
-    fetch(`${API_BASE}/users/me`).then(handleResponse),
+    fetch(`${BACKEND_URL}/users/me`, {
+      headers: createAuthHeaders(),
+    }).then(handleResponse),
 
   updateMe: (data: { name?: string; email?: string; phoneNumber?: string; currentPassword?: string; newPassword?: string }) =>
-    fetch(`${API_BASE}/users/me`, {
+    fetch(`${BACKEND_URL}/users/me`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+      headers: createAuthHeaders(),
       body: JSON.stringify(data),
     }).then(handleResponse),
 
   getUser: (id: string) =>
-    fetch(`${API_BASE}/users/${id}`).then(handleResponse),
+    fetch(`${BACKEND_URL}/users/${id}`, {
+      headers: createAuthHeaders(),
+    }).then(handleResponse),
 
   createUser: (data: any) =>
-    fetch(`${API_BASE}/users`, {
+    fetch(`${BACKEND_URL}/users`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: createAuthHeaders(),
       body: JSON.stringify(data),
     }).then(handleResponse),
 
   updateUser: (id: string, data: any) =>
-    fetch(`${API_BASE}/users/${id}`, {
+    fetch(`${BACKEND_URL}/users/${id}`, {
       method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: createAuthHeaders(),
       body: JSON.stringify(data),
     }).then(handleResponse),
 
   deleteUser: (id: string) =>
-    fetch(`${API_BASE}/users/${id}`, {
+    fetch(`${BACKEND_URL}/users/${id}`, {
       method: 'DELETE',
+      headers: createAuthHeaders(),
     }).then(handleResponse),
 
   // Hospitals
   getHospitals: () =>
-    fetch(`${API_BASE}/hospitals`).then(handleResponse),
+    fetch(`${BACKEND_URL}/hospitals`, {
+      headers: createAuthHeaders(),
+    }).then(handleResponse),
 
   getHospital: (id: string) =>
-    fetch(`${API_BASE}/hospitals/${id}`).then(handleResponse),
+    fetch(`${BACKEND_URL}/hospitals/${id}`, {
+      headers: createAuthHeaders(),
+    }).then(handleResponse),
 
   createHospital: (data: any) =>
-    fetch(`${API_BASE}/hospitals`, {
+    fetch(`${BACKEND_URL}/hospitals`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: createAuthHeaders(),
       body: JSON.stringify(data),
     }).then(handleResponse),
 
   updateHospital: (id: string, data: any) =>
-    fetch(`${API_BASE}/hospitals/${id}`, {
+    fetch(`${BACKEND_URL}/hospitals/${id}`, {
       method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: createAuthHeaders(),
       body: JSON.stringify(data),
     }).then(handleResponse),
 
   deleteHospital: (id: string) =>
-    fetch(`${API_BASE}/hospitals/${id}`, {
+    fetch(`${BACKEND_URL}/hospitals/${id}`, {
       method: 'DELETE',
+      headers: createAuthHeaders(),
     }).then(handleResponse),
 
   // Woredas
   getWoredas: () =>
-    fetch(`${API_BASE}/woredas`).then(handleResponse),
+    fetch(`${BACKEND_URL}/woredas`, {
+      headers: createAuthHeaders(),
+    }).then(handleResponse),
 
   getWoreda: (id: string) =>
-    fetch(`${API_BASE}/woredas/${id}`).then(handleResponse),
+    fetch(`${BACKEND_URL}/woredas/${id}`, {
+      headers: createAuthHeaders(),
+    }).then(handleResponse),
 
   createWoreda: (data: any) =>
-    fetch(`${API_BASE}/woredas`, {
+    fetch(`${BACKEND_URL}/woredas`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: createAuthHeaders(),
       body: JSON.stringify(data),
     }).then(handleResponse),
 
   updateWoreda: (id: string, data: any) =>
-    fetch(`${API_BASE}/woredas/${id}`, {
+    fetch(`${BACKEND_URL}/woredas/${id}`, {
       method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: createAuthHeaders(),
       body: JSON.stringify(data),
     }).then(handleResponse),
 
   deleteWoreda: (id: string) =>
-    fetch(`${API_BASE}/woredas/${id}`, {
+    fetch(`${BACKEND_URL}/woredas/${id}`, {
       method: 'DELETE',
+      headers: createAuthHeaders(),
     }).then(handleResponse),
 };

@@ -77,7 +77,7 @@ export class MothersService {
       // Woreda admin can see mothers from their woreda
       query.woredaId = new Types.ObjectId(userWoredaId);
     }
-    // SUPER_ADMIN and SYSTEM_ADMIN can see all mothers
+    // SYSTEM_ADMIN can see all mothers
 
     return this.motherModel.find(query)
       .populate('healthCenter', 'name type')

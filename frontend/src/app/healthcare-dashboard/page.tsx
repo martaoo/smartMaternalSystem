@@ -62,7 +62,7 @@ export default function HealthcareDashboard() {
         followUpNeeded,
         sentReferrals,
         incomingReferralsData,
-        checkedInData,,
+        checkedInData,
         overdueAncData,
       ] = await Promise.all([
         mothersApi.getAll().catch(() => []),

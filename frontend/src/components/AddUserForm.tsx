@@ -181,6 +181,7 @@ export function AddUserForm({
       const dataToSend: any = { ...formData };
 
       if (!isSuperAdmin && isFacilityAdmin) {
+        // Force hospital admin to use their own hospital ID
         dataToSend.hospitalId = authUser?.hospitalId;
         dataToSend.woredaId = authUser?.woredaId;
       }
@@ -226,8 +227,6 @@ export function AddUserForm({
     'SPECIALIST',
     'GATEKEEPER',
     'NURSE',
-    'MIDWIFE',
-    'LIAISON_OFFICER',
     'MIDWIFE',
     'DISPATCHER',
     'EMERGENCY_ADMIN',
@@ -343,6 +342,7 @@ export function AddUserForm({
                   ))}
                 </select>
               </div>
+              {!isFacilityAdmin && (
               <div>
                 <label className="block text-sm font-medium text-gray-700">
                   {isHealthCenterAdminRole ? 'Health Center' : 'Hospital'}
@@ -364,6 +364,21 @@ export function AddUserForm({
                   <p className="text-xs text-green-600 mt-1">Woreda auto-assigned from hospital location</p>
                 )}
               </div>
+            )}
+            {isFacilityAdmin && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  {isHealthCenterAdminRole ? 'Health Center' : 'Hospital'}
+                </label>
+                <input
+                  type="text"
+                  value={hospitals.find(h => h._id?.toString() === authUser?.hospitalId)?.name || 'Your Hospital'}
+                  disabled
+                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 bg-gray-100"
+                />
+                <p className="text-xs text-gray-500 mt-1">You can only create users for your own hospital</p>
+              </div>
+            )}
             </>
           )}
 
