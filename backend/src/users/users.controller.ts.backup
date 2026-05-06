@@ -77,7 +77,7 @@ export class UsersController {
 
   // ─── Admin endpoints ─────────────────────────────────────────────────────────
 
-  @Roles('SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN', 'MOH_ADMIN')
+  @Roles('SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN')
   @Get()
   @ApiOperation({ summary: 'Get all users' })
   @ApiResponse({ status: 200, description: 'Users retrieved successfully' })
@@ -160,3 +160,4 @@ export class UsersController {
     }
   }
 }
+

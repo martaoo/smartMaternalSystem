@@ -17,32 +17,17 @@ export class User {
   @Prop({ 
     required: true, 
     enum: [
-      
       'MOH_ADMIN',
-     
       'SYSTEM_ADMIN',
-     
       'WOREDA_ADMIN',
-     
       'HOSPITAL_ADMIN',
-     
       'HEALTH_CENTER_ADMIN',
       'DOCTOR',
-     
       'NURSE',
-     
       'MIDWIFE',
-     
       'DISPATCHER',
-     
       'EMERGENCY_ADMIN',
-     
       'MOTHER',
-      'LIAISON_OFFICER',
-      'HOSPITAL_APPROVER',
-      'GATEKEEPER',
-      'SPECIALIST',
-    ,
       'LIAISON_OFFICER',
       'HOSPITAL_APPROVER',
       'GATEKEEPER',

@@ -28,7 +28,14 @@ async function handler(req: Request, ctx: { params: Promise<{ path?: string[] }>
   const url = new URL(req.url)
   const targetUrl = `${BACKEND_BASE}/${path.join("/")}${url.search}`
 
-  const token = getBearerFromCookies(req)
+  // First try to get token from Authorization header
+  let token = req.headers.get("authorization")?.replace("Bearer ", "")
+  
+  // If not in header, try cookies
+  if (!token) {
+    token = getBearerFromCookies(req)
+  }
+  
   if (!token) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
   }

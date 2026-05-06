@@ -437,7 +437,7 @@ export class ChildrenService {
     userHospitalId?: string, 
     userWoredaId?: string
   ): Promise<Child[]> {
-    if (userRole === 'SUPER_ADMIN' || userRole === 'SYSTEM_ADMIN') {
+    if (userRole === 'SYSTEM_ADMIN') {
       return children;
     }
 

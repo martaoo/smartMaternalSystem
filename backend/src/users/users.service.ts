@@ -51,22 +51,20 @@ export class UsersService {
     creatorHospitalId?: string,
     creatorWoredaId?: string,
   ): Promise<User> {
-    const { role: newRole } = createUserDto;
+    const { role: newRole, hospitalId } = createUserDto;
 
     if (creatorRole === 'HOSPITAL_ADMIN' || creatorRole === 'HEALTH_CENTER_ADMIN') {
       if (!creatorHospitalId) {
         throw new BadRequestException(`${creatorRole} must be assigned to a facility to create users`);
       }
       
-      // Hospital Admin can only create workers for his own hospital
-      if (['DOCTOR', 'NURSE', 'MIDWIFE', 'DISPATCHER', 'LIAISON_OFFICER', 'HOSPITAL_APPROVER', 'GATEKEEPER', 'SPECIALIST'].includes(newRole)) {
-        if (!hospitalId || hospitalId !== creatorHospitalId) {
-          throw new BadRequestException(`Hospital Admin can only create workers for their own hospital. Provided hospitalId: ${hospitalId}, Creator hospitalId: ${creatorHospitalId}`);
-        }
-      } else if (newRole === 'HOSPITAL_ADMIN') {
+      // Check for restricted roles first
+      if (newRole === 'HOSPITAL_ADMIN') {
         throw new BadRequestException('Hospital Admin cannot create other Hospital Admins');
-      } else if (['SUPER_ADMIN', 'WOREDA_ADMIN'].includes(newRole)) {
-        throw new BadRequestException('Hospital Admin cannot create Super Admins or Woreda Admins');
+      } else if (['WOREDA_ADMIN'].includes(newRole)) {
+        throw new BadRequestException('Hospital Admin cannot create Woreda Admins');
+      }
+      
       if (this.hospitalManagedRoles.includes(newRole)) {
         // Force hospital and woreda from the creator — ignore whatever the frontend sent
         const dto = {
@@ -75,7 +73,14 @@ export class UsersService {
           woredaId: creatorWoredaId ?? createUserDto.woredaId,
         };
         return this.create(dto);
-      } else if (['HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN', 'SUPER_ADMIN', 'WOREDA_ADMIN', 'SYSTEM_ADMIN'].includes(newRole)) {
+      }
+      
+      // For non-managed roles, validate hospital ID matches
+      if (['DOCTOR', 'NURSE', 'MIDWIFE', 'DISPATCHER', 'LIAISON_OFFICER', 'HOSPITAL_APPROVER', 'GATEKEEPER', 'SPECIALIST'].includes(newRole)) {
+        if (!hospitalId || hospitalId?.toString() !== creatorHospitalId?.toString()) {
+          throw new BadRequestException(`Hospital Admin can only create workers for their own hospital. Provided hospitalId: ${hospitalId}, Creator hospitalId: ${creatorHospitalId}`);
+        }
+      } else if (['HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN', 'WOREDA_ADMIN', 'SYSTEM_ADMIN'].includes(newRole)) {
         throw new BadRequestException(`${creatorRole} cannot create admin users`);
       }
     } else if (creatorRole === 'WOREDA_ADMIN') {
@@ -112,7 +117,7 @@ export class UsersService {
   }
 
   async findAllWithRoleFilter(role: string, hospitalId?: string): Promise<User[]> {
-    if (role === 'HOSPITAL_ADMIN' && hospitalId) {
+    if ((role === 'HOSPITAL_ADMIN' || role === 'HEALTH_CENTER_ADMIN') && hospitalId) {
       return this.userModel
         .find({ hospitalId: new Types.ObjectId(hospitalId) })
         .select('-password')

@@ -23,7 +23,7 @@ export class HospitalsService {
   }
 
   async findAllWithRoleFilter(role: string, hospitalId?: string): Promise<Hospital[]> {
-    if (role === 'HOSPITAL_ADMIN' && hospitalId) {
+    if ((role === 'HOSPITAL_ADMIN' || role === 'HEALTH_CENTER_ADMIN') && hospitalId) {
       return this.hospitalModel.find({ _id: hospitalId }).populate('woredaId').exec();
     }
     return this.hospitalModel.find().populate('woredaId').exec();
