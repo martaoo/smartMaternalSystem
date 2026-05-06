@@ -76,6 +76,10 @@ export default function PregnancyTracking() {
     // Group records by mother
     const grouped: { [key: string]: PregnancyRecord[] } = {};
     filteredRecords.forEach(record => {
+      if (!record.motherId || !record.motherId._id || !record.motherId.name) {
+        console.warn('Skipping record with invalid motherId:', record);
+        return;
+      }
       const motherKey = `${record.motherId._id}-${record.motherId.name}`;
       if (!grouped[motherKey]) {
         grouped[motherKey] = [];

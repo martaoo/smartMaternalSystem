@@ -22,7 +22,6 @@ class MotherService {
       }
 
       http.Response? response;
-      String? workingUrl;
       
       for (String baseUrl in baseUrls) {
         try {
@@ -37,7 +36,6 @@ class MotherService {
             },
           ).timeout(Duration(seconds: 10));
           
-          workingUrl = url;
           print('Connected to pregnancy visits: $url');
           print('Response status: ${response.statusCode}');
           break;
@@ -48,20 +46,18 @@ class MotherService {
       }
       
       if (response == null) {
-        print('Failed to connect to any pregnancy visits backend URL');
-        return _getMockPregnancyVisits();
+        throw Exception('Unable to connect to backend for pregnancy visits');
       }
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final List<dynamic> responseData = jsonDecode(response.body);
         return responseData.map((json) => _parsePregnancyVisit(json)).toList();
       } else {
-        print('Failed to load pregnancy visits: ${response.statusCode}');
-        return _getMockPregnancyVisits();
+        throw Exception('Failed to load pregnancy visits (${response.statusCode})');
       }
     } catch (e) {
       print('Error loading pregnancy visits: $e');
-      return _getMockPregnancyVisits();
+      rethrow;
     }
   }
 
@@ -129,7 +125,6 @@ class MotherService {
       }
 
       http.Response? response;
-      String? workingUrl;
       
       for (String baseUrl in baseUrls) {
         try {
@@ -144,7 +139,6 @@ class MotherService {
             },
           ).timeout(Duration(seconds: 10));
           
-          workingUrl = url;
           print('Connected to dashboard summary: $url');
           print('Response status: ${response.statusCode}');
           break;
@@ -155,8 +149,7 @@ class MotherService {
       }
       
       if (response == null) {
-        print('Failed to connect to any dashboard summary backend URL');
-        return _getMockDashboardSummary();
+        throw Exception('Unable to connect to backend for dashboard summary');
       }
 
       if (response.statusCode == 200 || response.statusCode == 201) {
@@ -164,13 +157,13 @@ class MotherService {
         if (responseData['data'] != null) {
           return _parseDashboardSummary(responseData['data']);
         }
+        throw Exception('Dashboard summary response missing data');
       }
       
-      print('Failed to load dashboard summary: ${response.statusCode}');
-      return _getMockDashboardSummary();
+      throw Exception('Failed to load dashboard summary (${response.statusCode})');
     } catch (e) {
       print('Error loading dashboard summary: $e');
-      return _getMockDashboardSummary();
+      rethrow;
     }
   }
 
@@ -316,30 +309,6 @@ class MotherService {
     );
   }
 
-  DashboardSummary _getMockDashboardSummary() {
-    print('Using mock dashboard summary data as fallback');
-    final mockProfile = MotherProfile(
-      name: 'Demo Mother',
-      email: 'demo@example.com',
-      phone: '+251123456789',
-      address: 'Addis Ababa, Ethiopia',
-      bloodType: 'O+',
-      age: 28,
-      expectedDeliveryDate: DateTime.now().add(Duration(days: 60)),
-      gravida: 2,
-      para: 1,
-      lmp: DateTime.now().subtract(Duration(days: 120)),
-      highRisk: false,
-      registrationDate: DateTime.now().subtract(Duration(days: 90)),
-    );
-
-    final mockPregnancy = _getMockPregnancyVisits().first;
-
-    return DashboardSummary(
-      motherProfile: mockProfile,
-      latestPregnancy: mockPregnancy,
-    );
-  }
 
   PregnancyVisit _parsePregnancyVisit(Map<String, dynamic> json) {
     return PregnancyVisit(
@@ -418,106 +387,6 @@ class MotherService {
     return 'ANC Visit';
   }
 
-  // Mock data for fallback when backend is not available
-  List<PregnancyVisit> _getMockPregnancyVisits() {
-    print('Using mock pregnancy visits data as fallback');
-    final now = DateTime.now();
-    return [
-      PregnancyVisit(
-        id: 'MOCK-001',
-        week: 32,
-        gestationalAge: 32,
-        systolicBP: 120,
-        diastolicBP: 80,
-        weight: 65.5,
-        fundalHeight: 30,
-        fetalHeartRate: 140,
-        presentation: 'Cephalic',
-        notes: 'Routine checkup, monitor blood pressure',
-        riskLevel: RiskLevel.low,
-        symptoms: ['Mild swelling in feet'],
-        medications: ['Iron supplements', 'Folic acid'],
-        nextVisitDate: now.add(const Duration(days: 7)),
-        healthWorkerId: 'doctor-001',
-        hospitalId: 'hospital-001',
-        visitDate: now.subtract(const Duration(days: 7)),
-        ultrasoundFindings: 'Normal fetal development',
-        labResults: LabResults(
-          hemoglobin: 11.5,
-          urineProtein: 'Negative',
-          bloodSugar: 85,
-          hiv: 'Negative',
-          syphilis: 'Negative',
-        ),
-        complications: null,
-        recommendations: 'Continue iron supplements, increase fluid intake',
-        emergency: false,
-        bloodType: 'O+',
-      ),
-      PregnancyVisit(
-        id: 'MOCK-002',
-        week: 28,
-        gestationalAge: 28,
-        systolicBP: 118,
-        diastolicBP: 78,
-        weight: 64.2,
-        fundalHeight: 28,
-        fetalHeartRate: 145,
-        presentation: 'Cephalic',
-        notes: 'Normal development, fetal heartbeat detected',
-        riskLevel: RiskLevel.low,
-        symptoms: null,
-        medications: ['Iron supplements'],
-        nextVisitDate: now.subtract(const Duration(days: 14)),
-        healthWorkerId: 'doctor-001',
-        hospitalId: 'hospital-001',
-        visitDate: now.subtract(const Duration(days: 42)),
-        ultrasoundFindings: 'Fetal position normal',
-        labResults: LabResults(
-          hemoglobin: 11.8,
-          urineProtein: 'Negative',
-          bloodSugar: 90,
-          hiv: 'Negative',
-          syphilis: 'Negative',
-        ),
-        complications: null,
-        recommendations: 'Continue routine care',
-        emergency: false,
-        bloodType: 'O+',
-      ),
-      PregnancyVisit(
-        id: 'MOCK-003',
-        week: 20,
-        gestationalAge: 20,
-        systolicBP: 115,
-        diastolicBP: 75,
-        weight: 62.8,
-        fundalHeight: 20,
-        fetalHeartRate: 150,
-        presentation: 'Cephalic',
-        notes: 'Anemia detected, iron supplements prescribed',
-        riskLevel: RiskLevel.moderate,
-        symptoms: ['Fatigue', 'Dizziness'],
-        medications: ['Iron supplements', 'Vitamin C'],
-        nextVisitDate: now.subtract(const Duration(days: 84)),
-        healthWorkerId: 'doctor-001',
-        hospitalId: 'hospital-001',
-        visitDate: now.subtract(const Duration(days: 140)),
-        ultrasoundFindings: 'Normal anatomy scan',
-        labResults: LabResults(
-          hemoglobin: 10.2,
-          urineProtein: 'Negative',
-          bloodSugar: 88,
-          hiv: 'Negative',
-          syphilis: 'Negative',
-        ),
-        complications: ['Mild anemia'],
-        recommendations: 'Increase iron-rich foods, take supplements as prescribed',
-        emergency: false,
-        bloodType: 'O+',
-      ),
-    ];
-  }
 }
 
 // Data models for mother service

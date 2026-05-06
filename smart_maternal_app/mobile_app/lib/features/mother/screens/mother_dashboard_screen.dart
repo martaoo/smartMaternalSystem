@@ -363,13 +363,17 @@ class _MotherDashboardScreenState extends State<MotherDashboardScreen> {
                           children: [
                             _buildEnhancedInfoChip(
                               icon: Icons.calendar_today,
-                              label: 'Week ${_dashboardData?.latestPregnancy?.week ?? 24}',
+                              label: _dashboardData?.latestPregnancy != null
+                                  ? 'Week ${_dashboardData!.latestPregnancy!.week}'
+                                  : 'Week —',
                               color: AppColors.honeyGold,
                             ),
                             const SizedBox(width: 8),
                             _buildEnhancedInfoChip(
                               icon: Icons.favorite,
-                              label: _getTrimester(_dashboardData?.latestPregnancy?.week ?? 24),
+                              label: _dashboardData?.latestPregnancy != null
+                                  ? _getTrimester(_dashboardData!.latestPregnancy!.week)
+                                  : 'Trimester —',
                               color: AppColors.secondaryBrown,
                             ),
                           ],
@@ -389,14 +393,16 @@ class _MotherDashboardScreenState extends State<MotherDashboardScreen> {
                               ),
                             ],
                           ),
-                          child: const Row(
+                          child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.check_circle, color: Colors.white, size: 14),
-                              SizedBox(width: 4),
+                              const Icon(Icons.check_circle, color: Colors.white, size: 14),
+                              const SizedBox(width: 4),
                               Text(
-                                'Next: ANC',
-                                style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700),
+                                _dashboardData?.latestPregnancy?.nextVisitDate != null
+                                    ? 'Next visit: ${_formatShortDate(_dashboardData!.latestPregnancy!.nextVisitDate!)}'
+                                    : 'Next visit: Not scheduled',
+                                style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700),
                               ),
                             ],
                           ),
@@ -417,16 +423,28 @@ class _MotherDashboardScreenState extends State<MotherDashboardScreen> {
                         _buildMiniInfo('Due Date', 
                           _dashboardData?.motherProfile?.expectedDeliveryDate != null
                             ? _formatShortDate(_dashboardData!.motherProfile!.expectedDeliveryDate!)
-                            : 'Not set', 
+                            : (_dashboardData?.motherProfile?.phone != null
+                                ? _dashboardData!.motherProfile!.phone!
+                                : 'Not set'),
                           Icons.event),
                         const SizedBox(width: 16),
-                        _buildMiniInfo('Baby Size', 
-                          _getBabySize(_dashboardData?.latestPregnancy?.week ?? 28), 
-                          Icons.child_care),
+                        _buildMiniInfo(
+                          'Risk Level',
+                          _dashboardData?.latestPregnancy != null
+                              ? _dashboardData!.latestPregnancy!.riskLevel.name.toUpperCase()
+                              : (_dashboardData?.motherProfile != null && _dashboardData!.motherProfile!.highRisk
+                                  ? 'HIGH'
+                                  : '—'),
+                          Icons.warning_amber_rounded,
+                        ),
                         const SizedBox(width: 16),
-                        _buildMiniInfo('Est. Weight', 
-                          _getBabyWeight(_dashboardData?.latestPregnancy?.week ?? 28), 
-                          Icons.monitor_weight),
+                        _buildMiniInfo(
+                          'Last Visit',
+                          _dashboardData?.latestPregnancy != null
+                              ? _formatShortDate(_dashboardData!.latestPregnancy!.visitDate)
+                              : '—',
+                          Icons.history,
+                        ),
                       ],
                     ),
                   ),
