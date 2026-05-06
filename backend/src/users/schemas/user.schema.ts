@@ -17,7 +17,7 @@ export class User {
   @Prop({ 
     required: true, 
     enum: [
-      'MOH_ADMIN',
+      'SUPER_ADMIN',
       'SYSTEM_ADMIN',
       'WOREDA_ADMIN',
       'HOSPITAL_ADMIN',
@@ -26,11 +26,7 @@ export class User {
       'MIDWIFE',
       'DISPATCHER',
       'EMERGENCY_ADMIN',
-      'MOTHER',
       'LIAISON_OFFICER',
-      'HOSPITAL_APPROVER',
-      'GATEKEEPER',
-      'SPECIALIST',
     ],
   })
   role: string;
@@ -41,8 +37,8 @@ export class User {
   @Prop({ type: Types.ObjectId, ref: 'Woreda' })
   woredaId: Types.ObjectId;
 
-  @Prop()
-  assignedRegion: string; // For SYSTEM_ADMIN - the region/subcity they manage
+  @Prop({ type: Types.ObjectId, ref: 'Region' })
+  regionId: Types.ObjectId; // For SYSTEM_ADMIN - the region they manage
 
   @Prop()
   phoneNumber: string;

@@ -1,4 +1,4 @@
-import { IsString, IsNumber, IsOptional, IsMongoId, IsEnum, IsDateString, Min, Max } from 'class-validator';
+import { IsString, IsNumber, IsOptional, IsMongoId, IsEnum, IsDateString, Min, Max, IsBoolean } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateMotherDto {
@@ -6,11 +6,7 @@ export class CreateMotherDto {
   @IsString()
   name: string;
 
-  @ApiProperty({ example: '+251911234567', description: 'Phone number' })
-  @IsString()
-  phone: string;
-
-  @ApiProperty({ example: 28, description: 'Mother age' })
+  @ApiProperty({ example: '+251911234567', description: 'Mother age' })
   @IsNumber()
   @Min(15)
   @Max(50)
@@ -60,4 +56,59 @@ export class CreateMotherDto {
   @IsOptional()
   @IsString()
   registeredBy?: string;
+
+  @ApiPropertyOptional({ example: 'Positive', description: 'RH Factor blood type' })
+  @IsOptional()
+  @IsString()
+  rhFactor?: string;
+
+  @ApiPropertyOptional({ example: 'Negative', description: 'HIV status' })
+  @IsOptional()
+  @IsString()
+  hivStatus?: string;
+
+  @ApiPropertyOptional({ example: 'Negative', description: 'Hepatitis B status' })
+  @IsOptional()
+  @IsString()
+  hepatitisB?: string;
+
+  @ApiPropertyOptional({ example: false, description: 'Has hypertension' })
+  @IsOptional()
+  @IsBoolean()
+  hypertension?: boolean;
+
+  @ApiPropertyOptional({ example: false, description: 'Has diabetes' })
+  @IsOptional()
+  @IsBoolean()
+  diabetes?: boolean;
+
+  @ApiPropertyOptional({ example: false, description: 'Has anemia' })
+  @IsOptional()
+  @IsBoolean()
+  anemia?: boolean;
+
+  @ApiPropertyOptional({ example: false, description: 'Previous C-section' })
+  @IsOptional()
+  @IsBoolean()
+  previousCSection?: boolean;
+
+  @ApiProperty({ example: '69f9b3406f75dfcd97902d06', description: 'Woreda ID where the mother belongs' })
+  @IsMongoId()
+  woredaId: string;
+
+  @ApiProperty({ example: '69f9b3836f75dfcd97902d8e', description: 'Health center ID where the mother is registered' })
+  @IsMongoId()
+  healthCenter: string;
+
+  @ApiProperty({ example: 'mother_1234567890_abc123', description: 'Temporary username for mobile app login' })
+  @IsString()
+  tempUsername: string;
+
+  @ApiProperty({ example: 'tempPass123', description: 'Temporary password for mobile app login' })
+  @IsString()
+  tempPassword: string;
+
+  @ApiProperty({ example: '+251911234567', description: 'Phone number for SMS delivery' })
+  @IsString()
+  phone: string;
 }

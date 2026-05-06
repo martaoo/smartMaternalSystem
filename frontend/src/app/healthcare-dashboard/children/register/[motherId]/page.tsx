@@ -207,14 +207,12 @@ export default function RegisterChild() {
       console.log('=== CHILD REGISTRATION DEBUG ===');
       console.log('Sending childData:', childData);
       console.log('Current user:', currentUser);
-      console.log('DeliveredBy value:', currentUser?._id);
 
       await childrenApi.create(childData);
       setSuccess(true);
       setFormData({
         name: '',
         birthDate: '',
-        motherId: '',
         gender: 'MALE',
         birthHospital: '',
         deliveredBy: '',

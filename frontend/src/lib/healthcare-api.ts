@@ -53,7 +53,7 @@ export const pregnancyApi = {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-              },
+      },
       body: JSON.stringify(pregnancyData),
     }).then(handleResponse),
 
@@ -270,7 +270,17 @@ export const referralsApi = {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-              },
+      },
+      body: JSON.stringify(data),
+    }).then(handleResponse),
+
+  // Update referral draft
+  update: (id: string, data: any) =>
+    fetch(`${API_BASE}/referrals/${id}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
       body: JSON.stringify(data),
     }).then(handleResponse),
 
@@ -343,4 +353,10 @@ export const referralsApi = {
   // Get MOH/System referral stats
   getAdminStats: () =>
     fetch(`${API_BASE}/referrals/admin/stats`).then(handleResponse),
+
+  // Delete referral
+  delete: (id: string) =>
+    fetch(`${API_BASE}/referrals/${id}`, {
+      method: 'DELETE',
+    }).then(handleResponse),
 };

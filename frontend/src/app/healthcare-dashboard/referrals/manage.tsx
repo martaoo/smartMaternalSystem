@@ -182,15 +182,7 @@ export default function ReferralManagement() {
           <p className="text-xs text-gray-600 self-center">Waiting for gate check-in before decision.</p>
         )}
         
-        {!isIncoming && referral.status === 'DRAFT' && (
-          <button
-            onClick={() => router.push(`/healthcare-dashboard/referrals/${referral._id}/send`)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            Send Referral
-          </button>
-        )}
-
+        
         <button
           onClick={() => router.push(`/referrals/${referral._id}`)}
           className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"

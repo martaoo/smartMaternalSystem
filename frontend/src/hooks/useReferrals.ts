@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 
 import {
+  Referral,
   checkedInReferrals,
   createReferral,
   getReferral,
@@ -44,7 +45,7 @@ export function useSpecialistQueue() {
 }
 
 export function useReferral(id: string) {
-  return useQuery({
+  return useQuery<Referral>({
     queryKey: ["referrals", id],
     queryFn: () => getReferral(id),
     enabled: !!id,

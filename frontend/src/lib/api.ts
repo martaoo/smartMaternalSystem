@@ -76,6 +76,15 @@ export const api = {
       method: 'DELETE',
     }).then(handleResponse),
 
+  updateHospital: (id: string, data: any) =>
+    fetch(`${API_BASE}/hospitals/${id}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    }).then(handleResponse),
+
   // Woredas
   getWoredas: () =>
     fetch(`${API_BASE}/woredas`).then(handleResponse),
@@ -91,6 +100,42 @@ export const api = {
 
   deleteWoreda: (id: string) =>
     fetch(`${API_BASE}/woredas/${id}`, {
+      method: 'DELETE',
+    }).then(handleResponse),
+
+  updateWoreda: (id: string, data: any) =>
+    fetch(`${API_BASE}/woredas/${id}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    }).then(handleResponse),
+
+  // Regions
+  getRegions: () =>
+    fetch(`${API_BASE}/regions`).then(handleResponse),
+
+  createRegion: (data: any) =>
+    fetch(`${API_BASE}/regions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    }).then(handleResponse),
+
+  updateRegion: (id: string, data: any) =>
+    fetch(`${API_BASE}/regions/${id}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    }).then(handleResponse),
+
+  deleteRegion: (id: string) =>
+    fetch(`${API_BASE}/regions/${id}`, {
       method: 'DELETE',
     }).then(handleResponse),
 };
