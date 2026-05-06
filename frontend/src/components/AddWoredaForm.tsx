@@ -1,20 +1,37 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { api } from '@/lib/api';
 
 interface AddWoredaFormProps {
   onClose: () => void;
   onSuccess: () => void;
+  woredaToEdit?: any;
 }
 
-export function AddWoredaForm({ onClose, onSuccess }: AddWoredaFormProps) {
+export function AddWoredaForm({ onClose, onSuccess, woredaToEdit }: AddWoredaFormProps) {
   const [formData, setFormData] = useState({
     name: '',
-    region: '',
+    city: '',
+    regionId: '',
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [regions, setRegions] = useState([]);
+
+  useEffect(() => {
+    api.getRegions().then(setRegions).catch(console.error);
+  }, []);
+
+  useEffect(() => {
+    if (woredaToEdit) {
+      setFormData({
+        name: woredaToEdit.name || '',
+        city: woredaToEdit.city || '',
+        regionId: woredaToEdit.regionId?._id?.toString() || woredaToEdit.regionId?.toString() || '',
+      });
+    }
+  }, [woredaToEdit]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,11 +39,15 @@ export function AddWoredaForm({ onClose, onSuccess }: AddWoredaFormProps) {
     setError('');
 
     try {
-      await api.createWoreda(formData);
+      if (woredaToEdit?._id) {
+        await api.updateWoreda(woredaToEdit._id, formData);
+      } else {
+        await api.createWoreda(formData);
+      }
       onSuccess();
       onClose();
     } catch (err: any) {
-      setError(err.message || 'Failed to create woreda');
+      setError(err.message || 'Failed to save woreda');
     } finally {
       setLoading(false);
     }
@@ -35,7 +56,9 @@ export function AddWoredaForm({ onClose, onSuccess }: AddWoredaFormProps) {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-lg p-6 w-full max-w-md">
-        <h2 className="text-xl font-bold mb-4">Add New Woreda</h2>
+        <h2 className="text-xl font-bold mb-4">
+          {woredaToEdit ? 'Edit Woreda' : 'Add New Woreda'}
+        </h2>
         {error && <p className="text-red-600 mb-4">{error}</p>}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -49,14 +72,30 @@ export function AddWoredaForm({ onClose, onSuccess }: AddWoredaFormProps) {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700">Region</label>
+            <label className="block text-sm font-medium text-gray-700">City</label>
             <input
               type="text"
               required
-              value={formData.region}
-              onChange={(e) => setFormData({ ...formData, region: e.target.value })}
+              value={formData.city}
+              onChange={(e) => setFormData({ ...formData, city: e.target.value })}
               className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
             />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Region</label>
+            <select
+              required
+              value={formData.regionId}
+              onChange={(e) => setFormData({ ...formData, regionId: e.target.value })}
+              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+            >
+              <option value="">Select Region</option>
+              {regions.map((region: any) => (
+                <option key={region._id} value={region._id?.toString() ?? ''}>
+                  {region.name}
+                </option>
+              ))}
+            </select>
           </div>
           <div className="flex justify-end space-x-2">
             <button
@@ -71,7 +110,7 @@ export function AddWoredaForm({ onClose, onSuccess }: AddWoredaFormProps) {
               disabled={loading}
               className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:opacity-50"
             >
-              {loading ? 'Creating...' : 'Create Woreda'}
+              {loading ? (woredaToEdit ? 'Updating...' : 'Creating...') : (woredaToEdit ? 'Update Woreda' : 'Create Woreda')}
             </button>
           </div>
         </form>
