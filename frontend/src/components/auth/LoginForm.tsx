@@ -47,8 +47,12 @@ export const LoginForm: React.FC = () => {
 
     const storedUser = localStorage.getItem('user');
     if (storedUser) {
-      const parsed = JSON.parse(storedUser);
-      router.push(getDashboardForRole(parsed.role));
+      try {
+        const parsed = JSON.parse(storedUser);
+        router.push(getDashboardForRole(parsed.role));
+      } catch {
+        localStorage.removeItem('user');
+      }
     }
   };
 

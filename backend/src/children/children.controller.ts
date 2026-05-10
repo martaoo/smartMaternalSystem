@@ -189,6 +189,23 @@ export class ChildrenController {
     );
   }
 
+  @Roles('SYSTEM_ADMIN', 'HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
+  @Patch(':id/notify-woreda')
+  @ApiOperation({ summary: 'Send child birth data to woreda admin for birth certificate processing' })
+  @ApiParam({ name: 'id', description: 'Child ID' })
+  @ApiResponse({ status: 200, description: 'Child marked as sent to woreda' })
+  @ApiResponse({ status: 403, description: 'Forbidden - can only notify for your own facility' })
+  @ApiResponse({ status: 404, description: 'Child not found' })
+  async notifyWoreda(@Param('id') id: string, @Request() req) {
+    const user = req.user;
+    return this.childrenService.notifyWoreda(
+      id,
+      user.role,
+      user.hospitalId?.toString(),
+      user.name,
+    );
+  }
+
   @Roles('SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
   @Delete(':id')
   @ApiOperation({ summary: 'Delete child record' })

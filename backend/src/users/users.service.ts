@@ -26,6 +26,16 @@ export class UsersService {
     'SPECIALIST',
   ];
 
+  private async normalizeEmptyReferenceFields(): Promise<void> {
+    // Historical data may store relation ids as empty strings. This breaks Mongoose
+    // population with CastError, so normalize them to "unset" on read paths.
+    await Promise.all([
+      this.userModel.updateMany({ hospitalId: '' as any }, { $unset: { hospitalId: 1 } }).exec(),
+      this.userModel.updateMany({ woredaId: '' as any }, { $unset: { woredaId: 1 } }).exec(),
+      this.userModel.updateMany({ regionId: '' as any }, { $unset: { regionId: 1 } }).exec(),
+    ]);
+  }
+
   async create(createUserDto: CreateUserDto): Promise<User> {
     const { email, password, role, hospitalId, healthCenterId, woredaId, ...userData } = createUserDto;
     const selectedHospitalId = hospitalId ?? healthCenterId;
@@ -116,14 +126,10 @@ export class UsersService {
   }
 
   async createWithRoleValidation(
-    
     createUserDto: CreateUserDto,
-   
     creatorRole: string,
-   
     creatorHospitalId?: string,
     creatorWoredaId?: string,
-  ,
     creatorAssignedRegion?: string,
   ): Promise<User> {
     const { role: newRole, hospitalId } = createUserDto;
@@ -174,6 +180,7 @@ export class UsersService {
   }
 
   async findAll(): Promise<User[]> {
+    await this.normalizeEmptyReferenceFields();
     return this.userModel
       .find()
       .select('-password')
@@ -184,6 +191,7 @@ export class UsersService {
   }
 
   async findByRole(role: string): Promise<User[]> {
+    await this.normalizeEmptyReferenceFields();
     return this.userModel
       .find({ role })
       .select('-password')
@@ -225,6 +233,7 @@ export class UsersService {
   }
 
   async findAllWithRoleFilter(role: string, hospitalId?: string, regionId?: string): Promise<User[]> {
+    await this.normalizeEmptyReferenceFields();
     if ((role === 'HOSPITAL_ADMIN' || role === 'HEALTH_CENTER_ADMIN') && hospitalId) {
       return this.userModel
         .find({ hospitalId: new Types.ObjectId(hospitalId) })
@@ -253,6 +262,7 @@ export class UsersService {
   }
 
   async findByRoleWithFilter(role: string, userRole: string, hospitalId?: string, regionId?: string): Promise<User[]> {
+    await this.normalizeEmptyReferenceFields();
     const query: any = { role };
     if (userRole === 'HOSPITAL_ADMIN' && hospitalId) {
       query.hospitalId = new Types.ObjectId(hospitalId);
@@ -274,6 +284,7 @@ export class UsersService {
   }
 
   async findByIdWithRoleFilter(id: string, userRole: string, hospitalId?: string, regionId?: string): Promise<User | null> {
+    await this.normalizeEmptyReferenceFields();
     const user = await this.userModel
       .findById(id)
       .select('-password')

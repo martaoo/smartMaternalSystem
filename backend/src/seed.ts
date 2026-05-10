@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { UsersService } from './users/users.service';
 import { HospitalsService } from './hospitals/hospitals.service';
+import { WoredasService } from './woredas/woredas.service';
 import { UserRole } from './common/enums/user-role.enum';
 
 async function bootstrap() {
@@ -16,7 +17,7 @@ async function bootstrap() {
     const woreda = await woredasService.create({
       name: 'Test Woreda',
       city: 'Bole',
-      region: 'Addis Ababa',
+      regionId: 'seed-region-placeholder',
     });
 
     console.log('Test Woreda created');
@@ -69,6 +70,7 @@ async function bootstrap() {
       password: 'doc123',
       role: UserRole.DOCTOR,
       hospitalId: (hospital as any)._id.toString(),
+      woredaId: (woreda as any)._id.toString(),
       phoneNumber: '+251911123456',
       department: 'Obstetrics',
       licenseNumber: 'MD001234',
@@ -85,6 +87,7 @@ async function bootstrap() {
       password: 'admin123', // Service will hash this automatically
       role: UserRole.HOSPITAL_ADMIN,
       hospitalId: (hospital as any)._id.toString(),
+      woredaId: (woreda as any)._id.toString(),
       phoneNumber: '+251911000002',
     });
 
@@ -108,8 +111,6 @@ async function bootstrap() {
         console.log('Email: liaison@test.et');
         console.log('Password: liaison123');
         console.log('Assigned to hospital: harHC');
-      } catch (error) {
-        console.log('Liaison Officer already exists or error:', error.message);
       }
     }
 

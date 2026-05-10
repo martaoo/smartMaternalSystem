@@ -179,7 +179,10 @@ export default function HospitalsPage() {
                               {hospital.woredaId ? (typeof hospital.woredaId === 'object' ? hospital.woredaId.name : hospital.woredaId) : '-'}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {hospital.woredaId?.regionId?.name || '-'}
+                              {typeof hospital.woredaId === 'object' && hospital.woredaId !== null
+                                ? (hospital.woredaId as any).regionId?.name || '-'
+                                : '-'
+                              }
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                               {hospital.location}

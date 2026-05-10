@@ -12,7 +12,7 @@ interface AddWoredaFormProps {
 export function AddWoredaForm({ onClose, onSuccess, woredaToEdit }: AddWoredaFormProps) {
   const [formData, setFormData] = useState({
     name: '',
-    region: '',
+    regionId: '',
     city: '',
   });
   const [loading, setLoading] = useState(false);

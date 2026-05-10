@@ -30,6 +30,15 @@ interface Mother {
   gravida?: number;
   para?: number;
   lmp?: string;
+  // Medical fields
+  bloodType?: string;
+  rhFactor?: string;
+  hivStatus?: string;
+  hepatitisB?: string;
+  hypertension?: boolean;
+  diabetes?: boolean;
+  anemia?: boolean;
+  previousCSection?: boolean;
 }
 
 export default function MotherDetail() {

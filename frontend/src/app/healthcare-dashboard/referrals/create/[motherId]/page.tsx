@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { mothersApi, pregnancyApi, childrenApi, hospitalsApi, referralsApi } from '@/lib/healthcare-api';
 import { useAuth } from '@/contexts/AuthContext';
+import { uploadReferralDoc } from '@/services/files';
 
 interface ReferralFormData {
   motherId: string;
@@ -251,6 +252,14 @@ export default function CreateReferral() {
         return;
       }
 
+      // Map frontend priority to backend urgency
+      const urgencyMap: Record<string, string> = {
+        LOW: 'ROUTINE',
+        MEDIUM: 'ROUTINE',
+        HIGH: 'URGENT',
+        URGENT: 'EMERGENCY',
+      };
+
       // Map frontend data to backend DTO structure
       const referralData = {
         motherId: formData.motherId,
@@ -258,9 +267,7 @@ export default function CreateReferral() {
         doctorName: user?.name || 'Doctor',
         patientName: selectedMotherInfo.fullName || selectedMotherInfo.name || 'Unknown',
         patientPhone: normalizedPhone,
-        urgency: formData.priority === 'LOW' ? 'ROUTINE' : 
-                 formData.priority === 'MEDIUM' ? 'ROUTINE' : 
-                 formData.priority === 'HIGH' ? 'URGENT' : 'EMERGENCY',
+        urgency: urgencyMap[formData.priority] ?? 'ROUTINE',
         reasonForReferral: formData.reason,
         clinicalNotes: formData.notes || undefined,
       };
@@ -274,6 +281,18 @@ export default function CreateReferral() {
         : await referralsApi.create(referralData);
 
       console.log('Referral saved successfully:', response);
+
+      // Upload any attached files
+      const savedId = response?._id ?? referralId;
+      if (savedId && formData.attachments.length > 0) {
+        const uploadResults = await Promise.allSettled(
+          formData.attachments.map(file => uploadReferralDoc(savedId, file))
+        );
+        const failed = uploadResults.filter(r => r.status === 'rejected').length;
+        if (failed > 0) {
+          console.warn(`${failed} file(s) failed to upload`);
+        }
+      }
 
       setSuccessMessage(
         referralId
@@ -575,35 +594,49 @@ export default function CreateReferral() {
             {/* File Attachments */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Attach Files (Optional)
+                Attach Medical Files <span className="text-gray-400 font-normal">(Optional)</span>
               </label>
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 bg-gray-50">
                 <input
                   type="file"
                   name="attachments"
                   multiple
+                  accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.dicom"
                   onChange={handleFileChange}
                   className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                 />
                 <p className="text-xs text-gray-500 mt-2">
-                  Upload medical documents, test results, or other relevant files
+                  Accepted: Images (JPG, PNG), PDF, Word, Excel, MRI/DICOM, lab results, X-rays, ultrasound reports
                 </p>
                 {formData.attachments.length > 0 && (
-                  <div className="mt-3">
-                    <p className="text-sm font-medium text-gray-700 mb-1">Selected Files:</p>
-                    <ul className="text-sm text-gray-600">
-                      {formData.attachments.map((file, index) => (
-                        <li key={index} className="flex items-center justify-between py-1">
-                          <span>{file.name}</span>
-                          <button
-                            type="button"
-                            onClick={() => removeFile(index)}
-                            className="text-red-500 hover:text-red-700 text-xs"
-                          >
-                            Remove
-                          </button>
-                        </li>
-                      ))}
+                  <div className="mt-3 space-y-2">
+                    <p className="text-sm font-medium text-gray-700">Selected Files ({formData.attachments.length}):</p>
+                    <ul className="divide-y divide-gray-200 border border-gray-200 rounded-lg overflow-hidden">
+                      {formData.attachments.map((file, index) => {
+                        const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
+                        const icon = ['jpg','jpeg','png','gif','webp'].includes(ext) ? '🖼️'
+                          : ext === 'pdf' ? '📄'
+                          : ['doc','docx'].includes(ext) ? '📝'
+                          : ['xls','xlsx'].includes(ext) ? '📊'
+                          : ['dcm','dicom'].includes(ext) ? '🩻'
+                          : '📎';
+                        return (
+                          <li key={index} className="flex items-center justify-between px-3 py-2 bg-white text-sm">
+                            <span className="flex items-center gap-2">
+                              <span>{icon}</span>
+                              <span className="text-gray-800 truncate max-w-xs">{file.name}</span>
+                              <span className="text-gray-400 text-xs">({(file.size / 1024).toFixed(1)} KB)</span>
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => removeFile(index)}
+                              className="text-red-500 hover:text-red-700 text-xs ml-2 shrink-0"
+                            >
+                              ✕ Remove
+                            </button>
+                          </li>
+                        );
+                      })}
                     </ul>
                   </div>
                 )}

@@ -23,25 +23,19 @@ export class UsersController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' })
   async create(@Body() createUserDto: CreateUserDto, @Request() req) {
-    console.log('DEBUG Controller - Create user request received');
-    console.log('DEBUG Controller - Request user:', req.user);
-    console.log('DEBUG Controller - User role:', req.user?.role);
-    
     const user = req.user;
-    
+
     if (user.role === 'SYSTEM_ADMIN') {
-      console.log(`DEBUG Controller - Creating user as ${user.role}`);
-      return this.usersService.create(createUserDto);
-    } else if (user.role === 'SYSTEM_ADMIN') {
-      console.log('DEBUG Controller - Creating user as SYSTEM_ADMIN');
       return this.usersService.createWithRoleValidation(
         createUserDto,
         user.role,
         undefined,
-        user.regionId?.toString(),
+        undefined,
+        user.assignedRegion ?? user.regionId?.toString(),
       );
-    } else if (user.role === 'HOSPITAL_ADMIN') {
-      console.log('DEBUG Controller - Creating user as HOSPITAL_ADMIN');
+    }
+
+    if (user.role === 'HOSPITAL_ADMIN' || user.role === 'HEALTH_CENTER_ADMIN') {
       return this.usersService.createWithRoleValidation(
         createUserDto,
         user.role,
@@ -51,7 +45,6 @@ export class UsersController {
     }
 
     if (user.role === 'WOREDA_ADMIN') {
-      // Woreda admin cannot create users (existing rule)
       throw new ForbiddenException('Woreda Admin cannot create users');
     }
 

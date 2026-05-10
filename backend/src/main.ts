@@ -50,6 +50,9 @@ async function bootstrap() {
   console.log(`API endpoints available at: http://localhost:${port}/api`);
   console.log(`Swagger documentation at: http://localhost:${port}/api/docs`);
   console.log(`Root endpoint available at: http://localhost:${port}/`);
+  console.log('MONGODB_URI:', process.env.MONGODB_URI);
+console.log('JWT_SECRET:', process.env.JWT_SECRET);
 }
+
 
 bootstrap();

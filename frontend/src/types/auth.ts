@@ -5,13 +5,15 @@ export type UserRole =
   | 'WOREDA_ADMIN'
   | 'HOSPITAL_ADMIN'
   | 'HEALTH_CENTER_ADMIN'
-
   | 'DOCTOR'
   | 'NURSE'
   | 'MIDWIFE'
   | 'LIAISON_OFFICER'
   | 'DISPATCHER'
   | 'EMERGENCY_ADMIN'
+  | 'HOSPITAL_APPROVER'
+  | 'GATEKEEPER'
+  | 'SPECIALIST'
   | 'MOTHER';
 
 export interface User {

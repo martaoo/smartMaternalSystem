@@ -88,9 +88,8 @@ export class VaccinationsService {
   async getVaccinationRecordsByStatus(status: string, userRole: string, userHospitalId?: string, userWoredaId?: string): Promise<VaccinationRecord[]> {
     let query: any = { status };
 
-    // Apply role-based filtering
     if (userRole === 'HOSPITAL_ADMIN' || userRole === 'DOCTOR' || userRole === 'NURSE' || userRole === 'MIDWIFE') {
-      query.createdAtHospital = new Types.ObjectId(userHospitalId);
+      if (userHospitalId) query.createdAtHospital = new Types.ObjectId(userHospitalId);
     }
 
     const records = await this.vaccinationRecordModel.find(query)
@@ -130,7 +129,7 @@ export class VaccinationsService {
 
     // Apply role-based filtering
     if (userRole === 'HOSPITAL_ADMIN' || userRole === 'DOCTOR' || userRole === 'NURSE' || userRole === 'MIDWIFE') {
-      query.createdAtHospital = new Types.ObjectId(userHospitalId);
+      if (userHospitalId) query.createdAtHospital = new Types.ObjectId(userHospitalId);
     }
 
     const records = await this.vaccinationRecordModel.find(query)
@@ -168,7 +167,7 @@ export class VaccinationsService {
 
     // Apply role-based filtering
     if (userRole === 'HOSPITAL_ADMIN' || userRole === 'DOCTOR' || userRole === 'NURSE' || userRole === 'MIDWIFE') {
-      query.createdAtHospital = new Types.ObjectId(userHospitalId);
+      if (userHospitalId) query.createdAtHospital = new Types.ObjectId(userHospitalId);
     }
 
     const records = await this.vaccinationRecordModel.find(query)

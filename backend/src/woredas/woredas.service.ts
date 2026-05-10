@@ -19,6 +19,10 @@ export class WoredasService {
   }
 
   async findAll(): Promise<Woreda[]> {
+    await this.woredaModel.updateMany(
+      { regionId: { $in: ['', null] } },
+      { $unset: { regionId: 1 } },
+    ).exec();
     return this.woredaModel.find().populate('regionId').exec();
   }
 
@@ -27,33 +31,39 @@ export class WoredasService {
   }
 
   async findAllWithRoleFilter(role: string, woredaId?: string, regionId?: string): Promise<Woreda[]> {
-    // SYSTEM_ADMIN can see all woredas
-    if (role === 'SYSTEM_ADMIN' || role === 'MOH_ADMIN') {
-      return this.woredaModel.find().exec();
+    // Clean up any empty regionId values that would cause CastError on populate
+    await this.woredaModel.updateMany(
+      { regionId: { $in: ['', null] } },
+      { $unset: { regionId: 1 } },
+    ).exec();
+    // SYSTEM_ADMIN / MOH_ADMIN / SUPER_ADMIN — return all, optionally filtered by region
+    if (role === 'SYSTEM_ADMIN' || role === 'MOH_ADMIN' || role === 'SUPER_ADMIN') {
+      if (regionId) {
+        const woredas = await this.woredaModel.find().populate('regionId').exec();
+        return woredas.filter((w: any) => {
+          const wRegion = w.regionId && typeof w.regionId === 'object'
+            ? (w.regionId as any)._id?.toString()
+            : w.regionId?.toString();
+          return wRegion === regionId;
+        });
+      }
+      return this.woredaModel.find().populate('regionId').exec();
     }
-    
-    // WOREDA_ADMIN can only see their woreda
-    if (role === 'WOREDA_ADMIN' && woredaId) {
+
+    // WOREDA_ADMIN — only their own woreda
+    if (role === 'WOREDA_ADMIN' && woredaId && /^[0-9a-fA-F]{24}$/.test(woredaId)) {
       return this.woredaModel.find({ _id: woredaId }).populate('regionId').exec();
     }
-    
-    // HOSPITAL_ADMIN - check if they have woredaId
-    if ((role === 'HOSPITAL_ADMIN' || role === 'HEALTH_CENTER_ADMIN')) {
-      if (woredaId) {
-        return this.woredaModel.find({ _id: woredaId }).exec();
+
+    // HOSPITAL_ADMIN / HEALTH_CENTER_ADMIN — only the woreda their hospital belongs to
+    if (role === 'HOSPITAL_ADMIN' || role === 'HEALTH_CENTER_ADMIN') {
+      if (woredaId && /^[0-9a-fA-F]{24}$/.test(woredaId)) {
+        return this.woredaModel.find({ _id: woredaId }).populate('regionId').exec();
       }
-      // If no woredaId, return empty array or all? Usually empty for security
       return [];
     }
-    
-    // Default: return all for other roles (like DOCTOR, NURSE)
-    if (role === 'SYSTEM_ADMIN' && regionId) {
-      const woredas = await this.woredaModel.find().populate('regionId').exec();
-      return woredas.filter((w: any) => {
-        const woredaRegion = w.regionId && typeof w.regionId === 'object' ? (w.regionId as any)._id : w.regionId;
-        return woredaRegion?.toString() === regionId;
-      });
-    }
+
+    // All other roles (DOCTOR, NURSE, MIDWIFE, DISPATCHER, etc.) — return all
     return this.woredaModel.find().populate('regionId').exec();
   }
 

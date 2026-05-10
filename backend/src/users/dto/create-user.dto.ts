@@ -62,9 +62,11 @@ export class CreateUserDto {
   @IsNotEmpty()
   assignedRegion?: string;
 
-  @ApiPropertyOptional({ example: '0911234567', description: 'Phone number (must start with 09)' })
+  @ApiPropertyOptional({ example: '0911234567', description: 'Ethiopian phone number (09XXXXXXXX, 07XXXXXXXX, or +2519XXXXXXXX)' })
   @IsOptional()
   @IsString()
-  @Matches(/^09\d{8}$/, { message: 'Phone number must start with 09 followed by 8 digits (e.g., 0911234567)' })
+  @Matches(/^(09\d{8}|07\d{8}|\+2519\d{8}|\+2517\d{8}|2519\d{8}|2517\d{8})$/, {
+    message: 'Phone number must be a valid Ethiopian number: 09XXXXXXXX, 07XXXXXXXX, or +2519XXXXXXXX',
+  })
   phoneNumber?: string;
 }

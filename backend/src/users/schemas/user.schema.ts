@@ -28,6 +28,9 @@ export class User {
       'DISPATCHER',
       'EMERGENCY_ADMIN',
       'LIAISON_OFFICER',
+      'HOSPITAL_APPROVER',
+      'GATEKEEPER',
+      'SPECIALIST',
     ],
   })
   role: string;
@@ -43,6 +46,9 @@ export class User {
 
   @Prop()
   phoneNumber: string;
+
+  @Prop()
+  assignedRegion: string;
 
   @Prop()
   department: string;

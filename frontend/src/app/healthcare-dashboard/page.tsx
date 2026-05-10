@@ -22,7 +22,7 @@ interface DashboardStats {
 }
 
 export default function HealthcareDashboard() {
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
   const router = useRouter();
   const [stats, setStats] = useState<DashboardStats>({
     mothers: 0,
@@ -44,10 +44,12 @@ export default function HealthcareDashboard() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!user) return;
     fetchDashboardStats();
-  }, []);
+  }, [user]);
 
   const fetchDashboardStats = async () => {
+    if (!user) return;
     try {
       setLoading(true);
       setError(null);

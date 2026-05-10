@@ -111,7 +111,7 @@ export class ChildrenService {
     let query: any = {};
 
     // Filter based on user role
-    if (userRole === 'HOSPITAL_ADMIN' || userRole === 'DOCTOR' || userRole === 'NURSE' || userRole === 'MIDWIFE') {
+    if ((userRole === 'HOSPITAL_ADMIN' || userRole === 'DOCTOR' || userRole === 'NURSE' || userRole === 'MIDWIFE') && userHospitalId) {
       query.birthHospital = new Types.ObjectId(userHospitalId);
     } else if (userRole === 'WOREDA_ADMIN') {
       // Need to join with mothers to filter by woreda
