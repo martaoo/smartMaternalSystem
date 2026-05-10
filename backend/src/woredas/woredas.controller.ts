@@ -24,7 +24,7 @@ export class WoredasController {
     return this.woredasService.create(createWoredaDto);
   }
 
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN', 'MOH_ADMIN', 'DOCTOR')
+  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN', 'MOH_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'DISPATCHER', 'LIAISON_OFFICER')
   @Get()
   @ApiOperation({ summary: 'Get all woredas' })
   @ApiResponse({ status: 200, description: 'Woredas retrieved successfully' })

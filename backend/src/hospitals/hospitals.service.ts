@@ -27,10 +27,12 @@ export class HospitalsService {
   }
 
   async findAllWithRoleFilter(role: string, hospitalId?: string, regionId?: string): Promise<Hospital[]> {
-    if ((role === 'HOSPITAL_ADMIN' || role === 'HEALTH_CENTER_ADMIN') && hospitalId) {
+    const validId = (id?: string) => !!id && /^[0-9a-fA-F]{24}$/.test(id);
+
+    if ((role === 'HOSPITAL_ADMIN' || role === 'HEALTH_CENTER_ADMIN') && validId(hospitalId)) {
       return this.hospitalModel.find({ _id: hospitalId }).populate({ path: 'woredaId', populate: { path: 'regionId' } }).exec();
     }
-    if (role === 'SYSTEM_ADMIN' && regionId) {
+    if (role === 'SYSTEM_ADMIN' && validId(regionId)) {
       const hospitals = await this.hospitalModel.find().populate({ path: 'woredaId', populate: { path: 'regionId' } }).exec();
       return hospitals.filter((h: any) => {
         const woredaRegion = h.woredaId && typeof h.woredaId === 'object' ? (h.woredaId as any).regionId : null;

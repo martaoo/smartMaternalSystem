@@ -4,6 +4,7 @@ import {
   Referral,
   checkedInReferrals,
   createReferral,
+  getDraftReferrals,
   getReferral,
   incomingReferrals,
   outboxReferrals,
@@ -52,6 +53,14 @@ export function useReferral(id: string) {
   })
 }
 
+export function useDraftReferrals() {
+  return useQuery({
+    queryKey: ["referrals", "drafts"],
+    queryFn: getDraftReferrals,
+    refetchInterval: 15_000,
+  })
+}
+
 export function useCreateReferral() {
   const qc = useQueryClient()
   return useMutation({
@@ -75,6 +84,7 @@ export function useSendReferral() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["referrals", "incoming"] })
       qc.invalidateQueries({ queryKey: ["referrals", "outbox"] })
+      qc.invalidateQueries({ queryKey: ["referrals", "drafts"] })
     },
   })
 }

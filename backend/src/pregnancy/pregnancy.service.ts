@@ -442,9 +442,8 @@ export class PregnancyService {
     let query: any = {};
 
     if (
-      ['HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE'].includes(
-        userRole,
-      )
+      ['HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE'].includes(userRole) &&
+      userHospitalId
     ) {
       query.hospitalId = new Types.ObjectId(userHospitalId);
     }

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { mothersApi } from '@/lib/healthcare-api';
 import { api } from '@/lib/api';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface FormData {
   name: string;
@@ -30,6 +31,9 @@ interface FormData {
 }
 
 export default function RegisterMother() {
+  const { user: currentUser } = useAuth();
+
+  // ── All hooks must be declared before any early return ──────────────────────
   const [formData, setFormData] = useState<FormData>({
     name: '',
     phone: '',
@@ -55,7 +59,6 @@ export default function RegisterMother() {
     previousCSection: false,
   });
 
-  const [currentUser, setCurrentUser] = useState<any>(null);
   const [userHospital, setUserHospital] = useState<any>(null);
   const [availableHospitals, setAvailableHospitals] = useState<any[]>([]);
   const [filteredHospitals, setFilteredHospitals] = useState<any[]>([]);
@@ -73,163 +76,24 @@ export default function RegisterMother() {
   const [loadingMothers, setLoadingMothers] = useState(true);
   const [selectedWoredaName, setSelectedWoredaName] = useState('');
 
-  // Ethiopian regions
+  // Check if user has permission to register mothers
+  const allowedRoles = ['HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE'];
+  const canRegisterMothers = currentUser && allowedRoles.includes(currentUser.role);
+
+  // Ethiopian regions (constant — defined before effects)
   const ethiopianRegions = [
-    'Addis Ababa', 'Afar', 'Amhara', 'Benishangul-Gumuz', 'Dire Dawa', 
-    'Gambela', 'Harari', 'Oromia', 'Sidama', 'Somali', 'South West Ethiopia Peoples', 
-    'Southern Nations, Nationalities, and Peoples\' (SNNPR)', 'Tigray'
+    'Addis Ababa', 'Afar', 'Amhara', 'Benishangul-Gumuz', 'Dire Dawa',
+    'Gambela', 'Harari', 'Oromia', 'Sidama', 'Somali', 'South West Ethiopia Peoples',
+    "Southern Nations, Nationalities, and Peoples' (SNNPR)", 'Tigray'
   ];
-
-  useEffect(() => {
-    getCurrentUser();
-    fetchWoredasFromDatabase();
-    fetchHospitalsFromDatabase();
-    fetchMothersFromDatabase();
-  }, []);
-
-  useEffect(() => {
-    console.log('=== CURRENT STATE ===');
-    console.log('Woredas array length:', woredas.length);
-    console.log('Woredas data:', woredas);
-    console.log('FormData woredaId:', formData.woredaId);
-    console.log('Selected Woreda Name:', selectedWoredaName);
-    console.log('Loading woredas:', loadingWoredas);
-  }, [woredas, formData.woredaId, loadingWoredas, selectedWoredaName]);
-
-  // Update filtered data when dependencies change
-  useEffect(() => {
-    // Filter woredas based on selected region
-    if (formData.region && woredas.length > 0) {
-      const woredasInRegion = woredas.filter(woreda => woreda.region === formData.region);
-      setFilteredWoredas(woredasInRegion);
-    } else if (!formData.region) {
-      setFilteredWoredas(woredas);
-    }
-  }, [formData.region, woredas]);
-
-  useEffect(() => {
-    // Filter hospitals based on selected woreda
-    if (formData.woredaId && availableHospitals.length > 0) {
-      const hospitalsInWoreda = availableHospitals.filter(hospital => {
-        return hospital.woreda === formData.woredaId || hospital.woredaId === formData.woredaId;
-      });
-      setFilteredHospitals(hospitalsInWoreda);
-    } else {
-      setFilteredHospitals([]);
-    }
-  }, [formData.woredaId, availableHospitals]);
-
-  useEffect(() => {
-    // Filter mothers based on selected health center
-    if (formData.healthCenter && mothers.length > 0) {
-      const mothersInFacility = mothers.filter(mother => {
-        return mother.healthCenter === formData.healthCenter || mother.assignedHealthCenter === formData.healthCenter;
-      });
-      setFilteredMothers(mothersInFacility);
-    } else {
-      setFilteredMothers([]);
-    }
-  }, [formData.healthCenter, mothers]);
-
-  const getCurrentUser = async () => {
-    try {
-      const userStr = localStorage.getItem('user');
-      console.log('=== USER DEBUG START ===');
-      console.log('Raw user string:', userStr);
-      
-      if (userStr) {
-        const user = JSON.parse(userStr);
-        console.log('Parsed user object:', user);
-        setCurrentUser(user);
-        
-        // Auto-assign health center based on logged-in user
-        if (user.hospitalId) {
-          setFormData(prev => ({
-            ...prev,
-            healthCenter: user.hospitalId
-          }));
-          
-          // Find the hospital details to auto-assign woreda and region
-          try {
-            const hospitals = await api.getHospitals();
-            const userHospital = hospitals.find((h: any) => h._id === user.hospitalId);
-            
-            if (userHospital) {
-              setUserHospital(userHospital);
-              
-              // Auto-assign woreda if hospital has one
-              if (userHospital.woredaId || userHospital.woreda) {
-                const hospitalWoredaId = userHospital.woredaId?._id || userHospital.woredaId || userHospital.woreda;
-                setFormData(prev => ({
-                  ...prev,
-                  woredaId: hospitalWoredaId
-                }));
-                
-                // Auto-assign region if woreda has one
-                try {
-                  const woredas = await api.getWoredas();
-                  const hospitalWoreda = woredas.find((w: any) => w._id === hospitalWoredaId);
-                  if (hospitalWoreda && hospitalWoreda.region) {
-                    setFormData(prev => ({
-                      ...prev,
-                      region: hospitalWoreda.region
-                    }));
-                  }
-                } catch (woredaErr) {
-                  console.error('Error fetching woredas for auto-assignment:', woredaErr);
-                }
-              }
-            }
-          } catch (hospitalErr) {
-            console.error('Error fetching hospitals for auto-assignment:', hospitalErr);
-          }
-        }
-        
-        // For Woreda Admin, auto-assign woreda
-        if (user.woredaId) {
-          setFormData(prev => ({
-            ...prev,
-            woredaId: user.woredaId
-          }));
-          
-          // Auto-assign region if woreda has one
-          try {
-            const woredas = await api.getWoredas();
-            const userWoreda = woredas.find((w: any) => w._id === user.woredaId);
-            if (userWoreda && userWoreda.region) {
-              setFormData(prev => ({
-                ...prev,
-                region: userWoreda.region
-              }));
-            }
-          } catch (woredaErr) {
-            console.error('Error fetching woredas for auto-assignment:', woredaErr);
-          }
-        }
-      }
-      console.log('=== USER DEBUG END ===');
-    } catch (err) {
-      console.error('Error getting current user:', err);
-    }
-  };
 
   const fetchWoredasFromDatabase = async () => {
     setLoadingWoredas(true);
     try {
-      console.log('Fetching woredas from API...');
       const woredaData = await api.getWoredas();
-      console.log('Woredas fetched successfully:', woredaData);
-      
-      if (woredaData && Array.isArray(woredaData) && woredaData.length > 0) {
-        setWoredas(woredaData);
-        console.log('First woreda ID example:', woredaData[0]._id);
-        console.log('First woreda ID type:', typeof woredaData[0]._id);
-      } else {
-        console.error('No woreda data received or empty array');
-        setWoredas([]);
-      }
+      setWoredas(Array.isArray(woredaData) ? woredaData : []);
     } catch (err) {
-      console.error('Failed to fetch woredas from database:', err);
+      console.error('Failed to fetch woredas:', err);
       setWoredas([]);
     } finally {
       setLoadingWoredas(false);
@@ -239,24 +103,15 @@ export default function RegisterMother() {
   const fetchHospitalsFromDatabase = async () => {
     setLoadingHospitals(true);
     try {
-      console.log('Fetching hospitals from API...');
       const hospitalData = await api.getHospitals();
-      console.log('Hospitals fetched successfully:', hospitalData);
-      
-      if (hospitalData && Array.isArray(hospitalData)) {
+      if (Array.isArray(hospitalData)) {
         setAvailableHospitals(hospitalData);
-        
-        // Initially set filtered hospitals to all hospitals
         setFilteredHospitals(hospitalData);
-        
         if (currentUser?.hospitalId) {
-          const foundHospital = hospitalData.find((h: any) => h._id === currentUser.hospitalId);
-          if (foundHospital) {
-            setUserHospital(foundHospital);
-            setFormData(prev => ({
-              ...prev,
-              healthCenter: foundHospital._id
-            }));
+          const found = hospitalData.find((h: any) => h._id === currentUser.hospitalId);
+          if (found) {
+            setUserHospital(found);
+            setFormData(prev => ({ ...prev, healthCenter: found._id }));
           }
         }
       }
@@ -270,11 +125,8 @@ export default function RegisterMother() {
   const fetchMothersFromDatabase = async () => {
     setLoadingMothers(true);
     try {
-      console.log('Fetching mothers from API...');
       const mothersData = await mothersApi.getAll();
-      console.log('Mothers fetched successfully:', mothersData);
-      
-      if (mothersData && Array.isArray(mothersData)) {
+      if (Array.isArray(mothersData)) {
         setMothers(mothersData);
         setFilteredMothers(mothersData);
       }
@@ -286,6 +138,112 @@ export default function RegisterMother() {
       setLoadingMothers(false);
     }
   };
+
+  useEffect(() => {
+    fetchWoredasFromDatabase();
+    fetchHospitalsFromDatabase();
+    fetchMothersFromDatabase();
+  }, []);
+
+  // Auto-assign woreda and health center based on logged-in user
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const autoAssignFields = async () => {
+      try {
+        if (currentUser.hospitalId) {
+          setFormData(prev => ({ ...prev, healthCenter: currentUser.hospitalId }));
+          try {
+            const hospitals = await api.getHospitals();
+            const foundHospital = hospitals.find((h: any) => h._id === currentUser.hospitalId);
+            if (foundHospital) {
+              setUserHospital(foundHospital);
+              const hospitalWoredaId = foundHospital.woredaId?._id || foundHospital.woredaId || foundHospital.woreda;
+              if (hospitalWoredaId) {
+                setFormData(prev => ({ ...prev, woredaId: hospitalWoredaId }));
+                try {
+                  const woredaList = await api.getWoredas();
+                  const hospitalWoreda = woredaList.find((w: any) => w._id === hospitalWoredaId);
+                  if (hospitalWoreda?.region) {
+                    setFormData(prev => ({ ...prev, region: hospitalWoreda.region }));
+                  }
+                } catch { /* silent */ }
+              }
+            }
+          } catch { /* silent */ }
+        } else if (currentUser.woredaId) {
+          setFormData(prev => ({ ...prev, woredaId: currentUser.woredaId }));
+          try {
+            const woredaList = await api.getWoredas();
+            const userWoreda = woredaList.find((w: any) => w._id === currentUser.woredaId);
+            if (userWoreda?.region) {
+              setFormData(prev => ({ ...prev, region: userWoreda.region }));
+            }
+          } catch { /* silent */ }
+        } else if (currentUser.regionId) {
+          setFormData(prev => ({ ...prev, region: currentUser.regionId }));
+        }
+      } catch (err) {
+        console.error('Error in auto-assignment:', err);
+      }
+    };
+
+    autoAssignFields();
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (formData.region && woredas.length > 0) {
+      setFilteredWoredas(woredas.filter(w => w.region === formData.region));
+    } else {
+      setFilteredWoredas(woredas);
+    }
+  }, [formData.region, woredas]);
+
+  useEffect(() => {
+    if (formData.woredaId && availableHospitals.length > 0) {
+      setFilteredHospitals(availableHospitals.filter(h =>
+        h.woreda === formData.woredaId || h.woredaId === formData.woredaId
+      ));
+    } else {
+      setFilteredHospitals(availableHospitals);
+    }
+  }, [formData.woredaId, availableHospitals]);
+
+  useEffect(() => {
+    if (formData.healthCenter && mothers.length > 0) {
+      setFilteredMothers(mothers.filter(m =>
+        m.healthCenter === formData.healthCenter || m.assignedHealthCenter === formData.healthCenter
+      ));
+    } else {
+      setFilteredMothers([]);
+    }
+  }, [formData.healthCenter, mothers]);
+
+  // Permission gate — must be AFTER all hooks
+  if (!canRegisterMothers) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="bg-white rounded-lg shadow-md p-8 max-w-md w-full">
+          <div className="text-center">
+            <div className="text-red-600 text-6xl mb-4">🚫</div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Access Denied</h2>
+            <p className="text-gray-600 mb-6">
+              Only healthcare workers (Doctors, Nurses, Midwives, or Hospital Administrators) can register mothers.
+            </p>
+            <p className="text-sm text-gray-500 mb-4">
+              Your current role: <strong>{currentUser?.role || 'Unknown'}</strong>
+            </p>
+            <button
+              onClick={() => window.history.back()}
+              className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Go Back
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type, checked } = e.target as HTMLInputElement;
@@ -501,14 +459,11 @@ export default function RegisterMother() {
         gravida: formData.gravida ? parseInt(formData.gravida) : undefined,
         para: formData.para ? parseInt(formData.para) : undefined,
         lmp: formData.lmp || undefined,
-        woredaId: formData.woredaId,
-        healthCenter: formData.healthCenter,
-        registeredBy: currentUser?.name || 'Unknown',
         woredaId: extractedWoredaId,
         healthCenter: userHospital?._id,
+        registeredBy: currentUser?.name || 'Unknown',
         tempUsername: tempUsername,
         tempPassword: tempPassword,
-        phone: formData.phone, // Include phone for SMS delivery
       };
       
       console.log('motherData.woredaId:', motherData.woredaId);
@@ -679,7 +634,6 @@ export default function RegisterMother() {
                     onChange={handleInputChange}
                     required
                     placeholder="09XXXXXXXX or +2519XXXXXXXX"
-                    placeholder="0911234567"
                     className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
                       phoneError ? 'border-red-400 bg-red-50' : 'border-gray-300'
                     }`}

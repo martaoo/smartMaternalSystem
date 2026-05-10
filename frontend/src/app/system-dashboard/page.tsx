@@ -28,7 +28,7 @@ export default function SystemDashboard() {
   // Real data states
   const [stats, setStats] = useState({
     totalSystemAdmins: 0,
-    totalNursesMidwives: 0,
+    totalUsers: 0,
     totalHospitals: 0,
   });
   const [referralStats, setReferralStats] = useState({
@@ -46,6 +46,9 @@ export default function SystemDashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Only fetch when user is authenticated
+    if (!user) return;
+
     fetchDashboardData();
 
     const refreshTimer = setInterval(() => {
@@ -53,9 +56,10 @@ export default function SystemDashboard() {
     }, 20000);
 
     return () => clearInterval(refreshTimer);
-  }, []);
+  }, [user]);
 
   const fetchDashboardData = async () => {
+    if (!user) return;
     try {
       setLoading(true);
       
@@ -79,7 +83,7 @@ export default function SystemDashboard() {
       // Calculate stats
       const newStats = {
         totalSystemAdmins: usersInRegion.filter(u => u.role === 'SYSTEM_ADMIN').length,
-        totalNursesMidwives: usersInRegion.filter(u => u.role === 'NURSE' || u.role === 'MIDWIFE').length,
+        totalUsers: usersInRegion.length,
         totalHospitals: regionalHospitals.length,
       };
 
@@ -135,28 +139,28 @@ export default function SystemDashboard() {
   };
 
   const handleAddUserSuccess = () => {
+    setShowAddUser(false);
     fetchDashboardData();
-    alert('User added successfully!');
   };
 
   const handleAddWoredaAdminSuccess = () => {
+    setShowAddWoredaAdmin(false);
     fetchDashboardData();
-    alert('Woreda Admin added successfully!');
   };
 
   const handleAddWoredaSuccess = () => {
+    setShowAddWoreda(false);
     fetchDashboardData();
-    alert('Woreda added successfully!');
   };
 
   const handleAddHospitalSuccess = () => {
+    setShowAddHospital(false);
     fetchDashboardData();
-    alert('Hospital added successfully!');
   };
 
   const handleAddHealthCenterSuccess = () => {
+    setShowAddHealthCenter(false);
     fetchDashboardData();
-    alert('Health Center added successfully!');
   };
 
   return (
@@ -228,9 +232,9 @@ export default function SystemDashboard() {
                     </svg>
                   </div>
                   <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Nurses/Midwives</p>
+                    <p className="text-sm font-medium text-gray-600">Total Users</p>
                     <p className="text-2xl font-bold text-gray-900">
-                      {loading ? '...' : stats.totalNursesMidwives}
+                      {loading ? '...' : stats.totalUsers}
                     </p>
                   </div>
                 </div>

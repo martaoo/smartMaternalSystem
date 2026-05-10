@@ -61,8 +61,10 @@ export default function ReferralDetailsPage() {
       ? (referral.data as any)?.toHospital?._id
       : (referral.data as any)?.toHospital
 
-  const isSenderHospital = !!user?.hospitalId && !!fromHospitalId && user.hospitalId === fromHospitalId
-  const isReceiverHospital = !!user?.hospitalId && !!toHospitalId && user.hospitalId === toHospitalId
+  // isSenderFacility: true if the current user's facility created this referral
+  const userFacilityId = (user as any)?.facilityId ?? user?.hospitalId
+  const isSenderHospital = !!userFacilityId && !!fromHospitalId && userFacilityId === fromHospitalId
+  const isReceiverHospital = !!userFacilityId && !!toHospitalId && userFacilityId === toHospitalId
 
   // Fetch full mother details for medical information
   React.useEffect(() => {
@@ -93,20 +95,42 @@ export default function ReferralDetailsPage() {
       })
   }, [referral.data?.motherId])
 
+  // Load all hospitals once for name resolution (from/to hospital display)
+  React.useEffect(() => {
+    hospitalsApi.getAll().then((data: any[]) => {
+      setAllHospitals(Array.isArray(data) ? data : []);
+    }).catch(() => {});
+  }, [])
+
+  // Helper: resolve a hospital field (populated object OR plain ID) to a display name
+  const resolveHospitalName = (field: any): string => {
+    if (!field) return '—';
+    // Already populated object
+    if (typeof field === 'object' && field.name) {
+      const type = field.type ? ` (${field.type === 'HEALTH_CENTER' ? 'Health Center' : 'Hospital'})` : '';
+      return `${field.name}${type}`;
+    }
+    // Plain ID — look up in allHospitals
+    const hid = typeof field === 'string' ? field : field._id;
+    const found = allHospitals.find((h: any) => h._id === hid);
+    if (found) {
+      const type = found.type ? ` (${found.type === 'HEALTH_CENTER' ? 'Health Center' : 'Hospital'})` : '';
+      return `${found.name}${type}`;
+    }
+    return hid ? `ID: ${String(hid).slice(-6)}` : '—';
+  };
+
   // Move loadHospitals outside useEffect so it can be called from JSX
   const loadHospitals = async () => {
     setIsLoadingHospitals(true)
     try {
-      // Use the proper API method
       const data = await hospitalsApi.getAll()
-      console.log('Raw API response:', data) // Debug raw response
       const list = Array.isArray(data)
         ? data.filter((hospital) => {
             const currentHospitalId = typeof fromHospitalId === 'object' ? fromHospitalId?._id : fromHospitalId
             return hospital._id !== currentHospitalId
           })
         : []
-      console.log('Filtered hospitals list:', list) // Debug filtered list
       setHospitals(list)
     } catch (err: any) {
       console.error('Error loading hospitals:', err)
@@ -117,7 +141,8 @@ export default function ReferralDetailsPage() {
   }
 
   React.useEffect(() => {
-    if (user?.role === 'LIAISON_OFFICER' && referral.data?.status === 'DRAFT' && isSenderHospital) {
+    const canSend = ['LIAISON_OFFICER', 'DOCTOR', 'NURSE', 'MIDWIFE', 'HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN'].includes(user?.role ?? '')
+    if (canSend && referral.data?.status === 'DRAFT' && isSenderHospital) {
       loadHospitals()
     }
   }, [user?.role, referral.data?.status, fromHospitalId, isSenderHospital])
@@ -126,6 +151,7 @@ export default function ReferralDetailsPage() {
   const [selectedHospital, setSelectedHospital] = React.useState<any>(null)
   const [hospitalSearch, setHospitalSearch] = React.useState("")
   const [hospitals, setHospitals] = React.useState<any[]>([])
+  const [allHospitals, setAllHospitals] = React.useState<any[]>([])
   const [isLoadingHospitals, setIsLoadingHospitals] = React.useState(false)
   const filteredHospitals = React.useMemo(() => {
     const query = hospitalSearch.toLowerCase().trim()
@@ -145,12 +171,12 @@ export default function ReferralDetailsPage() {
   const [generatingQr, setGeneratingQr] = React.useState(false)
   const [motherDetails, setMotherDetails] = React.useState<any>(null)
   const canUploadAttachments =
-    isSenderHospital && (user?.role === "DOCTOR" || user?.role === "LIAISON_OFFICER")
+    isSenderHospital && ['DOCTOR', 'LIAISON_OFFICER', 'NURSE', 'MIDWIFE', 'HEALTH_CENTER_ADMIN', 'HOSPITAL_ADMIN'].includes(user?.role ?? '')
   const canViewAttachments =
     isSenderHospital || (isReceiverHospital && !!(referral.data as any)?.isUnlocked)
   const canGenerateQr =
     isSenderHospital &&
-    user?.role === "LIAISON_OFFICER" &&
+    ['LIAISON_OFFICER', 'DOCTOR', 'HEALTH_CENTER_ADMIN', 'HOSPITAL_ADMIN'].includes(user?.role ?? '') &&
     referral.data?.status === "ACCEPTED" &&
     !!referral.data?.referralCode
 
@@ -196,6 +222,7 @@ export default function ReferralDetailsPage() {
         "MIDWIFE",
         "LIAISON_OFFICER",
         "HOSPITAL_ADMIN",
+        "HEALTH_CENTER_ADMIN",
         "HOSPITAL_APPROVER",
         "SPECIALIST",
         "GATEKEEPER",
@@ -222,33 +249,22 @@ export default function ReferralDetailsPage() {
               {referral.isError && <p className="text-red-600">Failed to load referral.</p>}
               {referral.data && (
                 <>
+                  {/* Urgency / Emergency */}
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-600">Emergency Status:</span>
+                    <span className="text-slate-600">Urgency:</span>
                     <span className={`ml-1 px-3 py-1 rounded-full text-xs font-medium ${
-                      referral.data?.emergency ? 'bg-red-100 text-red-800 border border-red-200' : 'bg-green-100 text-green-800 border border-green-200'
+                      (referral.data as any)?.urgency === 'EMERGENCY' ? 'bg-red-100 text-red-800 border border-red-200' :
+                      (referral.data as any)?.urgency === 'URGENT' ? 'bg-orange-100 text-orange-800' :
+                      'bg-green-100 text-green-800 border border-green-200'
                     }`}>
-                      {referral.data?.emergency ? '🚨 EMERGENCY' : '✅ Routine'}
+                      {(referral.data as any)?.urgency === 'EMERGENCY' ? '🚨 EMERGENCY' :
+                       (referral.data as any)?.urgency === 'URGENT' ? '⚠️ URGENT' :
+                       (referral.data as any)?.urgency ?? '✅ Routine'}
                     </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-600">Priority Level:</span>
-                    <span className={`ml-1 px-2 py-1 rounded-full text-xs font-medium ${
-                      (referral.data as any).priority === 'HIGH' ? 'bg-red-100 text-red-800' :
-                      (referral.data as any).priority === 'URGENT' ? 'bg-red-600 text-white' :
-                      (referral.data as any).priority === 'MEDIUM' ? 'bg-yellow-100 text-yellow-800' :
-                      (referral.data as any).priority === 'LOW' ? 'bg-blue-100 text-blue-800' :
-                      'bg-gray-100 text-gray-800'
-                    }`}>
-                      {(referral.data as any).priority || 'Unknown'}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-600">Referral ID:</span>
-                    <span className="font-medium text-xs">{referral.data._id}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-slate-600">Referral Code:</span>
-                    <span className="font-medium">{referral.data.referralCode ?? "—"}</span>
+                    <span className="font-mono font-medium text-sm">{referral.data.referralCode ?? "—"}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-slate-600">Status:</span>
@@ -259,43 +275,50 @@ export default function ReferralDetailsPage() {
                   <div className="flex items-center justify-between">
                     <span className="text-slate-600">Patient Name:</span>
                     <span className="font-medium">
-                      {(referral.data as any)?.patientName || 
-                       (typeof referral.data?.motherId === 'object' ? referral.data?.motherId?.name : '') || 
-                       'Unknown'}
+                      {(referral.data as any)?.patientName ||
+                       (typeof referral.data?.motherId === 'object' ? referral.data?.motherId?.name : '') ||
+                       '—'}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-slate-600">Patient Phone:</span>
                     <span className="font-medium">
-                      {(referral.data as any)?.patientPhone || 
-                       (typeof referral.data?.motherId === 'object' ? referral.data?.motherId?.phone : '') || 
-                       'Unknown'}
+                      {(referral.data as any)?.patientPhone ||
+                       (typeof referral.data?.motherId === 'object' ? referral.data?.motherId?.phone : '') ||
+                       '—'}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-600">Doctor/Referrer:</span>
+                    <span className="text-slate-600">Referred By:</span>
                     <span className="font-medium">
-                      {(referral.data as any)?.doctorName || 
-                       (typeof referral.data?.createdBy === 'object' ? referral.data?.createdBy?.fullName || referral.data?.createdBy?.name : '') || 
-                       'Unknown'}
+                      {typeof referral.data?.createdBy === 'object'
+                        ? (referral.data.createdBy as any)?.name || (referral.data.createdBy as any)?.fullName
+                        : (referral.data as any)?.doctorName || '—'}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-600">From Hospital:</span>
+                    <span className="text-slate-600">From Facility:</span>
                     <span className="font-medium">
-                      {typeof referral.data?.fromHospital === 'object' ? referral.data?.fromHospital?.name : referral.data?.fromHospital || 'Unknown'}
+                      {resolveHospitalName((referral.data as any)?.fromHospital)}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-600">To Hospital:</span>
+                    <span className="text-slate-600">To Facility:</span>
                     <span className="font-medium">
-                      {typeof referral.data?.toHospital === 'object' ? referral.data?.toHospital?.name : referral.data?.toHospital || 'Not specified'}
+                      {(referral.data as any)?.toHospital
+                        ? resolveHospitalName((referral.data as any)?.toHospital)
+                        : 'Not assigned yet'}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-slate-600">Created:</span>
                     <span className="font-medium">
-                      {referral.data?.createdAt ? new Date(referral.data.createdAt).toLocaleString() : 'Unknown'}
+                      {referral.data?.createdAt
+                        ? new Date(referral.data.createdAt).toLocaleString('en-US', {
+                            year: 'numeric', month: 'short', day: 'numeric',
+                            hour: '2-digit', minute: '2-digit'
+                          })
+                        : '—'}
                     </span>
                   </div>
                                     
@@ -456,7 +479,7 @@ export default function ReferralDetailsPage() {
             </Card>
           )}
 
-          {(user?.role === 'LIAISON_OFFICER' && referral.data?.status === 'DRAFT' && isSenderHospital) && (
+          {(['LIAISON_OFFICER', 'DOCTOR', 'NURSE', 'MIDWIFE', 'HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN'].includes(user?.role ?? '') && referral.data?.status === 'DRAFT' && isSenderHospital) && (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -666,7 +689,7 @@ export default function ReferralDetailsPage() {
           )}
 
           {/* Action Buttons for Health Workers */}
-          {isSenderHospital && (user?.role === "DOCTOR" || user?.role === "NURSE" || user?.role === "MIDWIFE" || user?.role === "LIAISON_OFFICER") && (
+          {isSenderHospital && (['DOCTOR', 'NURSE', 'MIDWIFE', 'LIAISON_OFFICER', 'HEALTH_CENTER_ADMIN', 'HOSPITAL_ADMIN'].includes(user?.role ?? '')) && (
             <Card>
               <CardHeader>
                 <CardTitle>Actions</CardTitle>
@@ -693,7 +716,7 @@ export default function ReferralDetailsPage() {
                       onClick={async () => {
                         if (window.confirm('Are you sure you want to delete this referral? This action cannot be undone.')) {
                           try {
-                            await referralsApi.delete(referral.data._id)
+                            await referralsApi.delete(referral.data!._id)
                             toast.success("Referral deleted successfully")
                             router.push('/healthcare-dashboard/referrals')
                           } catch (err: any) {

@@ -36,130 +36,91 @@ export class ReferralsService {
 
   // 1. CREATE REFERRAL (Doctor → DRAFT)
   async createReferral(
-  dto: CreateReferralDto, 
-  doctorId: string, 
-  hospitalId: string, 
-  doctorName: string,
-  userRole: string = 'DOCTOR'
-): Promise<Referral> {
+    dto: CreateReferralDto,
+    doctorId: string,
+    facilityId: string,   // works for both hospital and health-center
+    doctorName: string,
+    userRole: string = 'DOCTOR',
+  ): Promise<Referral> {
 
-  const { mother: motherData, ...referralData } = dto;
+    const { mother: motherData, ...referralData } = dto;
+    let mother: any;
 
-  let mother: any;
-
-  // ✅ CASE 1: Existing mother
-  if (dto.motherId) {
-    mother = await this.motherService.findById(
-      dto.motherId,
-      userRole,
-      hospitalId
-    );
-
-    if (!mother) {
-      throw new BadRequestException('Invalid mother');
-    }
-  }
-
-  // ✅ CASE 2: Create or reuse mother
-  else if (motherData) {
-
-    const existingMother = await this.motherService.findByPhoneOrEmail(
-      motherData.phone,
-      motherData.email
-    );
-
-    if (existingMother) {
-      mother = existingMother;
-    } else {
-
-      // ✅ FIXED: NO illegal DTO fields
-      mother = await this.motherService.create(
-        {
-          ...motherData
-        },
-        userRole,
-        hospitalId
+    if (dto.motherId) {
+      mother = await this.motherService.findById(dto.motherId, userRole, facilityId);
+      if (!mother) throw new BadRequestException('Invalid mother');
+    } else if (motherData) {
+      const existingMother = await this.motherService.findByPhoneOrEmail(
+        motherData.phone, motherData.email,
       );
+      mother = existingMother ?? await this.motherService.create({ ...motherData }, userRole, facilityId);
+      if (!mother) throw new BadRequestException('Failed to create mother');
+    } else {
+      throw new BadRequestException('Mother information is required');
     }
 
-    if (!mother) {
-      throw new BadRequestException('Failed to create mother');
-    }
-  }
+    // Resolve facility type for display
+    const facility = await this.hospitalModel.findById(facilityId).select('type').lean();
+    const fromFacilityType = (facility as any)?.type ?? 'HOSPITAL';
 
-  // ❌ CASE 3: Missing mother
-  else {
-    throw new BadRequestException('Mother information is required');
-  }
+    const actorLabel = ['NURSE', 'MIDWIFE'].includes(userRole) ? 'Nurse/Midwife' : 'Doctor';
 
-  // ✅ CREATE REFERRAL
-  const actorLabel =
-    userRole === 'NURSE' || userRole === 'MIDWIFE' ? 'Nurse/Midwife' : 'Doctor';
-
-  const referral = await this.referralModel.create({
-    ...referralData,
-    fromHospital: hospitalId,
-    motherId: new Types.ObjectId(mother._id),
-    motherSnapshot: {
-      name: mother?.name,
-      phone: mother?.phone,
-      age: mother?.age,
-      address: mother?.address,
-      emergencyContact: mother?.emergencyContact,
-      medicalHistory: mother?.medicalHistory,
-      expectedDeliveryDate: mother?.expectedDeliveryDate,
-      highRisk: mother?.highRisk,
-      gravida: mother?.gravida,
-      para: mother?.para,
-      lmp: mother?.lmp,
-      bloodType: mother?.bloodType,
-    },
-    referralCode: `REF-${Date.now()}`,
-    createdBy: doctorId,
-    status: ReferralStatus.DRAFT,
-
-    activityLog: [
-      {
+    const referral = await this.referralModel.create({
+      ...referralData,
+      fromHospital: facilityId,
+      fromFacilityType,
+      motherId: new Types.ObjectId(mother._id),
+      motherSnapshot: {
+        name: mother?.name,
+        phone: mother?.phone,
+        age: mother?.age,
+        address: mother?.address,
+        emergencyContact: mother?.emergencyContact,
+        medicalHistory: mother?.medicalHistory,
+        expectedDeliveryDate: mother?.expectedDeliveryDate,
+        highRisk: mother?.highRisk,
+        gravida: mother?.gravida,
+        para: mother?.para,
+        lmp: mother?.lmp,
+        bloodType: mother?.bloodType,
+      },
+      referralCode: `REF-${Date.now()}`,
+      createdBy: doctorId,
+      status: ReferralStatus.DRAFT,
+      activityLog: [{
         status: ReferralStatus.DRAFT,
         actor: doctorId,
         note: `Referral drafted by ${actorLabel} ${doctorName}`,
         timestamp: new Date(),
-      },
-    ],
-  });
+      }],
+    });
 
-  // ✅ NOTIFICATION
-  await this.notificationService.notifyReferralCreated(
-    referral._id.toString(),
-    doctorName,
-    [doctorId],
-  );
+    await this.notificationService.notifyReferralCreated(
+      referral._id.toString(), doctorName, [doctorId],
+    );
 
-  return referral;
-}
-  async attachFile(referralId: string, filePath: string, uploaderHospitalId: string) {
+    return referral;
+  }
+  async attachFile(referralId: string, filePath: string, uploaderFacilityId: string) {
     const referral = await this.referralModel.findById(referralId);
     if (!referral) throw new NotFoundException('Referral not found');
-    if (referral.fromHospital?.toString() !== uploaderHospitalId?.toString()) {
-      throw new ForbiddenException('Only the sending hospital can attach referral files');
+    if (referral.fromHospital?.toString() !== uploaderFacilityId?.toString()) {
+      throw new ForbiddenException('Only the sending facility can attach referral files');
     }
-
-    return await this.referralModel.findByIdAndUpdate(
-      referralId,
-      { $push: { attachments: filePath } },
-      { new: true }
+    return this.referralModel.findByIdAndUpdate(
+      referralId, { $push: { attachments: filePath } }, { new: true },
     );
   }
 
   async updateReferral(
     referralId: string,
     dto: Partial<CreateReferralDto>,
-    updaterHospitalId: string,
+    updaterFacilityId: string,
   ): Promise<Referral> {
     const referral = await this.referralModel.findById(referralId);
     if (!referral) throw new NotFoundException('Referral not found');
-    if (referral.fromHospital?.toString() !== updaterHospitalId?.toString()) {
-      throw new ForbiddenException('Only the sending hospital can edit this referral');
+    if (referral.fromHospital?.toString() !== updaterFacilityId?.toString()) {
+      throw new ForbiddenException('Only the sending facility can edit this referral');
     }
     if (referral.status !== ReferralStatus.DRAFT) {
       throw new BadRequestException('Only draft referrals can be edited');
@@ -176,16 +137,15 @@ export class ReferralsService {
     return referral.save();
   }
 
-  async deleteReferral(referralId: string, requesterHospitalId: string): Promise<void> {
+  async deleteReferral(referralId: string, requesterFacilityId: string): Promise<void> {
     const referral = await this.referralModel.findById(referralId);
     if (!referral) throw new NotFoundException('Referral not found');
-    if (referral.fromHospital?.toString() !== requesterHospitalId?.toString()) {
-      throw new ForbiddenException('Only the sending hospital can delete this referral');
+    if (referral.fromHospital?.toString() !== requesterFacilityId?.toString()) {
+      throw new ForbiddenException('Only the sending facility can delete this referral');
     }
     if (referral.status !== ReferralStatus.DRAFT) {
       throw new BadRequestException('Only draft referrals can be deleted');
     }
-
     await referral.deleteOne();
   }
 
@@ -228,66 +188,51 @@ async createSystemReferral(data: {
   return referral;
 }
 
-  // 2. FINALIZE & SEND (Liaison Officer)
+  // 2. FINALIZE & SEND (Liaison Officer — any facility type)
   async finalizeAndSend(
     referralId: string,
     liaisonId: string,
-    liaisonHospitalId: string,
-    targetHospitalId: string,
+    liaisonFacilityId: string,   // health center OR hospital
+    targetFacilityId: string,
     liaisonName: string,
     liaisonNote?: string,
   ): Promise<Referral> {
     const referral = await this.referralModel.findById(referralId);
-    
     if (!referral) throw new NotFoundException('Referral not found');
 
-    // Security Check: Liaison must belong to the 'from' hospital
-    if (referral.fromHospital.toString() !== liaisonHospitalId.toString()) {
-      throw new ForbiddenException('You are not allowed to send referrals from another hospital');
+    if (referral.fromHospital.toString() !== liaisonFacilityId.toString()) {
+      throw new ForbiddenException('You are not allowed to send referrals from another facility');
     }
 
-    // Validation: Cannot refer to yourself
-    if (liaisonHospitalId === targetHospitalId) {
-      throw new BadRequestException('Target hospital cannot be the same as the originating hospital');
+    if (liaisonFacilityId === targetFacilityId) {
+      throw new BadRequestException('Target facility cannot be the same as the originating facility');
     }
 
-    // State Check: Must be a DRAFT
     if (referral.status !== ReferralStatus.DRAFT) {
       throw new BadRequestException('Referral already finalized');
     }
 
-    // Target Hospital Verification
-    const targetHospital = await this.hospitalModel.findById(targetHospitalId);
-    if (!targetHospital) {
-      throw new NotFoundException('Target hospital does not exist');
-    }
+    const targetFacility = await this.hospitalModel.findById(targetFacilityId);
+    if (!targetFacility) throw new NotFoundException('Target facility does not exist');
 
-    // Cast the string ID to a Mongoose ObjectId
-    referral.toHospital = new Types.ObjectId(targetHospitalId) as any;
-    
+    referral.toHospital = new Types.ObjectId(targetFacilityId) as any;
+    referral.toFacilityType = targetFacility.type ?? 'HOSPITAL';
     referral.status = ReferralStatus.PENDING;
     referral.expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
-    if (liaisonNote && liaisonNote.trim()) {
-      referral.liaisonNote = liaisonNote.trim();
-    }
+    if (liaisonNote?.trim()) referral.liaisonNote = liaisonNote.trim();
 
-    // Audit Trail
     referral.activityLog.push({
       status: ReferralStatus.PENDING,
       actor: liaisonId,
-      note: `Referral dispatched to ${targetHospital.name} by ${liaisonName}`,
+      note: `Referral dispatched to ${targetFacility.name} (${targetFacility.type ?? 'HOSPITAL'}) by ${liaisonName}`,
       timestamp: new Date(),
     });
 
-    // Save and Return
     const saved = await referral.save();
 
-    // Notifications
     try {
       await this.notificationService.notifyReferralSent(
-        saved._id.toString(),
-        targetHospital.name,
-        [targetHospitalId],
+        saved._id.toString(), targetFacility.name, [targetFacilityId],
       );
     } catch (err) {
       console.error('Notification failed but referral was saved:', err);
@@ -301,7 +246,7 @@ async createSystemReferral(data: {
     referralId: string,
     dto: RespondReferralDto,
     responderId: string,
-    responderHospitalId: string,
+    responderFacilityId: string,
   ): Promise<Referral> {
     const session: ClientSession = await this.referralModel.db.startSession();
     session.startTransaction();
@@ -312,15 +257,15 @@ async createSystemReferral(data: {
       
       console.log('DEBUG:', { 
         toHospital: referral.toHospital, 
-        responderId: responderHospitalId 
+        responderFacilityId,
       });
       
       if (!referral.toHospital) {
-        throw new BadRequestException('This referral does not have a destination hospital assigned.');
+        throw new BadRequestException('This referral does not have a destination facility assigned.');
       }
       
-      if (referral.toHospital.toString() !== responderHospitalId.toString()) {
-        throw new ForbiddenException('Your hospital is not authorized to respond to this referral');
+      if (referral.toHospital.toString() !== responderFacilityId.toString()) {
+        throw new ForbiddenException('Your facility is not authorized to respond to this referral');
       }
 
       if (referral.status !== ReferralStatus.PENDING)
@@ -366,24 +311,24 @@ async createSystemReferral(data: {
     }
   }
 
-  async getIncomingReferrals(hospitalId: string): Promise<Referral[]> {
+  async getIncomingReferrals(facilityId: string): Promise<Referral[]> {
     return this.referralModel.find({
-      toHospital: hospitalId,
+      toHospital: facilityId,
       status: { $in: [ReferralStatus.PENDING, ReferralStatus.CHECKED_IN] },
     })
-    .populate('fromHospital', 'name')
+    .populate('fromHospital', 'name type')
     .populate('createdBy', 'name email')
-    .populate('motherId', 'name phone age') // minimal highlights
+    .populate('motherId', 'name phone age')
     .sort({ createdAt: -1 });
   }
 
-  async getCheckedInReferrals(hospitalId: string): Promise<Referral[]> {
+  async getCheckedInReferrals(facilityId: string): Promise<Referral[]> {
     return this.referralModel.find({
-      toHospital: hospitalId,
+      toHospital: facilityId,
       status: ReferralStatus.CHECKED_IN,
     })
-    .populate('fromHospital', 'name')
-    .populate('toHospital', 'name')
+    .populate('fromHospital', 'name type')
+    .populate('toHospital', 'name type')
     .populate('createdBy', 'name email')
     .populate('motherId', 'name phone age')
     .sort({ gateCheckedInAt: -1, createdAt: -1 });
@@ -425,24 +370,22 @@ async createSystemReferral(data: {
   async unlockReferral(
     dto: UnlockReferralDto,
     specialistId: string,
-    specialistHospitalId: string,
+    specialistFacilityId: string,
   ): Promise<Referral> {
     const referral = await this.referralModel
       .findOne({ referralCode: dto.referralCode })
       .populate('motherId')
-      .populate('fromHospital', 'name')
-      .populate('toHospital', 'name');
+      .populate('fromHospital', 'name type')
+      .populate('toHospital', 'name type');
 
-    if (!referral) {
-      throw new NotFoundException('Referral not found');
-    }
+    if (!referral) throw new NotFoundException('Referral not found');
 
-    const toHospitalId = (referral.toHospital as any)?._id?.toString?.() ?? referral.toHospital?.toString?.();
-    if (!specialistHospitalId) {
-      throw new BadRequestException('User hospital ID missing from token');
+    const toFacilityId = (referral.toHospital as any)?._id?.toString?.() ?? referral.toHospital?.toString?.();
+    if (!specialistFacilityId) {
+      throw new BadRequestException('User facility ID missing from token');
     }
-    if (!referral.toHospital || toHospitalId !== specialistHospitalId.toString()) {
-      throw new ForbiddenException('Your hospital is not authorized to unlock this referral');
+    if (!referral.toHospital || toFacilityId !== specialistFacilityId.toString()) {
+      throw new ForbiddenException('Your facility is not authorized to unlock this referral');
     }
 
     const now = new Date();
@@ -551,83 +494,96 @@ async createSystemReferral(data: {
     return referral;
   }
 
-  // 9. LIAISON OUTBOX
-  async getOutgoingReferrals(hospitalId: string): Promise<Referral[]> {
+  // 9. LIAISON OUTBOX — all referrals originating from this facility (any status)
+  async getOutgoingReferrals(facilityId: string): Promise<Referral[]> {
     return this.referralModel
-      .find({
-        fromHospital: hospitalId,
-      })
+      .find({ fromHospital: facilityId })
       .populate('motherId', 'name phone')
       .populate('createdBy', 'name email')
-      .populate('toHospital', 'name')
+      .populate('toHospital', 'name type')
+      .populate('fromHospital', 'name type')
+      .sort({ createdAt: -1 });
+  }
+
+  // DRAFT referrals from this facility waiting to be sent by liaison
+  async getDraftReferrals(facilityId: string): Promise<Referral[]> {
+    return this.referralModel
+      .find({ fromHospital: facilityId, status: ReferralStatus.DRAFT })
+      .populate('motherId', 'name phone age')
+      .populate('createdBy', 'name email')
       .sort({ createdAt: -1 });
   }
 
   // 10. SPECIALIST WORKLIST
-  async getSpecialistQueue(hospitalId: string): Promise<Referral[]> {
+  async getSpecialistQueue(facilityId: string): Promise<Referral[]> {
     return this.referralModel.find({
-      toHospital: hospitalId,
-      status: { 
-        $in: [ReferralStatus.ACCEPTED, ReferralStatus.CHECKED_IN] 
-      }
+      toHospital: facilityId,
+      status: { $in: [ReferralStatus.ACCEPTED, ReferralStatus.CHECKED_IN] },
     })
     .populate('motherId', 'name phone age')
-    .populate('fromHospital', 'name')
+    .populate('fromHospital', 'name type')
     .sort({ gateCheckedInAt: -1, createdAt: -1 });
   }
 
-  async getHospitalDashboard(hospitalId: string, type: 'inbound' | 'outbound'): Promise<Referral[]> {
-    const query = type === 'inbound' 
-      ? { toHospital: hospitalId } 
-      : { fromHospital: hospitalId };
+  async getHospitalDashboard(facilityId: string, type: 'inbound' | 'outbound'): Promise<Referral[]> {
+    const query = type === 'inbound'
+      ? { toHospital: facilityId }
+      : { fromHospital: facilityId };
 
     return this.referralModel.find(query)
       .populate('motherId', 'name phone')
-      .populate('fromHospital', 'name')
-      .populate('toHospital', 'name')
+      .populate('fromHospital', 'name type')
+      .populate('toHospital', 'name type')
       .sort({ createdAt: -1 });
   }
 
-  async getReferralById(referralId: string, hospitalId: string, requesterRole?: string): Promise<Referral> {
-    const referral = await this.referralModel.findOne({
-      _id: referralId,
-      $or: [
-        { fromHospital: hospitalId },
-        { toHospital: hospitalId }
-      ]
-    })
-    .populate('fromHospital', 'name')
-    .populate('toHospital', 'name')
-    .populate('motherId', 'name phone age address medicalHistory emergencyContact expectedDeliveryDate highRisk gravida para lmp bloodType')
-    .populate('createdBy', 'name email')
-    .populate('activityLog.actor', 'name email')
-    .populate('decisionMeta.responderId', 'name email');
+  async getReferralById(referralId: string, facilityId: string | undefined, requesterRole?: string): Promise<Referral> {
+    // SYSTEM_ADMIN and MOH_ADMIN can see any referral
+    const isAdmin = requesterRole === 'SYSTEM_ADMIN' || requesterRole === 'MOH_ADMIN' || requesterRole === 'SUPER_ADMIN';
+
+    // Build the access filter — admins bypass facility check
+    const filter: any = { _id: referralId };
+    if (!isAdmin) {
+      if (!facilityId) throw new NotFoundException('Referral not found or access denied.');
+      filter.$or = [
+        { fromHospital: facilityId },
+        { toHospital: facilityId },
+      ];
+    }
+
+    const referral = await this.referralModel.findOne(filter)
+      .populate('fromHospital', 'name type location')
+      .populate('toHospital', 'name type location')
+      .populate('motherId', 'name phone age address medicalHistory emergencyContact expectedDeliveryDate highRisk gravida para lmp bloodType')
+      .populate('createdBy', 'name email role')
+      .populate('activityLog.actor', 'name email')
+      .populate('decisionMeta.responderId', 'name email');
 
     if (!referral) {
       throw new NotFoundException('Referral not found or access denied.');
     }
 
-    // If the requesting hospital is the receiving hospital, restrict details.
-    // Receiving liaison/admin roles should never see full clinical details.
-    // Clinical roles can see full details only after unlock.
-    const isReceiver = referral.toHospital && referral.toHospital.toString() === hospitalId.toString();
+    const isReceiver = referral.toHospital &&
+      facilityId &&
+      referral.toHospital.toString() === facilityId.toString();
+
     const nonClinicalReceiverRoles = new Set([
       'LIAISON_OFFICER',
       'HOSPITAL_APPROVER',
       'HOSPITAL_ADMIN',
+      'HEALTH_CENTER_ADMIN',
       'GATEKEEPER',
     ]);
     const alwaysRedactForReceiver = requesterRole ? nonClinicalReceiverRoles.has(requesterRole) : false;
+
     if (isReceiver && (alwaysRedactForReceiver || !referral.isUnlocked)) {
-      // Strip sensitive fields
+      // Strip sensitive clinical fields for receiving non-clinical roles
       (referral as any).clinicalNotes = undefined;
       (referral as any).attachments = [];
-      // Keep minimal mother highlights
       if ((referral as any).motherId && typeof (referral as any).motherId === 'object') {
         const m = (referral as any).motherId as any;
         (referral as any).motherId = { _id: m._id, name: m.name, age: m.age, phone: m.phone };
       }
-      // Keep snapshot but limit it to highlights
       if (referral.motherSnapshot) {
         referral.motherSnapshot = {
           name: referral.motherSnapshot.name,

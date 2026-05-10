@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { pregnancyApi } from '@/lib/healthcare-api';
 import { useSearchParams } from 'next/navigation';
 
@@ -40,7 +40,7 @@ interface PregnancyRecord {
   reminderSameDaySent?: boolean;
 }
 
-export default function PregnancyTracking() {
+function PregnancyTrackingContent() {
   const [pregnancyRecords, setPregnancyRecords] = useState<PregnancyRecord[]>([]);
   const [filteredRecords, setFilteredRecords] = useState<PregnancyRecord[]>([]);
   const [groupedRecords, setGroupedRecords] = useState<{ [key: string]: PregnancyRecord[] }>({});
@@ -66,7 +66,7 @@ export default function PregnancyTracking() {
       
       if (motherRecords.length > 0) {
         const motherKey = `${motherIdFromUrl}-${motherRecords[0].motherId?.name || 'Unknown Mother'}`;
-        setExpandedMothers(prev => new Set([...prev, motherKey]));
+        setExpandedMothers(prev => new Set(Array.from(prev).concat(motherKey)));
       }
     }
   }, [motherIdFromUrl, pregnancyRecords]);
@@ -601,5 +601,22 @@ export default function PregnancyTracking() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function PregnancyTracking() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Loading pregnancy records...</p>
+          </div>
+        </div>
+      }
+    >
+      <PregnancyTrackingContent />
+    </Suspense>
   );
 }

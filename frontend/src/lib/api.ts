@@ -1,8 +1,7 @@
+// lib/api.ts
 'use client';
 
 export const API_BASE = '/api/proxy';
-
-// Use API proxy for all environments to avoid CORS issues
 export const BACKEND_URL = '/api/proxy';
 
 export class UnauthorizedError extends Error {
@@ -12,24 +11,28 @@ export class UnauthorizedError extends Error {
   }
 }
 
-// Helper function to get auth token from localStorage
-function getAuthToken(): string | undefined {
-  if (typeof window === 'undefined') return undefined;
-  try {
-    return localStorage.getItem('token') || undefined;
-  } catch {
-    return undefined;
-  }
+// Helper to get token - tries multiple keys
+function getToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  
+  // Try all possible storage keys
+  const token = 
+    localStorage.getItem('token') || 
+    localStorage.getItem('auth_token') ||
+    sessionStorage.getItem('token') ||
+    sessionStorage.getItem('auth_token');
+    
+  return token || null;
 }
 
-// Helper function to create headers with auth
-export function createAuthHeaders(extraHeaders: Record<string, string> = {}): Record<string, string> {
-  const token = getAuthToken();
+// ALWAYS add Authorization header to every request
+function getHeaders(extraHeaders: Record<string, string> = {}): Record<string, string> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...extraHeaders,
   };
   
+  const token = getToken();
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
@@ -40,28 +43,24 @@ export function createAuthHeaders(extraHeaders: Record<string, string> = {}): Re
 export async function handleResponse(response: Response) {
   const text = await response.text();
 
-  // Try to parse as JSON
   let data: any = null;
-  if (text) {
+  if (text && text.trim()) {
     try {
       data = JSON.parse(text);
-    } catch {
-      // Not JSON — treat as plain string (strip surrounding quotes if present)
-      data = text.replace(/^"|"$/g, '');
+    } catch (e) {
+      data = text;
     }
   }
 
   if (!response.ok) {
-    if (response.status === 401) throw new UnauthorizedError();
-    // Extract a human-readable message from whatever the backend returned
-    const message =
-      (typeof data === 'object' && data !== null
-        ? data?.message || data?.error
-        : typeof data === 'string' && data.length < 200
-          ? data
-          : null) ||
-      response.statusText ||
-      'Request failed';
+    if (response.status === 401) {
+      console.error('[API] 401 Unauthorized');
+      // Don't clear token here - let the user handle it
+      throw new UnauthorizedError();
+    }
+
+    const message = data?.message || data?.error || response.statusText || 'Request failed';
+    console.error(`[API] Error ${response.status}:`, message);
     throw new Error(message);
   }
 
@@ -69,168 +68,219 @@ export async function handleResponse(response: Response) {
 }
 
 export const api = {
-  // Auth
-  login: (credentials: { email: string; password: string }) =>
-    fetch(`${BACKEND_URL}/auth/login`, {
+  login: async (credentials: { email: string; password: string }) => {
+    console.log('[API] Login request for:', credentials.email);
+    
+    const response = await fetch(`/api/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(credentials),
-    }).then(handleResponse),
+    });
+    
+    const data = await handleResponse(response);
+    
+    if (data.access_token) {
+      // Store token under all keys for maximum compatibility
+      localStorage.setItem('token', data.access_token);
+      localStorage.setItem('auth_token', data.access_token);
+      // sessionStorage as fallback for same-session use
+      sessionStorage.setItem('token', data.access_token);
+      
+      // Store user data
+      if (data.user) {
+        localStorage.setItem('user', JSON.stringify(data.user));
+      }
+    }
+    
+    return data;
+  },
 
-  register: (data: any) =>
-    fetch(`${BACKEND_URL}/auth/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    }).then(handleResponse),
+  logout: () => {
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    sessionStorage.removeItem('token');
+    sessionStorage.removeItem('auth_token');
+  },
 
-  // Users
-  getUsers: () =>
-    fetch(`${BACKEND_URL}/users`, {
-      headers: createAuthHeaders(),
-    }).then(handleResponse),
+  // USERS
+  getUsers: async () => {
+    const response = await fetch(`${BACKEND_URL}/users`, {
+      headers: getHeaders(),
+    });
+    return handleResponse(response);
+  },
 
-  getMe: () =>
-    fetch(`${BACKEND_URL}/users/me`, {
-      headers: createAuthHeaders(),
-    }).then(handleResponse),
+  getMe: async () => {
+    const response = await fetch(`${BACKEND_URL}/users/me`, {
+      headers: getHeaders(),
+    });
+    return handleResponse(response);
+  },
 
-  updateMe: (data: { name?: string; email?: string; phoneNumber?: string; currentPassword?: string; newPassword?: string }) =>
-    fetch(`${BACKEND_URL}/users/me`, {
+  updateMe: async (data: any) => {
+    const response = await fetch(`${BACKEND_URL}/users/me`, {
       method: 'PATCH',
-      headers: createAuthHeaders(),
+      headers: getHeaders(),
       body: JSON.stringify(data),
-    }).then(handleResponse),
+    });
+    return handleResponse(response);
+  },
 
-  getUser: (id: string) =>
-    fetch(`${BACKEND_URL}/users/${id}`, {
-      headers: createAuthHeaders(),
-    }).then(handleResponse),
+  getUser: async (id: string) => {
+    const response = await fetch(`${BACKEND_URL}/users/${id}`, {
+      headers: getHeaders(),
+    });
+    return handleResponse(response);
+  },
 
-  createUser: (data: any) =>
-    fetch(`${BACKEND_URL}/users`, {
+  createUser: async (data: any) => {
+    const response = await fetch(`${BACKEND_URL}/users`, {
       method: 'POST',
-      headers: createAuthHeaders(),
+      headers: getHeaders(),
       body: JSON.stringify(data),
-    }).then(handleResponse),
+    });
+    return handleResponse(response);
+  },
 
-  updateUser: (id: string, data: any) =>
-    fetch(`${BACKEND_URL}/users/${id}`, {
+  updateUser: async (id: string, data: any) => {
+    const response = await fetch(`${BACKEND_URL}/users/${id}`, {
       method: 'PATCH',
-      headers: createAuthHeaders(),
+      headers: getHeaders(),
       body: JSON.stringify(data),
-    }).then(handleResponse),
+    });
+    return handleResponse(response);
+  },
 
-  deleteUser: (id: string) =>
-    fetch(`${BACKEND_URL}/users/${id}`, {
+  deleteUser: async (id: string) => {
+    const response = await fetch(`${BACKEND_URL}/users/${id}`, {
       method: 'DELETE',
-      headers: createAuthHeaders(),
-    }).then(handleResponse),
+      headers: getHeaders(),
+    });
+    return handleResponse(response);
+  },
 
-  // Hospitals
-  getHospitals: () =>
-    fetch(`${BACKEND_URL}/hospitals`, {
-      headers: createAuthHeaders(),
-    }).then(handleResponse),
+  // HOSPITALS
+  getHospitals: async () => {
+    const response = await fetch(`${BACKEND_URL}/hospitals`, {
+      headers: getHeaders(),
+    });
+    return handleResponse(response);
+  },
 
-  getHospital: (id: string) =>
-    fetch(`${BACKEND_URL}/hospitals/${id}`, {
-      headers: createAuthHeaders(),
-    }).then(handleResponse),
+  getHospital: async (id: string) => {
+    const response = await fetch(`${BACKEND_URL}/hospitals/${id}`, {
+      headers: getHeaders(),
+    });
+    return handleResponse(response);
+  },
 
-  createHospital: (data: any) =>
-    fetch(`${BACKEND_URL}/hospitals`, {
+  createHospital: async (data: any) => {
+    const response = await fetch(`${BACKEND_URL}/hospitals`, {
       method: 'POST',
-      headers: createAuthHeaders(),
+      headers: getHeaders(),
       body: JSON.stringify(data),
-    }).then(handleResponse),
+    });
+    return handleResponse(response);
+  },
 
-  updateHospital: (id: string, data: any) =>
-    fetch(`${BACKEND_URL}/hospitals/${id}`, {
+  updateHospital: async (id: string, data: any) => {
+    const response = await fetch(`${BACKEND_URL}/hospitals/${id}`, {
       method: 'PATCH',
-      headers: createAuthHeaders(),
+      headers: getHeaders(),
       body: JSON.stringify(data),
-    }).then(handleResponse),
+    });
+    return handleResponse(response);
+  },
 
-  deleteHospital: (id: string) =>
-    fetch(`${BACKEND_URL}/hospitals/${id}`, {
+  deleteHospital: async (id: string) => {
+    const response = await fetch(`${BACKEND_URL}/hospitals/${id}`, {
       method: 'DELETE',
-      headers: createAuthHeaders(),
-    }).then(handleResponse),
+      headers: getHeaders(),
+    });
+    return handleResponse(response);
+  },
 
-  updateHospital: (id: string, data: any) =>
-    fetch(`${API_BASE}/hospitals/${id}`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(data),
-    }).then(handleResponse),
+  // WOREDAS
+  getWoredas: async () => {
+    const response = await fetch(`${BACKEND_URL}/woredas`, {
+      headers: getHeaders(),
+    });
+    return handleResponse(response);
+  },
 
-  // Woredas
-  getWoredas: () =>
-    fetch(`${BACKEND_URL}/woredas`, {
-      headers: createAuthHeaders(),
-    }).then(handleResponse),
+  getWoreda: async (id: string) => {
+    const response = await fetch(`${BACKEND_URL}/woredas/${id}`, {
+      headers: getHeaders(),
+    });
+    return handleResponse(response);
+  },
 
-  getWoreda: (id: string) =>
-    fetch(`${BACKEND_URL}/woredas/${id}`, {
-      headers: createAuthHeaders(),
-    }).then(handleResponse),
-
-  createWoreda: (data: any) =>
-    fetch(`${BACKEND_URL}/woredas`, {
+  createWoreda: async (data: any) => {
+    const response = await fetch(`${BACKEND_URL}/woredas`, {
       method: 'POST',
-      headers: createAuthHeaders(),
+      headers: getHeaders(),
       body: JSON.stringify(data),
-    }).then(handleResponse),
+    });
+    return handleResponse(response);
+  },
 
-  updateWoreda: (id: string, data: any) =>
-    fetch(`${BACKEND_URL}/woredas/${id}`, {
+  updateWoreda: async (id: string, data: any) => {
+    const response = await fetch(`${BACKEND_URL}/woredas/${id}`, {
       method: 'PATCH',
-      headers: createAuthHeaders(),
+      headers: getHeaders(),
       body: JSON.stringify(data),
-    }).then(handleResponse),
+    });
+    return handleResponse(response);
+  },
 
-  deleteWoreda: (id: string) =>
-    fetch(`${BACKEND_URL}/woredas/${id}`, {
+  deleteWoreda: async (id: string) => {
+    const response = await fetch(`${BACKEND_URL}/woredas/${id}`, {
       method: 'DELETE',
-      headers: createAuthHeaders(),
-    }).then(handleResponse),
+      headers: getHeaders(),
+    });
+    return handleResponse(response);
+  },
 
-  updateWoreda: (id: string, data: any) =>
-    fetch(`${API_BASE}/woredas/${id}`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(data),
-    }).then(handleResponse),
+  // REGIONS
+  getRegions: async () => {
+    const response = await fetch(`${API_BASE}/regions`, {
+      headers: getHeaders(),
+    });
+    return handleResponse(response);
+  },
 
-  // Regions
-  getRegions: () =>
-    fetch(`${API_BASE}/regions`).then(handleResponse),
-
-  createRegion: (data: any) =>
-    fetch(`${API_BASE}/regions`, {
+  createRegion: async (data: any) => {
+    const response = await fetch(`${API_BASE}/regions`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: getHeaders(),
       body: JSON.stringify(data),
-    }).then(handleResponse),
+    });
+    return handleResponse(response);
+  },
 
-  updateRegion: (id: string, data: any) =>
-    fetch(`${API_BASE}/regions/${id}`, {
+  updateRegion: async (id: string, data: any) => {
+    const response = await fetch(`${API_BASE}/regions/${id}`, {
       method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: getHeaders(),
       body: JSON.stringify(data),
-    }).then(handleResponse),
+    });
+    return handleResponse(response);
+  },
 
-  deleteRegion: (id: string) =>
-    fetch(`${API_BASE}/regions/${id}`, {
+  deleteRegion: async (id: string) => {
+    const response = await fetch(`${API_BASE}/regions/${id}`, {
       method: 'DELETE',
-    }).then(handleResponse),
+      headers: getHeaders(),
+    });
+    return handleResponse(response);
+  },
+
+  // REFERRALS
+  getReferralStats: async () => {
+    const response = await fetch(`${BACKEND_URL}/referrals/admin/stats`, {
+      headers: getHeaders(),
+    });
+    return handleResponse(response);
+  },
 };

@@ -22,6 +22,7 @@ export default function HospitalDashboard() {
 
   useEffect(() => {
     const load = async () => {
+      if (!user) return;
       try {
         const [users, outbound, inbound] = await Promise.allSettled([
           api.getUsers(),
@@ -45,7 +46,7 @@ export default function HospitalDashboard() {
       }
     };
     load();
-  }, []);
+  }, [user]);
 
   const handleAddUserSuccess = () => {
     setShowAddUser(false);
@@ -194,7 +195,7 @@ export default function HospitalDashboard() {
                 </button>
                 <button className="w-full bg-indigo-600 text-white px-4 py-3 rounded-lg hover:bg-indigo-700 transition-colors duration-200">
                   View Reports
-                </Link>
+                </button>
 
                 <Link
                   href="/hospital-dashboard/profile"

@@ -3,6 +3,7 @@ import { http } from "./http"
 export type ReferralStatus =
   | "DRAFT"
   | "PENDING"
+  | "SENT"
   | "ACCEPTED"
   | "REJECTED"
   | "SCHEDULED"
@@ -16,6 +17,9 @@ export interface Referral {
   referralCode?: string
   createdAt?: string
   updatedAt?: string
+  emergency?: boolean
+  priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
+  isUnlocked?: boolean
   // Populated/expanded fields (optional depending on endpoint)
   reasonForReferral?: string
   clinicalNotes?: string
@@ -94,6 +98,11 @@ export async function submitFeedback(id: string, feedbackNote: string) {
 
 export async function getReferral(id: string) {
   const { data } = await http.get<Referral>(`/referrals/${id}`)
+  return data
+}
+
+export async function getDraftReferrals() {
+  const { data } = await http.get<Referral[]>('/referrals/drafts')
   return data
 }
 

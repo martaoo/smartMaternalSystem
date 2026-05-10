@@ -14,6 +14,7 @@ interface User {
   woredaId?: string | { name?: string } | null;
   regionId?: string | { name?: string } | null;
   phoneNumber?: string;
+  assignedRegion?: string;
   createdAt: string;
 }
 
@@ -33,12 +34,13 @@ export function UserManagement() {
   const getAllowedRolesForCurrentUser = () => {
     switch (user?.role) {
       case 'SYSTEM_ADMIN':
-        return ['WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'DISPATCHER', 'EMERGENCY_ADMIN', 'MOTHER'];
+        return ['WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'LIAISON_OFFICER', 'DISPATCHER', 'EMERGENCY_ADMIN', 'HOSPITAL_APPROVER', 'GATEKEEPER', 'SPECIALIST', 'MOTHER'];
       case 'HOSPITAL_ADMIN':
-        return ['DOCTOR', 'NURSE', 'MIDWIFE', 'LIAISON_OFFICER', 'DISPATCHER'];
+      case 'HEALTH_CENTER_ADMIN':
+        return ['DOCTOR', 'NURSE', 'MIDWIFE', 'LIAISON_OFFICER', 'DISPATCHER', 'GATEKEEPER'];
       case 'SUPER_ADMIN':
       default:
-        return ['SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'LIAISON_OFFICER', 'DISPATCHER', 'EMERGENCY_ADMIN', 'MOTHER'];
+        return ['SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'LIAISON_OFFICER', 'DISPATCHER', 'EMERGENCY_ADMIN', 'HOSPITAL_APPROVER', 'GATEKEEPER', 'SPECIALIST', 'MOTHER'];
     }
   };
 

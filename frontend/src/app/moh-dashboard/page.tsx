@@ -65,6 +65,7 @@ export default function MOHDashboard() {
   };
 
   React.useEffect(() => {
+    if (!user) return;
     fetchDashboardData();
 
     const refreshTimer = setInterval(() => {
@@ -72,9 +73,10 @@ export default function MOHDashboard() {
     }, 20000);
 
     return () => clearInterval(refreshTimer);
-  }, []);
+  }, [user]);
 
   const fetchDashboardData = async () => {
+    if (!user) return;
     try {
       setLoading(true);
       

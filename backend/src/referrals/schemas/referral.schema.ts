@@ -15,11 +15,20 @@ export class Referral {
   // ─────────────────────────────────────────
   // PARTICIPANTS
   // ─────────────────────────────────────────
+  // fromHospital / toHospital ref the Hospital collection which stores
+  // BOTH hospitals and health centers (type: 'HOSPITAL' | 'HEALTH_CENTER').
+  // facilityType fields record what kind of facility it was at creation time.
   @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Hospital', required: true })
   fromHospital: string;
 
-  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Hospital', required:false })
+  @Prop({ type: String, enum: ['HOSPITAL', 'HEALTH_CENTER'], default: 'HOSPITAL' })
+  fromFacilityType: string;
+
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Hospital', required: false })
   toHospital: string;
+
+  @Prop({ type: String, enum: ['HOSPITAL', 'HEALTH_CENTER'] })
+  toFacilityType?: string;
 
   @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'User', required: true })
   createdBy: string;

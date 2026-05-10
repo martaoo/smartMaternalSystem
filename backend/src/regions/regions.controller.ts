@@ -35,6 +35,9 @@ export class RegionsController {
       return this.regionsService.findAll();
     }
     // System admin can only see their own region
+    if (!user.regionId || !/^[0-9a-fA-F]{24}$/.test(user.regionId)) {
+      return this.regionsService.findAll();
+    }
     return this.regionsService.findByUserRegion(user.regionId);
   }
 

@@ -32,6 +32,9 @@ export class RegionsService {
   }
 
   async findByUserRegion(regionId: string): Promise<Region[]> {
+    if (!regionId || !/^[0-9a-fA-F]{24}$/.test(regionId)) {
+      return this.regionModel.find({ isActive: true }).exec();
+    }
     return this.regionModel.find({ _id: regionId, isActive: true }).exec();
   }
 
