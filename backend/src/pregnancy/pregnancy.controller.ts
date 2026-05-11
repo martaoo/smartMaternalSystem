@@ -20,7 +20,7 @@ export class PregnancyController {
   ) {}
 
   // ── Manual trigger (dev/testing) ─────────────────────────────────────────────
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN')
+  @Roles('SYSTEM_ADMIN')
   @Post('reminders/trigger')
   @ApiOperation({ summary: 'Manually trigger all ANC jobs (reminders + missed detection)' })
   @ApiResponse({ status: 200, description: 'Jobs triggered' })
@@ -29,7 +29,7 @@ export class PregnancyController {
   }
 
   // ── Complete a visit ──────────────────────────────────────────────────────────
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
+  @Roles('SYSTEM_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
   @Patch(':id/complete')
   @ApiOperation({ summary: 'Mark a visit as completed' })
   @ApiParam({ name: 'id', description: 'Visit ID' })
@@ -42,7 +42,7 @@ export class PregnancyController {
   }
 
   // ── Reschedule a visit (manual override) ─────────────────────────────────────
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
+  @Roles('SYSTEM_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
   @Patch(':id/reschedule')
   @ApiOperation({ summary: 'Reschedule a visit (requires overrideReason)' })
   @ApiParam({ name: 'id', description: 'Visit ID' })
@@ -68,7 +68,7 @@ export class PregnancyController {
   }
 
   // ── Create manual visit ───────────────────────────────────────────────────────
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
+  @Roles('SYSTEM_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
   @Post('manual')
   @ApiOperation({ summary: 'Create a manual visit (ANC, PNC, Emergency, Custom) with override reason' })
   @ApiResponse({ status: 201, description: 'Manual visit created' })
@@ -87,7 +87,7 @@ export class PregnancyController {
   }
 
   // ── Full schedule (visits + vaccines + warnings) ──────────────────────────────
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
+  @Roles('SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
   @Get('full-schedule/:motherId')
   @ApiOperation({ summary: 'Get full schedule for a mother: all visits, vaccines, next visit, overdue, warnings' })
   @ApiParam({ name: 'motherId', description: 'Mother ID' })
@@ -97,7 +97,7 @@ export class PregnancyController {
   }
 
   // ── ANC schedule for a mother ─────────────────────────────────────────────────
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
+  @Roles('SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
   @Get('anc-schedule/:motherId')
   @ApiOperation({ summary: 'Get full WHO ANC schedule for a mother (all 8 visits with status)' })
   @ApiParam({ name: 'motherId', description: 'Mother ID' })
@@ -107,7 +107,7 @@ export class PregnancyController {
   }
 
   // ── Maternal vaccines ─────────────────────────────────────────────────────────
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
+  @Roles('SYSTEM_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
   @Post('maternal-vaccines')
   @ApiOperation({ summary: 'Record a maternal vaccine dose (TT, Influenza, etc.)' })
   @ApiResponse({ status: 201, description: 'Vaccine recorded' })
@@ -121,7 +121,7 @@ export class PregnancyController {
     });
   }
 
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
+  @Roles('SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
   @Get('maternal-vaccines/:motherId')
   @ApiOperation({ summary: 'Get maternal vaccine history for a mother' })
   @ApiParam({ name: 'motherId', description: 'Mother ID' })
@@ -130,7 +130,7 @@ export class PregnancyController {
     return this.ancScheduleService.getMaternalVaccineHistory(motherId);
   }
 
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
+  @Roles('SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
   @Post()
   @ApiOperation({ summary: 'Create pregnancy visit record' })
   @ApiResponse({ status: 201, description: 'Pregnancy record created successfully' })
@@ -147,7 +147,7 @@ export class PregnancyController {
     );
   }
 
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
+  @Roles('SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
   @Get()
   @ApiOperation({ summary: 'Get all pregnancy records' })
   @ApiResponse({ status: 200, description: 'Pregnancy records retrieved successfully' })
@@ -161,7 +161,7 @@ export class PregnancyController {
     );
   }
 
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
+  @Roles('SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
   @Get('mother/:motherId')
   @ApiOperation({ summary: 'Get pregnancy records for a specific mother' })
   @ApiParam({ name: 'motherId', description: 'Mother ID' })
@@ -188,7 +188,7 @@ export class PregnancyController {
     return result;
   }
 
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
+  @Roles('SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
   @Get('stats')
   @ApiOperation({ summary: 'Get pregnancy statistics' })
   @ApiResponse({ status: 200, description: 'Statistics retrieved successfully' })
@@ -201,7 +201,7 @@ export class PregnancyController {
     );
   }
 
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
+  @Roles('SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
   @Get('high-risk')
   @ApiOperation({ summary: 'Get high risk pregnancies' })
   @ApiResponse({ status: 200, description: 'High risk pregnancies retrieved successfully' })
@@ -214,7 +214,7 @@ export class PregnancyController {
     );
   }
 
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
+  @Roles('SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
   @Get('upcoming-visits')
   @ApiOperation({ summary: 'Get upcoming visits (next 7 days)' })
   @ApiResponse({ status: 200, description: 'Upcoming visits retrieved successfully' })
@@ -227,7 +227,7 @@ export class PregnancyController {
     );
   }
 
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
+  @Roles('SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
   @Get(':id')
   @ApiOperation({ summary: 'Get pregnancy record by ID' })
   @ApiParam({ name: 'id', description: 'Pregnancy record ID' })
@@ -243,7 +243,7 @@ export class PregnancyController {
     );
   }
 
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
+  @Roles('SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
   @Patch(':id')
   @ApiOperation({ summary: 'Update pregnancy record' })
   @ApiParam({ name: 'id', description: 'Pregnancy record ID' })
@@ -262,7 +262,7 @@ export class PregnancyController {
     );
   }
 
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
+  @Roles('SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
   @Delete(':id')
   @ApiOperation({ summary: 'Delete pregnancy record' })
   @ApiParam({ name: 'id', description: 'Pregnancy record ID' })
@@ -275,7 +275,8 @@ export class PregnancyController {
     await this.pregnancyService.delete(
       id,
       user.role,
-      user.hospitalId?.toString()
+      user.hospitalId?.toString(),
+      user.woredaId?.toString()
     );
   }
 }

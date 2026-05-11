@@ -21,6 +21,7 @@ export default function HealthCenterDashboard() {
   const [statsLoading, setStatsLoading] = useState(true);
 
   const loadStats = async () => {
+    if (!user) return;
     setStatsLoading(true);
     try {
       const [users, outbound, inbound] = await Promise.allSettled([
@@ -43,7 +44,7 @@ export default function HealthCenterDashboard() {
     }
   };
 
-  useEffect(() => { loadStats(); }, []);
+  useEffect(() => { loadStats(); }, [user]);
 
   const statVal = (n: number) => statsLoading ? '…' : n;
 

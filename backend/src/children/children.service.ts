@@ -71,32 +71,47 @@ export class ChildrenService {
   }
 
   async create(createChildDto: CreateChildDto, userRole: string, userHospitalId?: string, userId?: string): Promise<Child> {
-    // Validate hospital assignment based on user role
-    if (userRole === 'HOSPITAL_ADMIN' || userRole === 'DOCTOR' || userRole === 'NURSE' || userRole === 'MIDWIFE') {
-      if (createChildDto.birthHospital !== userHospitalId) {
-        throw new BadRequestException('You can only register children for your hospital');
+    try {
+      console.log('Child creation attempt:', { createChildDto, userRole, userHospitalId, userId });
+      
+      // Validate access to child
+      // await this.findById(createChildDto.motherId, userRole, userHospitalId);
+      
+      // Validate hospital assignment based on user role
+      if (userRole === 'HOSPITAL_ADMIN' || userRole === 'DOCTOR' || userRole === 'NURSE' || userRole === 'MIDWIFE') {
+        if (createChildDto.birthHospital !== userHospitalId) {
+          throw new BadRequestException('You can only register children for your hospital');
+        }
       }
+
+      const childData = {
+        ...createChildDto,
+        birthDate: new Date(createChildDto.birthDate),
+        birthHospital: new Types.ObjectId(createChildDto.birthHospital),
+        motherId: new Types.ObjectId(createChildDto.motherId),
+        deliveredBy: createChildDto.deliveredBy ? 
+          new Types.ObjectId(createChildDto.deliveredBy) : undefined,
+        assignedHealthWorker: createChildDto.assignedHealthWorker ? 
+          new Types.ObjectId(createChildDto.assignedHealthWorker) : undefined,
+      };
+
+      console.log('Creating child with data:', childData);
+
+      const child = new this.childModel(childData);
+      const result = await child.save();
+      console.log('Child created successfully:', result);
+      return result;
+    } catch (error) {
+      console.error('Child creation error:', error);
+      throw error;
     }
-
-    const childData = {
-      ...createChildDto,
-      birthDate: new Date(createChildDto.birthDate),
-      birthHospital: new Types.ObjectId(createChildDto.birthHospital),
-      motherId: new Types.ObjectId(createChildDto.motherId),
-      deliveredBy: new Types.ObjectId(createChildDto.deliveredBy),
-      assignedHealthWorker: createChildDto.assignedHealthWorker ? 
-        new Types.ObjectId(createChildDto.assignedHealthWorker) : undefined,
-    };
-
-    const child = new this.childModel(childData);
-    return child.save();
   }
 
   async findAll(userRole: string, userHospitalId?: string, userWoredaId?: string): Promise<Child[]> {
     let query: any = {};
 
     // Filter based on user role
-    if (userRole === 'HOSPITAL_ADMIN' || userRole === 'DOCTOR' || userRole === 'NURSE' || userRole === 'MIDWIFE') {
+    if ((userRole === 'HOSPITAL_ADMIN' || userRole === 'DOCTOR' || userRole === 'NURSE' || userRole === 'MIDWIFE') && userHospitalId) {
       query.birthHospital = new Types.ObjectId(userHospitalId);
     } else if (userRole === 'WOREDA_ADMIN') {
       // Need to join with mothers to filter by woreda
@@ -437,7 +452,7 @@ export class ChildrenService {
     userHospitalId?: string, 
     userWoredaId?: string
   ): Promise<Child[]> {
-    if (userRole === 'SUPER_ADMIN' || userRole === 'SYSTEM_ADMIN') {
+    if (userRole === 'SYSTEM_ADMIN') {
       return children;
     }
 

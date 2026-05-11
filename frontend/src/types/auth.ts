@@ -1,19 +1,19 @@
 export type UserRole =
-  | 'MOH_ADMIN'
   | 'SUPER_ADMIN'
+  | 'MOH_ADMIN'
   | 'SYSTEM_ADMIN'
   | 'WOREDA_ADMIN'
   | 'HOSPITAL_ADMIN'
   | 'HEALTH_CENTER_ADMIN'
-  | 'HOSPITAL_APPROVER'
   | 'DOCTOR'
   | 'NURSE'
   | 'MIDWIFE'
   | 'LIAISON_OFFICER'
-  | 'SPECIALIST'
-  | 'GATEKEEPER'
   | 'DISPATCHER'
   | 'EMERGENCY_ADMIN'
+  | 'HOSPITAL_APPROVER'
+  | 'GATEKEEPER'
+  | 'SPECIALIST'
   | 'MOTHER';
 
 export interface User {
@@ -23,6 +23,7 @@ export interface User {
   role: UserRole;
   hospitalId?: string;
   woredaId?: string;
+  regionId?: string;
   assignedRegion?: string;
   department?: string;
   phoneNumber?: string;

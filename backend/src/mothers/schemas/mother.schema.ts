@@ -65,23 +65,26 @@ export class Mother {
   @Prop({ enum: ['A+', 'A-', 'B+', 'B-', 'O+', 'O-'] })
   bloodType?: 'A+' | 'A-' | 'B+' | 'B-' | 'O+' | 'O-';
 
-  @Prop({
-    type: {
-      TD1: { type: Date, required: false },
-      TD2: { type: Date, required: false },
-      TD3: { type: Date, required: false },
-      TD4: { type: Date, required: false },
-      TD5: { type: Date, required: false },
-    },
-    default: {},
-  })
-  tdVaccinations?: {
-    TD1?: Date;
-    TD2?: Date;
-    TD3?: Date;
-    TD4?: Date;
-    TD5?: Date;
-  };
+  @Prop()
+  rhFactor?: string;
+
+  @Prop()
+  hivStatus?: string;
+
+  @Prop()
+  hepatitisB?: string;
+
+  @Prop({ default: false })
+  hypertension?: boolean;
+
+  @Prop({ default: false })
+  diabetes?: boolean;
+
+  @Prop({ default: false })
+  anemia?: boolean;
+
+  @Prop({ default: false })
+  previousCSection?: boolean;
 }
 
 export const MotherSchema = SchemaFactory.createForClass(Mother);

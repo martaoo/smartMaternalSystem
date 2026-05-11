@@ -1,180 +1,249 @@
-import { Controller, Post, Patch, Body, Param, UseGuards, Req, BadRequestException, Get, ForbiddenException, Query } from '@nestjs/common';
+import {
+  Controller, Post, Patch, Delete, Body, Param,
+  UseGuards, Req, BadRequestException, Get, ForbiddenException, Query,
+} from '@nestjs/common';
 import { ReferralsService } from './referrals.service';
-import { 
-  CreateReferralDto, 
-  RespondReferralDto, 
-  UnlockReferralDto, 
-  GateCheckInDto, 
-  SubmitFeedbackDto
+import {
+  CreateReferralDto,
+  RespondReferralDto,
+  UnlockReferralDto,
+  GateCheckInDto,
+  SubmitFeedbackDto,
 } from './dto/referralDto.dto';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard'; // JWT guard
-import { RolesGuard } from 'src/common/guards/roles.guard';  // Optional role-based guard
-import { Roles } from 'src/common/decorators/roles.decorator'; 
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from 'src/common/guards/roles.guard';
+import { Roles } from 'src/common/decorators/roles.decorator';
 import { UserRole } from 'src/common/enums/user-role.enum';
 
+/** Resolve the caller's facility ID — works for both hospital and health-center users. */
+function getFacilityId(user: any): string | undefined {
+  return user?.facilityId ?? user?.hospitalId;
+}
+
 @Controller('referrals')
-@UseGuards(JwtAuthGuard, RolesGuard) // JWT + role checks
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class ReferralsController {
   constructor(private readonly referralsService: ReferralsService) {}
 
-  // ────────────── DOCTOR ──────────────
-@Post()
-@Roles(UserRole.DOCTOR, UserRole.LIAISON_OFFICER, UserRole.NURSE, UserRole.MIDWIFE)
-async createReferral(@Body() dto: CreateReferralDto, @Req() req) {
-  // 1. Extract info from the JWT (req.user)
-  // Ensure your AuthGuard/Strategy populates these fields
-  const userId = req.user.id || req.user._id || req.user.sub;
-  const hospitalId = req.user.hospitalId;
-  const doctorName = req.user.fullName || req.user.name;
-  const userRole = req.user.role;
+  // ── CREATE (Doctor / Nurse / Midwife / Admin at any facility) ──────────────
+  @Post()
+  @Roles(
+    UserRole.DOCTOR, UserRole.LIAISON_OFFICER, UserRole.NURSE, UserRole.MIDWIFE,
+    UserRole.HEALTH_CENTER_ADMIN, UserRole.HOSPITAL_ADMIN,
+  )
+  async createReferral(@Body() dto: CreateReferralDto, @Req() req: any) {
+    const userId = req.user._id ?? req.user.userId;
+    const facilityId = getFacilityId(req.user);
+    const actorName = req.user.name;
+    const userRole = req.user.role;
 
-  if (!userId || !hospitalId) {
-    throw new BadRequestException('User identification or Hospital ID missing from token');
+    if (!userId || !facilityId) {
+      throw new BadRequestException('User ID or facility ID missing from token');
+    }
+
+    return this.referralsService.createReferral(dto, userId, facilityId, actorName, userRole);
   }
 
-  // 2. Pass userId, hospitalId, doctorName, and userRole to the service
-  return this.referralsService.createReferral(dto, userId, hospitalId, doctorName, userRole);
-}
-@Post('system')
-@Roles(UserRole.SYSTEM_ADMIN)
-async createSystemReferral(@Body() dto, @Req() req) {
-  return this.referralsService.createSystemReferral(dto);
-}
-// ────────────── LIAISON OFFICER / DOCTOR ──────────────
-@Patch(':id/send')
-@Roles(UserRole.LIAISON_OFFICER, UserRole.DOCTOR, UserRole.NURSE, UserRole.MIDWIFE)
-async finalizeAndSend(
-  @Param('id') id: string,
-  @Body('targetHospitalId') targetHospitalId: string,
-  @Req() req,
-) {
-  // Using consistent naming from the request object
-  const actorId = req.user.id || req.user._id;
-  const hospitalId = req.user.hospitalId;
-  const actorName = req.user.fullName || req.user.name;
-
-  return this.referralsService.finalizeAndSend(
-    id, 
-    actorId, 
-    hospitalId, 
-    targetHospitalId, 
-    actorName
-  );
-}
-@Get('incoming')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(UserRole.LIAISON_OFFICER, UserRole.HOSPITAL_APPROVER, UserRole.HOSPITAL_ADMIN, UserRole.DOCTOR, UserRole.NURSE, UserRole.MIDWIFE)
-async getIncoming(@Req() req) {
-  // req.user is populated by the JwtStrategy after verifying the token
-  const hospitalId = req.user.hospitalId; 
-  
-  if (!hospitalId) {
-    throw new ForbiddenException('User is not assigned to a hospital');
+  // ── SYSTEM AUTO-REFERRAL ───────────────────────────────────────────────────
+  @Post('system')
+  @Roles(UserRole.SYSTEM_ADMIN)
+  async createSystemReferral(@Body() dto: any) {
+    return this.referralsService.createSystemReferral(dto);
   }
 
-  return this.referralsService.getIncomingReferrals(hospitalId);
-}
-  // ────────────── RECEIVING HOSPITAL / LIAISON ──────────────
+  // ── SEND (Liaison / Doctor / Admin at any facility) ────────────────────────
+  @Patch(':id/send')
+  @Roles(
+    UserRole.LIAISON_OFFICER, UserRole.DOCTOR, UserRole.NURSE, UserRole.MIDWIFE,
+    UserRole.HEALTH_CENTER_ADMIN, UserRole.HOSPITAL_ADMIN,
+  )
+  async finalizeAndSend(
+    @Param('id') id: string,
+    @Body('targetHospitalId') targetFacilityId: string,
+    @Body('liaisonNote') liaisonNote: string,
+    @Req() req: any,
+  ) {
+    const actorId = req.user._id ?? req.user.userId;
+    const facilityId = getFacilityId(req.user);
+    const actorName = req.user.name;
+
+    return this.referralsService.finalizeAndSend(
+      id, actorId, facilityId, targetFacilityId, actorName, liaisonNote,
+    );
+  }
+
+  // ── INCOMING (referrals sent TO this facility) ─────────────────────────────
+  @Get('incoming')
+  @Roles(
+    UserRole.LIAISON_OFFICER, UserRole.HOSPITAL_ADMIN, UserRole.HEALTH_CENTER_ADMIN,
+    UserRole.DOCTOR, UserRole.NURSE, UserRole.MIDWIFE,
+  )
+  async getIncoming(@Req() req: any) {
+    const facilityId = getFacilityId(req.user);
+    if (!facilityId) throw new ForbiddenException('User is not assigned to a facility');
+    return this.referralsService.getIncomingReferrals(facilityId);
+  }
+
+  // ── CHECKED-IN ─────────────────────────────────────────────────────────────
+  @Get('checked-in')
+  @Roles(
+    UserRole.LIAISON_OFFICER, UserRole.HOSPITAL_ADMIN, UserRole.HEALTH_CENTER_ADMIN,
+    UserRole.DOCTOR, UserRole.NURSE, UserRole.MIDWIFE,
+  )
+  async getCheckedIn(@Req() req: any) {
+    const facilityId = getFacilityId(req.user);
+    if (!facilityId) throw new ForbiddenException('User is not assigned to a facility');
+    return this.referralsService.getCheckedInReferrals(facilityId);
+  }
+
+  // ── RESPOND (Accept / Reject) ──────────────────────────────────────────────
   @Patch(':id/respond')
   @Roles(
-    UserRole.HOSPITAL_APPROVER,
-    UserRole.LIAISON_OFFICER,
-    UserRole.HOSPITAL_ADMIN,
-    UserRole.DOCTOR,
-    UserRole.NURSE,
-    UserRole.MIDWIFE,
-    UserRole.SPECIALIST,
+    UserRole.LIAISON_OFFICER, UserRole.HOSPITAL_ADMIN, UserRole.HEALTH_CENTER_ADMIN,
+    UserRole.DOCTOR, UserRole.NURSE, UserRole.MIDWIFE,
   )
   async respondToReferral(
     @Param('id') id: string,
     @Body() dto: RespondReferralDto,
-    @Req() req,
+    @Req() req: any,
   ) {
-    return this.referralsService.respondToReferral(id, 
-    dto, 
-    req.user.id,          // responderId
-    req.user.hospitalId);
-  }
-
-  // ────────────── GATE / SECURITY OFFICER ──────────────
-  @Patch('gate-check-in')
-  @Roles(UserRole.LIAISON_OFFICER,UserRole.GATEKEEPER) // Gate officers can be a separate role if needed
-  async gateCheckIn(@Body() dto: GateCheckInDto, @Req() req) {
-    return this.referralsService.gateCheckIn(dto, req.user.id);
-  }
-
-  // ────────────── SPECIALIST / NURSE / MIDWIFE ──────────────
-  @Post('unlock')
-  @Roles(UserRole.DOCTOR, UserRole.LIAISON_OFFICER, UserRole.NURSE, UserRole.MIDWIFE)
-  async unlockReferral(@Body() dto: UnlockReferralDto, @Req() req) {
-    return this.referralsService.unlockReferral(dto, req.user.id,req.user.hospitalId);
-  }
-
-  // ────────────── SPECIALIST / NURSE / MIDWIFE FEEDBACK ──────────────
-  @Patch(':id/complete')
-  @Roles(UserRole.DOCTOR, UserRole.LIAISON_OFFICER, UserRole.NURSE, UserRole.MIDWIFE)
-  async submitFeedback(
-    @Param('id') id: string,
-    @Body() dto: SubmitFeedbackDto, // Use the DTO directly
-    @Req() req,
-  ) {
-    return this.referralsService.submitFeedback(id, dto.feedbackNote, req.user.id);
-  }
-  @Get('liaison/outbox')
-  @Roles(UserRole.LIAISON_OFFICER, UserRole.DOCTOR, UserRole.HOSPITAL_ADMIN, UserRole.NURSE, UserRole.MIDWIFE)
-  async getLiaisonOutbox(@Req() req) {
-    const hospitalId = req.user.hospitalId;
-    if (!hospitalId) {
-      throw new ForbiddenException('User is not assigned to a hospital');
-    }
-    return this.referralsService.getOutgoingReferrals(hospitalId);
-  }
-
-  @Get('specialist/queue')
-  @Roles(UserRole.LIAISON_OFFICER, UserRole.DOCTOR,UserRole.SPECIALIST, UserRole.NURSE, UserRole.MIDWIFE)
-  async getSpecialistQueue(@Req() req) {
-    /**
-     * req.user is usually populated by your Passport JWT Strategy.
-     * It should contain the user's hospitalId.
-     */
-    const hospitalId = req.user.hospitalId;
-    
-    if (!hospitalId) {
-      throw new BadRequestException('User hospital information missing');
-    }
-
-    return await this.referralsService.getSpecialistQueue(hospitalId);
-  }
-  @Get(':id')
-  @Roles(UserRole.LIAISON_OFFICER, UserRole.DOCTOR,UserRole.SPECIALIST, UserRole.NURSE, UserRole.MIDWIFE)
-async getOne(@Param('id') id: string, @Req() req) {
-  // req.user.hospitalId comes from your AuthGuard
-  return this.referralsService.getReferralById(id, req.user.hospitalId);
-}
-
-  // ────────────── HOSPITAL DASHBOARD ──────────────
-  
-
-  @Get('dashboard/:type')
-async getDashboard(@Param('type') type: 'inbound' | 'outbound', @Req() req) {
-  return this.referralsService.getHospitalDashboard(req.user.hospitalId, type);
-}
- @Get()
-  async getReferrals(
-    @Req() req,
-    @Query('type') type: 'inbound' | 'outbound' = 'outbound',
-  ) {
-    const hospitalId = req.user.hospitalId;
-
-    return this.referralsService.getHospitalDashboard(
-      hospitalId,
-      type,
+    const facilityId = getFacilityId(req.user);
+    return this.referralsService.respondToReferral(
+      id, dto, req.user._id ?? req.user.userId, facilityId,
     );
   }
 
+  // ── UPDATE DRAFT ───────────────────────────────────────────────────────────
+  @Patch(':id')
+  @Roles(
+    UserRole.LIAISON_OFFICER, UserRole.DOCTOR, UserRole.NURSE, UserRole.MIDWIFE,
+    UserRole.HEALTH_CENTER_ADMIN, UserRole.HOSPITAL_ADMIN,
+  )
+  async updateReferral(
+    @Param('id') id: string,
+    @Body() dto: CreateReferralDto,
+    @Req() req: any,
+  ) {
+    return this.referralsService.updateReferral(id, dto, getFacilityId(req.user));
+  }
+
+  // ── DELETE DRAFT ───────────────────────────────────────────────────────────
+  @Delete(':id')
+  @Roles(
+    UserRole.LIAISON_OFFICER, UserRole.DOCTOR, UserRole.NURSE, UserRole.MIDWIFE,
+    UserRole.HEALTH_CENTER_ADMIN, UserRole.HOSPITAL_ADMIN,
+  )
+  async deleteReferral(@Param('id') id: string, @Req() req: any) {
+    return this.referralsService.deleteReferral(id, getFacilityId(req.user));
+  }
+
+  // ── GATE CHECK-IN ──────────────────────────────────────────────────────────
+  @Patch('gate-check-in')
+  @Roles(UserRole.LIAISON_OFFICER, UserRole.GATEKEEPER)
+  async gateCheckIn(@Body() dto: GateCheckInDto, @Req() req: any) {
+    return this.referralsService.gateCheckIn(
+      dto, req.user._id ?? req.user.userId, getFacilityId(req.user),
+    );
+  }
+
+  // ── UNLOCK CLINICAL DATA ───────────────────────────────────────────────────
+  @Post('unlock')
+  @Roles(UserRole.DOCTOR, UserRole.NURSE, UserRole.MIDWIFE, UserRole.SPECIALIST)
+  async unlockReferral(@Body() dto: UnlockReferralDto, @Req() req: any) {
+    return this.referralsService.unlockReferral(
+      dto, req.user._id ?? req.user.userId, getFacilityId(req.user),
+    );
+  }
+
+  // ── SUBMIT FEEDBACK ────────────────────────────────────────────────────────
+  @Patch(':id/complete')
+  @Roles(
+    UserRole.DOCTOR, UserRole.LIAISON_OFFICER, UserRole.NURSE, UserRole.MIDWIFE,
+    UserRole.SPECIALIST,
+  )
+  async submitFeedback(
+    @Param('id') id: string,
+    @Body() dto: SubmitFeedbackDto,
+    @Req() req: any,
+  ) {
+    return this.referralsService.submitFeedback(
+      id, dto.feedbackNote, req.user._id ?? req.user.userId,
+    );
+  }
+
+  // ── OUTBOX (all referrals FROM this facility) ──────────────────────────────
+  @Get('liaison/outbox')
+  @Roles(
+    UserRole.LIAISON_OFFICER, UserRole.DOCTOR, UserRole.NURSE, UserRole.MIDWIFE,
+    UserRole.HOSPITAL_ADMIN, UserRole.HEALTH_CENTER_ADMIN,
+  )
+  async getLiaisonOutbox(@Req() req: any) {
+    const facilityId = getFacilityId(req.user);
+    if (!facilityId) throw new ForbiddenException('User is not assigned to a facility');
+    return this.referralsService.getOutgoingReferrals(facilityId);
+  }
+
+  // ── DRAFTS (waiting to be sent by liaison) ─────────────────────────────────
+  @Get('drafts')
+  @Roles(
+    UserRole.LIAISON_OFFICER, UserRole.DOCTOR, UserRole.NURSE, UserRole.MIDWIFE,
+    UserRole.HOSPITAL_ADMIN, UserRole.HEALTH_CENTER_ADMIN,
+  )
+  async getDrafts(@Req() req: any) {
+    const facilityId = getFacilityId(req.user);
+    if (!facilityId) throw new ForbiddenException('User is not assigned to a facility');
+    return this.referralsService.getDraftReferrals(facilityId);
+  }
+
+  // ── SPECIALIST QUEUE ───────────────────────────────────────────────────────
+  @Get('specialist/queue')
+  @Roles(
+    UserRole.LIAISON_OFFICER, UserRole.DOCTOR, UserRole.NURSE, UserRole.MIDWIFE,
+    UserRole.SPECIALIST,
+  )
+  async getSpecialistQueue(@Req() req: any) {
+    const facilityId = getFacilityId(req.user);
+    if (!facilityId) throw new BadRequestException('User facility information missing');
+    return this.referralsService.getSpecialistQueue(facilityId);
+  }
+
+  // ── DASHBOARD ──────────────────────────────────────────────────────────────
+  @Get('dashboard/:type')
+  async getDashboard(
+    @Param('type') type: 'inbound' | 'outbound',
+    @Req() req: any,
+  ) {
+    return this.referralsService.getHospitalDashboard(getFacilityId(req.user), type);
+  }
+
+  @Get()
+  async getReferrals(
+    @Req() req: any,
+    @Query('type') type: 'inbound' | 'outbound' = 'outbound',
+  ) {
+    return this.referralsService.getHospitalDashboard(getFacilityId(req.user), type);
+  }
+
+  // ── ADMIN STATS ────────────────────────────────────────────────────────────
   @Get('admin/stats')
-  @Roles(UserRole.MOH_ADMIN, UserRole.SYSTEM_ADMIN, UserRole.HOSPITAL_ADMIN)
-  async getAdminStats() {
+  @Roles(UserRole.SUPER_ADMIN, UserRole.SYSTEM_ADMIN, UserRole.HOSPITAL_ADMIN, UserRole.HEALTH_CENTER_ADMIN)
+  async getAdminStats(@Req() req: any) {
+    if (req.user.role === UserRole.SYSTEM_ADMIN && req.user.regionId) {
+      return this.referralsService.getSystemAdminReferralStats(req.user.regionId);
+    }
     return this.referralsService.getAdminReferralStats();
   }
-} // Don't forget the closing bracket for the class!
+
+  // ── GET ONE (must be last) ─────────────────────────────────────────────────
+  @Get(':id')
+  @Roles(
+    UserRole.LIAISON_OFFICER, UserRole.DOCTOR, UserRole.NURSE, UserRole.MIDWIFE,
+    UserRole.SPECIALIST, UserRole.HOSPITAL_ADMIN, UserRole.HEALTH_CENTER_ADMIN,
+    UserRole.GATEKEEPER,
+  )
+  async getOne(@Param('id') id: string, @Req() req: any) {
+    return this.referralsService.getReferralById(
+      id, getFacilityId(req.user), req.user.role,
+    );
+  }
+}

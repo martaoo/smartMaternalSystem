@@ -6,9 +6,10 @@ import { api } from '@/lib/api';
 interface AddHospitalFormProps {
   onClose: () => void;
   onSuccess: () => void;
+  hospitalToEdit?: any;
 }
 
-export function AddHospitalForm({ onClose, onSuccess }: AddHospitalFormProps) {
+export function AddHospitalForm({ onClose, onSuccess, hospitalToEdit }: AddHospitalFormProps) {
   const [formData, setFormData] = useState({
     name: '',
     type: 'HEALTH_CENTER',
@@ -24,20 +25,43 @@ export function AddHospitalForm({ onClose, onSuccess }: AddHospitalFormProps) {
     api.getWoredas().then(setWoredas).catch(console.error);
   }, []);
 
+  useEffect(() => {
+    if (hospitalToEdit) {
+      setFormData({
+        name: hospitalToEdit.name || '',
+        type: hospitalToEdit.type || 'HOSPITAL',
+        location: hospitalToEdit.location || '',
+        contact: hospitalToEdit.contact || '',
+        woredaId: hospitalToEdit.woredaId?._id?.toString() || hospitalToEdit.woredaId?.toString() || '',
+      });
+    }
+  }, [hospitalToEdit]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
     try {
-      await api.createHospital({
+      // Validate phone number format if contact is provided
+      if (formData.contact && !/^09\d{8}$/.test(formData.contact)) {
+        setError('Contact number must start with 09 followed by 8 digits (e.g., 0911234567)');
+        setLoading(false);
+        return;
+      }
+
+      if (hospitalToEdit?._id) {
+        await api.updateHospital(hospitalToEdit._id, formData);
+      } else {
+        await api.createHospital({
         ...formData,
         type: 'HEALTH_CENTER',
       });
+      }
       onSuccess();
       onClose();
     } catch (err: any) {
-      setError(err.message || 'Failed to create hospital');
+      setError(err.message || 'Failed to save hospital');
     } finally {
       setLoading(false);
     }
@@ -46,7 +70,9 @@ export function AddHospitalForm({ onClose, onSuccess }: AddHospitalFormProps) {
   return (
     <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-3 sm:p-4">
       <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
-        <h2 className="text-xl font-bold mb-4">Add New Hospital</h2>
+        <h2 className="text-xl font-bold mb-4">
+          {hospitalToEdit ? 'Edit Hospital' : 'Add New Hospital'}
+        </h2>
         {error && <p className="text-red-600 mb-4">{error}</p>}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -70,9 +96,10 @@ export function AddHospitalForm({ onClose, onSuccess }: AddHospitalFormProps) {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700">Contact</label>
+            <label className="block text-sm font-medium text-gray-700">Phone Number</label>
             <input
               type="text"
+              placeholder="0911234567"
               value={formData.contact}
               onChange={(e) => setFormData({ ...formData, contact: e.target.value })}
               className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
@@ -107,7 +134,7 @@ export function AddHospitalForm({ onClose, onSuccess }: AddHospitalFormProps) {
               disabled={loading}
               className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
             >
-              {loading ? 'Creating...' : 'Create Hospital'}
+              {loading ? (hospitalToEdit ? 'Updating...' : 'Creating...') : (hospitalToEdit ? 'Update Hospital' : 'Create Hospital')}
             </button>
           </div>
         </form>

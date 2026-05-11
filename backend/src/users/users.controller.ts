@@ -15,7 +15,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@ne
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN','HEALTH_CENTER_ADMIN')
+  @Roles('SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN','HEALTH_CENTER_ADMIN')
   @Post()
   @ApiOperation({ summary: 'Create a new user' })
   @ApiResponse({ status: 201, description: 'User successfully created' })
@@ -23,35 +23,28 @@ export class UsersController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' })
   async create(@Body() createUserDto: CreateUserDto, @Request() req) {
-    const creator = req.user;
+    const user = req.user;
 
-    if (creator.role === 'SUPER_ADMIN') {
-      // Super admin can freely assign anything
-      return this.usersService.create(createUserDto);
-    }
-
-    if (creator.role === 'HOSPITAL_ADMIN' || creator.role === 'HEALTH_CENTER_ADMIN') {
-      // Force hospital to creator's own hospital — frontend cannot override this
+    if (user.role === 'SYSTEM_ADMIN') {
       return this.usersService.createWithRoleValidation(
         createUserDto,
-        creator.role,
-        creator.hospitalId?.toString(),
-        creator.woredaId?.toString(),
+        user.role,
+        undefined,
+        undefined,
+        user.assignedRegion ?? user.regionId?.toString(),
       );
     }
 
-    if (creator.role === 'SYSTEM_ADMIN') {
-      // System admin can only create users within their assigned region
-      // Inject assignedRegion from the creator so it cannot be spoofed
-      const dto = {
-        ...createUserDto,
-        assignedRegion: creator.assignedRegion ?? createUserDto.assignedRegion,
-      };
-      return this.usersService.create(dto);
+    if (user.role === 'HOSPITAL_ADMIN' || user.role === 'HEALTH_CENTER_ADMIN') {
+      return this.usersService.createWithRoleValidation(
+        createUserDto,
+        user.role,
+        user.hospitalId?.toString(),
+        user.woredaId?.toString(),
+      );
     }
 
-    if (creator.role === 'WOREDA_ADMIN') {
-      // Woreda admin cannot create users (existing rule)
+    if (user.role === 'WOREDA_ADMIN') {
       throw new ForbiddenException('Woreda Admin cannot create users');
     }
 
@@ -83,17 +76,22 @@ export class UsersController {
 
   // ─── Admin endpoints ─────────────────────────────────────────────────────────
 
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN')
+  @Roles('SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN', 'MOH_ADMIN')
   @Get()
   @ApiOperation({ summary: 'Get all users' })
   @ApiResponse({ status: 200, description: 'Users retrieved successfully' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async findAll(@Request() req) {
     const user = req.user;
-    return this.usersService.findAllWithRoleFilter(user.role, user.hospitalId?.toString());
+    console.log('[UsersController] findAll - user role:', user.role, 'regionId:', user.regionId?.toString());
+    return this.usersService.findAllWithRoleFilter(
+      user.role,
+      user.hospitalId?.toString(),
+      user.regionId?.toString(),
+    );
   }
 
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN')
+  @Roles('SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN')
   @Get('role/:role')
   @ApiOperation({ summary: 'Get users by role' })
   @ApiParam({ name: 'role', description: 'User role' })
@@ -101,10 +99,15 @@ export class UsersController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async findByRole(@Param('role') role: string, @Request() req) {
     const user = req.user;
-    return this.usersService.findByRoleWithFilter(role, user.role, user.hospitalId?.toString());
+    return this.usersService.findByRoleWithFilter(
+      role,
+      user.role,
+      user.hospitalId?.toString(),
+      user.regionId?.toString(),
+    );
   }
 
-  @Roles('SUPER_ADMIN', 'HOSPITAL_ADMIN')
+  @Roles('SYSTEM_ADMIN', 'HOSPITAL_ADMIN')
   @Get(':id')
   @ApiOperation({ summary: 'Get user by ID' })
   @ApiParam({ name: 'id', description: 'User ID' })
@@ -114,13 +117,18 @@ export class UsersController {
   async findById(@Param('id') id: string, @Request() req) {
     // 'me' is handled by GET /users/me — should never reach here
     if (id === 'me') {
-      return this.usersService.findByIdWithRoleFilter(req.user.sub, 'SUPER_ADMIN');
+      return this.usersService.findByIdWithRoleFilter(req.user.sub, 'SYSTEM_ADMIN');
     }
     const user = req.user;
-    return this.usersService.findByIdWithRoleFilter(id, user.role, user.hospitalId?.toString());
+    return this.usersService.findByIdWithRoleFilter(
+      id,
+      user.role,
+      user.hospitalId?.toString(),
+      user.regionId?.toString(),
+    );
   }
 
-  @Roles('SUPER_ADMIN', 'HOSPITAL_ADMIN')
+  @Roles('SYSTEM_ADMIN', 'HOSPITAL_ADMIN')
   @Patch(':id')
   @ApiOperation({ summary: 'Update a user' })
   @ApiParam({ name: 'id', description: 'User ID' })
@@ -132,7 +140,7 @@ export class UsersController {
   async update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto, @Request() req) {
     const user = req.user;
     
-    if (user.role === 'SUPER_ADMIN') {
+    if (user.role === 'SYSTEM_ADMIN') {
       return this.usersService.update(id, updateUserDto);
     } else if (user.role === 'HOSPITAL_ADMIN') {
       return this.usersService.updateWithRoleValidation(
@@ -144,7 +152,7 @@ export class UsersController {
     }
   }
 
-  @Roles('SUPER_ADMIN', 'HOSPITAL_ADMIN')
+  @Roles('SYSTEM_ADMIN', 'HOSPITAL_ADMIN')
   @Delete(':id')
   @ApiOperation({ summary: 'Delete a user' })
   @ApiParam({ name: 'id', description: 'User ID' })
@@ -155,7 +163,7 @@ export class UsersController {
   async delete(@Param('id') id: string, @Request() req) {
     const user = req.user;
     
-    if (user.role === 'SUPER_ADMIN') {
+    if (user.role === 'SYSTEM_ADMIN') {
       return this.usersService.delete(id);
     } else if (user.role === 'HOSPITAL_ADMIN') {
       return this.usersService.deleteWithRoleValidation(
@@ -166,4 +174,3 @@ export class UsersController {
     }
   }
 }
-

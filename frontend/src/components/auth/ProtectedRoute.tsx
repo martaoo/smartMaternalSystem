@@ -53,10 +53,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
           case 'EMERGENCY_ADMIN':
             router.push('/dispatch-dashboard');
             break;
-          case 'MOTHER':
-            router.push('/mother-dashboard');
-            break;
-          default:
+                    default:
             router.push('/');
         }
       }

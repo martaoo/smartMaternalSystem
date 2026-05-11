@@ -15,11 +15,20 @@ export class Referral {
   // ─────────────────────────────────────────
   // PARTICIPANTS
   // ─────────────────────────────────────────
+  // fromHospital / toHospital ref the Hospital collection which stores
+  // BOTH hospitals and health centers (type: 'HOSPITAL' | 'HEALTH_CENTER').
+  // facilityType fields record what kind of facility it was at creation time.
   @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Hospital', required: true })
   fromHospital: string;
 
-  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Hospital', required:false })
+  @Prop({ type: String, enum: ['HOSPITAL', 'HEALTH_CENTER'], default: 'HOSPITAL' })
+  fromFacilityType: string;
+
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Hospital', required: false })
   toHospital: string;
+
+  @Prop({ type: String, enum: ['HOSPITAL', 'HEALTH_CENTER'] })
+  toFacilityType?: string;
 
   @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'User', required: true })
   createdBy: string;
@@ -56,6 +65,50 @@ export class Referral {
 
   @Prop({ type: [String], default: [] })
   attachments: string[];
+
+  // ─────────────────────────────────────────
+  // MOTHER SNAPSHOT (TRANSFERRED / LOCKABLE)
+  // A point-in-time copy of key mother fields so the referral
+  // carries the necessary information even if the Mother record changes.
+  // This can be selectively exposed based on status/isUnlocked.
+  // ─────────────────────────────────────────
+  @Prop({
+    type: {
+      name: String,
+      phone: String,
+      age: Number,
+      address: String,
+      emergencyContact: String,
+      medicalHistory: String,
+      expectedDeliveryDate: Date,
+      highRisk: Boolean,
+      gravida: Number,
+      para: Number,
+      lmp: Date,
+      bloodType: String,
+    },
+  })
+  motherSnapshot?: {
+    name?: string;
+    phone?: string;
+    age?: number;
+    address?: string;
+    emergencyContact?: string;
+    medicalHistory?: string;
+    expectedDeliveryDate?: Date;
+    highRisk?: boolean;
+    gravida?: number;
+    para?: number;
+    lmp?: Date;
+    bloodType?: string;
+  };
+
+  // ─────────────────────────────────────────
+  // LIAISON NOTES (SENDER -> RECEIVER)
+  // Allows the liaison officer to add context on top of the original notes.
+  // ─────────────────────────────────────────
+  @Prop()
+  liaisonNote?: string;
 
   // ─────────────────────────────────────────
   // SECURITY & ACCESS CONTROL

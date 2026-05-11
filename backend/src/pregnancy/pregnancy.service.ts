@@ -453,9 +453,8 @@ export class PregnancyService {
     let query: any = {};
 
     if (
-      ['HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE'].includes(
-        userRole,
-      )
+      ['HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE'].includes(userRole) &&
+      userHospitalId
     ) {
       query.hospitalId = new Types.ObjectId(userHospitalId);
     }
@@ -522,8 +521,9 @@ export class PregnancyService {
     id: string,
     userRole: string,
     userHospitalId?: string,
+    userWoredaId?: string,
   ): Promise<void> {
-    await this.findById(id, userRole, userHospitalId);
+    await this.findById(id, userRole, userHospitalId, userWoredaId);
     await this.pregnancyModel.findByIdAndDelete(id);
   }
 
@@ -619,7 +619,7 @@ export class PregnancyService {
     console.log('User hospitalId type:', typeof userHospitalId);
     console.log('Pregnancies to filter:', pregnancies.length);
     
-    if (userRole === 'SUPER_ADMIN' || userRole === 'SYSTEM_ADMIN') {
+    if (userRole === 'SYSTEM_ADMIN') {
       console.log('Admin access granted - returning all pregnancies');
       return pregnancies;
     }

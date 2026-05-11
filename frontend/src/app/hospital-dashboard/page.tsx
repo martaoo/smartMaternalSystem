@@ -22,6 +22,7 @@ export default function HospitalDashboard() {
 
   useEffect(() => {
     const load = async () => {
+      if (!user) return;
       try {
         const [users, outbound, inbound] = await Promise.allSettled([
           api.getUsers(),
@@ -45,7 +46,7 @@ export default function HospitalDashboard() {
       }
     };
     load();
-  }, []);
+  }, [user]);
 
   const handleAddUserSuccess = () => {
     setShowAddUser(false);
@@ -172,14 +173,8 @@ export default function HospitalDashboard() {
             {/* ── Quick Actions ── */}
             <div className="bg-white rounded-lg shadow p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-                <button
-                  onClick={() => setShowAddUser(true)}
-                  className="flex items-center justify-center gap-2 px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
-                >
-                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-                  </svg>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <button className="w-full bg-green-600 text-white px-4 py-3 rounded-lg hover:bg-green-700 transition-colors duration-200" onClick={() => setShowAddUser(true)}>
                   Add Staff
                 </button>
 
@@ -190,18 +185,17 @@ export default function HospitalDashboard() {
                   <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
-                  View Staff
+                  Manage Staff
                 </Link>
-
-                <Link
-                  href="/hospital-dashboard/reports"
-                  className="flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-                >
-                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                  </svg>
+                <button className="w-full bg-purple-600 text-white px-4 py-3 rounded-lg hover:bg-purple-700 transition-colors duration-200">
+                  Number of Mothers Registered
+                </button>
+                <button className="w-full bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 transition-colors duration-200">
+                  Number of Children Registered
+                </button>
+                <button className="w-full bg-indigo-600 text-white px-4 py-3 rounded-lg hover:bg-indigo-700 transition-colors duration-200">
                   View Reports
-                </Link>
+                </button>
 
                 <Link
                   href="/hospital-dashboard/profile"
@@ -222,7 +216,7 @@ export default function HospitalDashboard() {
           <AddUserForm
             onClose={() => setShowAddUser(false)}
             onSuccess={handleAddUserSuccess}
-            allowedRoles={['DOCTOR', 'NURSE', 'MIDWIFE', 'DISPATCHER', 'LIAISON_OFFICER', 'HOSPITAL_APPROVER', 'SPECIALIST', 'GATEKEEPER']}
+            allowedRoles={['DOCTOR', 'NURSE', 'MIDWIFE', 'LIAISON_OFFICER', 'DISPATCHER', 'HOSPITAL_APPROVER', 'SPECIALIST', 'GATEKEEPER']}
             hideHospitalSelect={true}
             fixedHospitalId={
               typeof user?.hospitalId === 'string'

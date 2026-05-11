@@ -17,7 +17,7 @@ export class VaccinationsController {
   ) {}
 
   // ── Manual reminder trigger (dev/testing only) ──────────────────────────────
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN')
+  @Roles('SYSTEM_ADMIN')
   @Post('reminders/trigger')
   @ApiOperation({ summary: 'Manually trigger vaccination reminder job (dev/testing)' })
   @ApiResponse({ status: 200, description: 'Reminder job triggered' })
@@ -26,7 +26,7 @@ export class VaccinationsController {
   }
 
   // Vaccine Management Endpoints
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN')
+  @Roles('SYSTEM_ADMIN')
   @Post('vaccines')
   @ApiOperation({ summary: 'Create a new vaccine' })
   @ApiResponse({ status: 201, description: 'Vaccine created successfully' })
@@ -46,7 +46,7 @@ export class VaccinationsController {
     return this.vaccinationsService.findAllVaccines();
   }
 
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN')
+  @Roles('SYSTEM_ADMIN')
   @Get('vaccines/:id')
   @ApiOperation({ summary: 'Get vaccine by ID' })
   @ApiParam({ name: 'id', description: 'Vaccine ID' })
@@ -56,7 +56,7 @@ export class VaccinationsController {
     return this.vaccinationsService.findVaccineById(id);
   }
 
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN')
+  @Roles('SYSTEM_ADMIN')
   @Patch('vaccines/:id')
   @ApiOperation({ summary: 'Update vaccine' })
   @ApiParam({ name: 'id', description: 'Vaccine ID' })
@@ -69,7 +69,7 @@ export class VaccinationsController {
     return this.vaccinationsService.updateVaccine(id, updateVaccineDto);
   }
 
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN')
+  @Roles('SYSTEM_ADMIN')
   @Delete('vaccines/:id')
   @ApiOperation({ summary: 'Delete vaccine' })
   @ApiParam({ name: 'id', description: 'Vaccine ID' })

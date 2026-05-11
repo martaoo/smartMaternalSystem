@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import { User, AuthState, LoginCredentials, RegisterCredentials } from '@/types/auth';
+import { api } from '@/lib/api';
 
 const getDashboardForRole = (role: string): string => {
   switch (role) {
@@ -20,11 +21,6 @@ const getDashboardForRole = (role: string): string => {
       return '/healthcare-dashboard';
     case 'LIAISON_OFFICER':
       return '/liaison-dashboard';
-    case 'SPECIALIST':
-    case 'HOSPITAL_APPROVER':
-      return '/receiving-dashboard';
-    case 'GATEKEEPER':
-      return '/gate-dashboard';
     case 'DISPATCHER':
       return '/dispatch-dashboard';
     case 'WOREDA_ADMIN':
@@ -82,40 +78,62 @@ const initialState: AuthState = {
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(authReducer, initialState);
 
+  // Load user from localStorage on mount
   useEffect(() => {
-    const savedUser = localStorage.getItem('user');
-    if (savedUser) {
-      try {
-        const user = JSON.parse(savedUser);
-        // Ensure hospitalId and woredaId are strings
-        const normalizedUser: User = {
-          ...user,
-          hospitalId: user.hospitalId ? String(user.hospitalId) : undefined,
-          woredaId: user.woredaId ? String(user.woredaId) : undefined,
-        };
-        dispatch({ type: 'LOGIN_SUCCESS', payload: normalizedUser });
-      } catch (error) {
-        localStorage.removeItem('user');
+    const loadUser = async () => {
+      // Check BOTH old and new token keys for backward compatibility
+      const token = localStorage.getItem('auth_token') || localStorage.getItem('token');
+      const savedUser = localStorage.getItem('user');
+      
+      console.log('[AuthContext] Loading user on mount');
+      console.log('[AuthContext] Token exists:', !!token);
+      console.log('[AuthContext] Saved user exists:', !!savedUser);
+      
+      if (savedUser && token) {
+        try {
+          // Re-sync token to all storage keys so getHeaders() always finds it
+          localStorage.setItem('token', token);
+          localStorage.setItem('auth_token', token);
+          sessionStorage.setItem('token', token);
+
+          const user = JSON.parse(savedUser);
+          const normalizedUser: User = {
+            ...user,
+            id: String(user.id || user._id),
+            hospitalId: user.hospitalId ? String(user.hospitalId) : undefined,
+            woredaId: user.woredaId ? String(user.woredaId) : undefined,
+            regionId: user.regionId ? String(user.regionId) : undefined,
+          };
+          dispatch({ type: 'LOGIN_SUCCESS', payload: normalizedUser });
+        } catch (error) {
+          console.error('[AuthContext] Failed to parse user:', error);
+          localStorage.removeItem('user');
+          localStorage.removeItem('auth_token');
+          localStorage.removeItem('token');
+          sessionStorage.removeItem('token');
+        }
       }
-    }
+    };
+
+    loadUser();
   }, []);
 
   const login = async (credentials: LoginCredentials) => {
+    console.log('[AuthContext] Login started for:', credentials.email);
     dispatch({ type: 'LOGIN_START' });
+    
     try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(credentials),
-      });
-
-      if (!response.ok) {
-        throw new Error('Invalid email or password');
+      // Use our API service
+      const data = await api.login(credentials);
+      
+      console.log('[AuthContext] Login response received:', data);
+      
+      if (!data.user) {
+        throw new Error('No user data received');
       }
 
-      const data = await response.json();
       const user: User = {
-        id: data.user.id,
+        id: String(data.user.id || data.user._id),
         name: data.user.name,
         email: data.user.email,
         role: data.user.role,
@@ -123,16 +141,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         woredaId: data.user.woredaId ? String(data.user.woredaId) : undefined,
         assignedRegion: data.user.assignedRegion ?? undefined,
         phoneNumber: data.user.phoneNumber ?? undefined,
+        regionId: data.user.regionId ? String(data.user.regionId) : undefined,
       };
 
-      // Store both user and access token from API response
+      // Store user in localStorage
       localStorage.setItem('user', JSON.stringify(user));
-      if (data.access_token) {
-        localStorage.setItem('token', data.access_token);
+      
+      // Token is already stored by api.login() using 'auth_token' key
+      // Also store with old key for backward compatibility
+      const token = localStorage.getItem('auth_token');
+      if (token) {
+        localStorage.setItem('token', token); // Backward compatibility
       }
+      
+      console.log('[AuthContext] Token stored:', !!token);
+      
       dispatch({ type: 'LOGIN_SUCCESS', payload: user });
+      console.log('[AuthContext] Login successful for:', user.email);
+      
     } catch (error) {
-      dispatch({ type: 'LOGIN_FAILURE', payload: error instanceof Error ? error.message : 'Login failed' });
+      console.error('[AuthContext] Login error:', error);
+      dispatch({ 
+        type: 'LOGIN_FAILURE', 
+        payload: error instanceof Error ? error.message : 'Login failed' 
+      });
+      throw error;
     }
   };
 
@@ -146,30 +179,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       if (!response.ok) {
-        throw new Error('Registration failed. Email might already exist.');
+        const data = await response.json().catch(() => null);
+        const message = data?.message || 'Registration failed. Email might already exist.';
+        throw new Error(message);
       }
 
       const data = await response.json();
       const user: User = {
-        id: data._id,
+        id: String(data._id || data.id),
         email: data.email,
         name: data.name,
         role: data.role as User['role'],
       };
       
-      // Auto-login or just set user (note: in a real app, API register might return token too)
       localStorage.setItem('user', JSON.stringify(user));
       dispatch({ type: 'REGISTER_SUCCESS', payload: user });
+      console.log('[AuthContext] Registration successful for:', user.email);
+      
     } catch (error) {
-      dispatch({ type: 'REGISTER_FAILURE', payload: error instanceof Error ? error.message : 'Registration failed' });
+      console.error('[AuthContext] Registration error:', error);
+      dispatch({ 
+        type: 'REGISTER_FAILURE', 
+        payload: error instanceof Error ? error.message : 'Registration failed' 
+      });
     }
   };
 
   const logout = () => {
     localStorage.removeItem('user');
+    localStorage.removeItem('auth_token');
     localStorage.removeItem('token');
-    fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
+    sessionStorage.removeItem('token');
+    sessionStorage.removeItem('auth_token');
     dispatch({ type: 'LOGOUT' });
+    fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
   };
 
   const clearError = () => {

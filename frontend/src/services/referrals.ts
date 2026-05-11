@@ -3,6 +3,7 @@ import { http } from "./http"
 export type ReferralStatus =
   | "DRAFT"
   | "PENDING"
+  | "SENT"
   | "ACCEPTED"
   | "REJECTED"
   | "SCHEDULED"
@@ -16,8 +17,21 @@ export interface Referral {
   referralCode?: string
   createdAt?: string
   updatedAt?: string
-  targetHospitalId?: string
-  attachedFiles?: string[]
+  emergency?: boolean
+  priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
+  isUnlocked?: boolean
+  // Populated/expanded fields (optional depending on endpoint)
+  reasonForReferral?: string
+  clinicalNotes?: string
+  liaisonNote?: string
+  attachments?: string[]
+  motherId?: { _id: string; name?: string; phone?: string; age?: number } | string
+  fromHospital?: { _id: string; name?: string } | string
+  toHospital?: { _id: string; name?: string } | string
+  createdBy?: { _id: string; fullName?: string; name?: string } | string
+  decisionMeta?: {
+    justification?: string
+  }
 }
 
 export async function createReferral(payload: any) {
@@ -25,8 +39,8 @@ export async function createReferral(payload: any) {
   return data
 }
 
-export async function sendReferral(id: string, targetHospitalId: string) {
-  const { data } = await http.patch(`/referrals/${id}/send`, { targetHospitalId })
+export async function sendReferral(id: string, targetHospitalId: string, liaisonNote?: string) {
+  const { data } = await http.patch(`/referrals/${id}/send`, { targetHospitalId, liaisonNote })
   return data
 }
 
@@ -37,6 +51,11 @@ export async function incomingReferrals() {
 
 export async function outboxReferrals() {
   const { data } = await http.get<Referral[]>("/referrals/liaison/outbox")
+  return data
+}
+
+export async function checkedInReferrals() {
+  const { data } = await http.get<Referral[]>("/referrals/checked-in")
   return data
 }
 
@@ -54,8 +73,17 @@ export async function respondReferral(
 }
 
 export async function gateCheckIn(payload: any) {
-  const { data } = await http.patch(`/referrals/gate-check-in`, payload)
-  return data
+  // Use proxy approach since app uses session-based authentication
+  console.log('Making gateCheckIn call via proxy...')
+  
+  try {
+    const { data } = await http.patch(`/referrals/gate-check-in`, payload)
+    console.log('Gate check-in successful:', data)
+    return data
+  } catch (error: any) {
+    console.log('Gate check-in failed:', error.response?.data?.message || error.message)
+    throw error
+  }
 }
 
 export async function unlockClinicalData(payload: any) {
@@ -70,6 +98,11 @@ export async function submitFeedback(id: string, feedbackNote: string) {
 
 export async function getReferral(id: string) {
   const { data } = await http.get<Referral>(`/referrals/${id}`)
+  return data
+}
+
+export async function getDraftReferrals() {
+  const { data } = await http.get<Referral[]>('/referrals/drafts')
   return data
 }
 

@@ -35,6 +35,9 @@ interface VaccinationRecord {
   notes?: string;
   followUpRequired: boolean;
   followUpDate?: string;
+  reminder3DaySent?: boolean;
+  reminderSameDaySent?: boolean;
+  reminderSent?: boolean;
 }
 
 export default function VaccinationsManagement() {
@@ -48,7 +51,7 @@ export default function VaccinationsManagement() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Schedule generation modal
+  // Schedule generation modal (kept for state compatibility — modal UI removed)
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [selectedMotherId, setSelectedMotherId] = useState('');
   const [selectedChildId, setSelectedChildId] = useState('');
@@ -286,6 +289,7 @@ export default function VaccinationsManagement() {
     }
 
     // Calculate next dose date based on interval
+    if (!record.administeredDate) return null;
     const administeredDate = new Date(record.administeredDate);
     const intervalWeeks = vaccine.intervalWeeks || 4; // Default 4 weeks
     const nextDate = new Date(administeredDate);
@@ -569,30 +573,25 @@ export default function VaccinationsManagement() {
           <div className="p-6">
             {recordsToShow.length === 0 ? (
               <div className="text-center py-12">
-                <div className="text-gray-400 text-6xl mb-4">vaccine</div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No vaccination records found</h3>
-                <p className="text-gray-600 mb-6">
-                  {activeTab === 'upcoming' 
-                    ? 'No upcoming vaccinations in the next 7 days' 
-                    : activeTab === 'overdue'
-                    ? 'No overdue vaccinations'
-                    : activeTab === 'scheduled'
-                    ? 'No scheduled vaccinations'
-                    : 'No vaccination records found'
-                  }
-                </p>
-                <button
-                  onClick={() => {
-                    children.forEach(child => {
-                      vaccinationsApi.generateVaccinationSchedule(child._id);
-                    });
-                    setTimeout(fetchVaccinationData, 1000);
-                  }}
-                  className="inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  Generate Schedules
-                </button>
-              </div>
+                  <div className="text-gray-400 text-6xl mb-4">vaccine</div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No vaccination records found</h3>
+                  <p className="text-gray-600 mb-6">
+                    {activeTab === 'upcoming' 
+                      ? 'No upcoming vaccinations in the next 7 days' 
+                      : activeTab === 'overdue'
+                      ? 'No overdue vaccinations'
+                      : activeTab === 'scheduled'
+                      ? 'No scheduled vaccinations'
+                      : 'No vaccination records found'
+                    }
+                  </p>
+                  <a
+                    href="/healthcare-dashboard/children"
+                    className="inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    Go to Children to Record Vaccination
+                  </a>
+                </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
@@ -761,94 +760,6 @@ export default function VaccinationsManagement() {
         </div>
       </main>
 
-      {/* Schedule Generation Modal */}
-      {showScheduleModal && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-            <div className="mt-3">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Generate Vaccination Schedule</h3>
-              
-              {/* Mother Selection */}
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Select Mother
-                </label>
-                <select
-                  value={selectedMotherId}
-                  onChange={(e) => handleMotherSelect(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">Choose a mother...</option>
-                  {mothers.map((mother: any) => (
-                    <option key={mother._id} value={mother._id}>
-                      {mother.name} - {mother.phone}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Child Selection */}
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Select Child
-                </label>
-                <select
-                  value={selectedChildId}
-                  onChange={(e) => setSelectedChildId(e.target.value)}
-                  disabled={!selectedMotherId}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
-                >
-                  <option value="">
-                    {selectedMotherId ? 'Choose a child...' : 'Select mother first'}
-                  </option>
-                  {childrenForMother.map((child: any) => (
-                    <option key={child._id} value={child._id}>
-                      {child.name} - {calculateAge(child.birthDate)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Error/Success Messages */}
-              {generateError && (
-                <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
-                  {generateError}
-                </div>
-              )}
-              
-              {generateSuccess && (
-                <div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded">
-                  Schedule generated successfully!
-                </div>
-              )}
-
-              {/* Buttons */}
-              <div className="flex justify-end space-x-3">
-                <button
-                  onClick={() => {
-                    setShowScheduleModal(false);
-                    setSelectedMotherId('');
-                    setSelectedChildId('');
-                    setChildrenForMother([]);
-                    setGenerateError(null);
-                    setGenerateSuccess(false);
-                  }}
-                  className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleGenerateSchedule}
-                  disabled={!selectedChildId || generating}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed transition-colors"
-                >
-                  {generating ? 'Generating...' : 'Generate Schedule'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
+import { Document, Types } from 'mongoose';
 
 export type WoredaDocument = Woreda & Document;
 
@@ -11,8 +11,8 @@ export class Woreda {
   @Prop({ required: true })
   city: string;
 
-  @Prop({ required: true })
-  region: string;
+  @Prop({ type: Types.ObjectId, ref: 'Region', required: true })
+  regionId: Types.ObjectId;
 }
 
 export const WoredaSchema = SchemaFactory.createForClass(Woreda);

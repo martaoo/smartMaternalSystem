@@ -21,60 +21,74 @@ export default function SystemDashboard() {
   const [showAddHospital, setShowAddHospital] = useState(false);
   const [showAddHealthCenter, setShowAddHealthCenter] = useState(false);
   const [showHospitalsList, setShowHospitalsList] = useState(false);
-  const [showWoredasList, setShowWoredasList] = useState(false);
   
   // Store filtered facility data
-  const [filteredWoredas, setFilteredWoredas] = useState<any[]>([]);
   const [filteredHospitals, setFilteredHospitals] = useState<any[]>([]);
   
   // Real data states
   const [stats, setStats] = useState({
-    totalWoredas: 0,
+    totalSystemAdmins: 0,
     totalUsers: 0,
-    totalWoredaAdmins: 0,
     totalHospitals: 0,
-    pendingReferrals: 0,
   });
+  const [referralStats, setReferralStats] = useState({
+    total: 0,
+    pending: 0,
+    accepted: 0,
+    checkedIn: 0,
+    completed: 0,
+    rejected: 0,
+    expired: 0,
+    active: 0,
+  });
+  const [showReferralStats, setShowReferralStats] = useState(false);
   const [recentActivities, setRecentActivities] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Only fetch when user is authenticated
+    if (!user) return;
+
     fetchDashboardData();
-  }, []);
+
+    const refreshTimer = setInterval(() => {
+      fetchDashboardData();
+    }, 20000);
+
+    return () => clearInterval(refreshTimer);
+  }, [user]);
 
   const fetchDashboardData = async () => {
+    if (!user) return;
     try {
       setLoading(true);
       
       // Fetch all data in parallel
-      const [usersResponse, woredasResponse, hospitalsResponse, referralStatsResponse] = await Promise.all([
+      const [usersResponse, hospitalsResponse, referralStatsResponse] = await Promise.all([
         api.getUsers(),
-        api.getWoredas(),
         api.getHospitals(),
-        referralsApi.getAdminStats().catch(() => ({ pending: 0 })),
+        referralsApi.getAdminStats().catch(() => ({ total: 0, pending: 0, accepted: 0, checkedIn: 0, completed: 0, rejected: 0, expired: 0, active: 0 })),
       ]);
 
       const users = Array.isArray(usersResponse) ? usersResponse : [];
-      const woredas = Array.isArray(woredasResponse) ? woredasResponse : [];
       const hospitals = Array.isArray(hospitalsResponse) ? hospitalsResponse : [];
 
       // Data is already filtered by backend based on user role and region
       const usersInRegion = users;
-      const regionalWoredas = woredas;
       const regionalHospitals = hospitals;
 
       // Store filtered facility data
-      setFilteredWoredas(regionalWoredas);
       setFilteredHospitals(regionalHospitals);
 
       // Calculate stats
       const newStats = {
-        totalWoredas: regionalWoredas.length,
+        totalSystemAdmins: usersInRegion.filter(u => u.role === 'SYSTEM_ADMIN').length,
         totalUsers: usersInRegion.length,
-        totalWoredaAdmins: usersInRegion.filter(u => u.role === 'WOREDA_ADMIN').length,
         totalHospitals: regionalHospitals.length,
-        pendingReferrals: referralStatsResponse?.pending || 0,
       };
+
+      // Set referral stats
+      setReferralStats(referralStatsResponse || { total: 0, pending: 0, accepted: 0, checkedIn: 0, completed: 0, rejected: 0, expired: 0, active: 0 });
 
       // Generate recent activities from recent user creations in region
       const activities = usersInRegion
@@ -109,8 +123,7 @@ export default function SystemDashboard() {
       case 'MIDWIFE': return 'bg-indigo-600';
       case 'DISPATCHER': return 'bg-orange-600';
       case 'EMERGENCY_ADMIN': return 'bg-red-600';
-      case 'MOTHER': return 'bg-gray-600';
-      default: return 'bg-gray-600';
+            default: return 'bg-gray-600';
     }
   };
 
@@ -126,28 +139,28 @@ export default function SystemDashboard() {
   };
 
   const handleAddUserSuccess = () => {
+    setShowAddUser(false);
     fetchDashboardData();
-    alert('User added successfully!');
   };
 
   const handleAddWoredaAdminSuccess = () => {
+    setShowAddWoredaAdmin(false);
     fetchDashboardData();
-    alert('Woreda Admin added successfully!');
   };
 
   const handleAddWoredaSuccess = () => {
+    setShowAddWoreda(false);
     fetchDashboardData();
-    alert('Woreda added successfully!');
   };
 
   const handleAddHospitalSuccess = () => {
+    setShowAddHospital(false);
     fetchDashboardData();
-    alert('Hospital added successfully!');
   };
 
   const handleAddHealthCenterSuccess = () => {
+    setShowAddHealthCenter(false);
     fetchDashboardData();
-    alert('Health Center added successfully!');
   };
 
   return (
@@ -174,6 +187,12 @@ export default function SystemDashboard() {
                   My Profile
                 </Link>
                 <button
+                  onClick={fetchDashboardData}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200"
+                >
+                  Refresh
+                </button>
+                <button
                   onClick={logout}
                   className="whitespace-nowrap bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors duration-200 text-sm"
                 >
@@ -188,57 +207,34 @@ export default function SystemDashboard() {
         <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
           <div className="px-4 py-6 sm:px-0">
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
               <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors" 
-                     onClick={() => setShowWoredasList(!showWoredasList)}>
-                  <div className="p-2 bg-green-100 rounded-lg">
-                    <svg className="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                <div className="flex items-center">
+                  <div className="p-2 bg-blue-100 rounded-lg">
+                    <svg className="h-6 w-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                   </div>
                   <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Total Woredas</p>
+                    <p className="text-sm font-medium text-gray-600">System Admins</p>
                     <p className="text-2xl font-bold text-gray-900">
-                      {loading ? '...' : stats.totalWoredas}
+                      {loading ? '...' : stats.totalSystemAdmins}
                     </p>
-                  </div>
-                  <div className="ml-auto">
-                    <svg className={`h-5 w-5 text-gray-400 transform transition-transform ${showWoredasList ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
                   </div>
                 </div>
               </div>
 
               <div className="bg-white rounded-lg shadow p-6">
                 <div className="flex items-center">
-                  <div className="p-2 bg-blue-100 rounded-lg">
-                    <svg className="h-6 w-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                  <div className="p-2 bg-green-100 rounded-lg">
+                    <svg className="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                     </svg>
                   </div>
                   <div className="ml-4">
                     <p className="text-sm font-medium text-gray-600">Total Users</p>
                     <p className="text-2xl font-bold text-gray-900">
                       {loading ? '...' : stats.totalUsers}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center">
-                  <div className="p-2 bg-purple-100 rounded-lg">
-                    <svg className="h-6 w-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                    </svg>
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Woreda Admins</p>
-                    <p className="text-2xl font-bold text-gray-900">
-                      {loading ? '...' : stats.totalWoredaAdmins}
                     </p>
                   </div>
                 </div>
@@ -267,44 +263,154 @@ export default function SystemDashboard() {
               </div>
 
               <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center">
+                <div className="flex items-center cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors" 
+                     onClick={() => setShowReferralStats(!showReferralStats)}>
                   <div className="p-2 bg-orange-100 rounded-lg">
                     <svg className="h-6 w-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
                     </svg>
                   </div>
                   <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Pending Referrals</p>
-                    <p className="text-2xl font-bold text-gray-900">
-                      {loading ? '...' : stats.pendingReferrals}
-                    </p>
+                    <p className="text-sm font-medium text-gray-600">Referrals</p>
+                    <p className="text-xs text-gray-500">Click to view stats</p>
+                  </div>
+                  <div className="ml-auto">
+                    <svg className={`h-5 w-5 text-gray-400 transform transition-transform ${showReferralStats ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Expandable Facility Lists */}
-            {showWoredasList && (
+            {showHospitalsList && (
               <div className="bg-white rounded-lg shadow p-6 mb-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Woredas in {user?.assignedRegion || 'Your Region'}</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Hospitals and Woredas in {user?.assignedRegion || 'Your Region'}</h3>
                 <HospitalWoredaList 
-                  showHospitals={false} 
+                  showHospitals={true} 
                   showWoredas={true} 
-                  preFilteredHospitals={[]}
-                  preFilteredWoredas={filteredWoredas}
                 />
               </div>
             )}
 
-            {showHospitalsList && (
+            {/* Referral Stats */}
+            {showReferralStats && (
               <div className="bg-white rounded-lg shadow p-6 mb-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Hospitals in {user?.assignedRegion || 'Your Region'}</h3>
-                <HospitalWoredaList 
-                  showHospitals={true} 
-                  showWoredas={false} 
-                  preFilteredHospitals={filteredHospitals}
-                  preFilteredWoredas={[]}
-                />
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Referral Statistics</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <div className="flex items-center">
+                      <div className="p-2 bg-blue-100 rounded-lg">
+                        <svg className="h-5 w-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                        </svg>
+                      </div>
+                      <div className="ml-3">
+                        <p className="text-sm font-medium text-gray-600">Total Referrals</p>
+                        <p className="text-xl font-bold text-gray-900">{referralStats.total}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-yellow-50 rounded-lg p-4">
+                    <div className="flex items-center">
+                      <div className="p-2 bg-yellow-100 rounded-lg">
+                        <svg className="h-5 w-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
+                      <div className="ml-3">
+                        <p className="text-sm font-medium text-gray-600">Pending</p>
+                        <p className="text-xl font-bold text-gray-900">{referralStats.pending}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-green-50 rounded-lg p-4">
+                    <div className="flex items-center">
+                      <div className="p-2 bg-green-100 rounded-lg">
+                        <svg className="h-5 w-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
+                      <div className="ml-3">
+                        <p className="text-sm font-medium text-gray-600">Accepted</p>
+                        <p className="text-xl font-bold text-gray-900">{referralStats.accepted}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-purple-50 rounded-lg p-4">
+                    <div className="flex items-center">
+                      <div className="p-2 bg-purple-100 rounded-lg">
+                        <svg className="h-5 w-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                      </div>
+                      <div className="ml-3">
+                        <p className="text-sm font-medium text-gray-600">Checked In</p>
+                        <p className="text-xl font-bold text-gray-900">{referralStats.checkedIn}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-indigo-50 rounded-lg p-4">
+                    <div className="flex items-center">
+                      <div className="p-2 bg-indigo-100 rounded-lg">
+                        <svg className="h-5 w-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                      <div className="ml-3">
+                        <p className="text-sm font-medium text-gray-600">Completed</p>
+                        <p className="text-xl font-bold text-gray-900">{referralStats.completed}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-red-50 rounded-lg p-4">
+                    <div className="flex items-center">
+                      <div className="p-2 bg-red-100 rounded-lg">
+                        <svg className="h-5 w-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </div>
+                      <div className="ml-3">
+                        <p className="text-sm font-medium text-gray-600">Rejected</p>
+                        <p className="text-xl font-bold text-gray-900">{referralStats.rejected}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <div className="flex items-center">
+                      <div className="p-2 bg-gray-100 rounded-lg">
+                        <svg className="h-5 w-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                        </svg>
+                      </div>
+                      <div className="ml-3">
+                        <p className="text-sm font-medium text-gray-600">Expired</p>
+                        <p className="text-xl font-bold text-gray-900">{referralStats.expired}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-orange-50 rounded-lg p-4">
+                    <div className="flex items-center">
+                      <div className="p-2 bg-orange-100 rounded-lg">
+                        <svg className="h-5 w-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                      </div>
+                      <div className="ml-3">
+                        <p className="text-sm font-medium text-gray-600">Active</p>
+                        <p className="text-xl font-bold text-gray-900">{referralStats.active}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -359,6 +465,25 @@ export default function SystemDashboard() {
                   </svg>
                   Create Staff
                 </button>
+                <Link href="/system-dashboard/users" className="flex items-center justify-center px-4 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors duration-200">
+                  <svg className="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7v10l7-5-7-5z" />
+                  </svg>
+                  View Users
+                </Link>
+                <Link href="/system-dashboard/woredas" className="flex items-center justify-center px-4 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors duration-200">
+                  <svg className="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  View Woredas
+                </Link>
+                <Link href="/system-dashboard/hospitals" className="flex items-center justify-center px-4 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors duration-200">
+                  <svg className="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                  </svg>
+                  View Hospitals
+                </Link>
               </div>
             </div>
 
@@ -399,7 +524,7 @@ export default function SystemDashboard() {
         <AddUserForm 
           onClose={() => setShowAddUser(false)} 
           onSuccess={handleAddUserSuccess}
-          allowedRoles={['SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'DISPATCHER', 'LIAISON_OFFICER', 'HOSPITAL_APPROVER', 'SPECIALIST', 'GATEKEEPER', 'EMERGENCY_ADMIN', 'MOTHER']}
+          allowedRoles={['SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'DISPATCHER', 'LIAISON_OFFICER', 'HOSPITAL_APPROVER', 'SPECIALIST', 'GATEKEEPER', 'EMERGENCY_ADMIN']}
         />
       )}
       {showAddWoredaAdmin && (

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { mothersApi, pregnancyApi, childrenApi, vaccinationsApi } from '@/lib/healthcare-api';
 import { useAuth } from '@/contexts/AuthContext';
-import { incomingReferrals, outboxReferrals, createReferral } from '@/services/referrals';
+import { checkedInReferrals, incomingReferrals, outboxReferrals } from '@/services/referrals';
 
 interface DashboardStats {
   mothers: number;
@@ -17,11 +17,12 @@ interface DashboardStats {
   sentReferrals: number;
   incomingReferrals: number;
   pendingReferrals: number;
+  checkedInReferrals: number;
   overdueAncVisits: number;
 }
 
 export default function HealthcareDashboard() {
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
   const router = useRouter();
   const [stats, setStats] = useState<DashboardStats>({
     mothers: 0,
@@ -34,17 +35,21 @@ export default function HealthcareDashboard() {
     sentReferrals: 0,
     incomingReferrals: 0,
     pendingReferrals: 0,
+    checkedInReferrals: 0,
     overdueAncVisits: 0,
   });
+  const [checkedInList, setCheckedInList] = useState<any[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!user) return;
     fetchDashboardStats();
-  }, []);
+  }, [user]);
 
   const fetchDashboardStats = async () => {
+    if (!user) return;
     try {
       setLoading(true);
       setError(null);
@@ -59,6 +64,7 @@ export default function HealthcareDashboard() {
         followUpNeeded,
         sentReferrals,
         incomingReferralsData,
+        checkedInData,
         overdueAncData,
       ] = await Promise.all([
         mothersApi.getAll().catch(() => []),
@@ -69,6 +75,7 @@ export default function HealthcareDashboard() {
         childrenApi.getFollowUpNeeded().catch(() => []),
         outboxReferrals().catch(() => []),
         incomingReferrals().catch(() => []),
+        checkedInReferrals().catch(() => []),
         pregnancyApi.getAll().catch(() => []),
       ]);
 
@@ -89,7 +96,9 @@ export default function HealthcareDashboard() {
         incomingReferrals: Array.isArray(incomingReferralsData) ? incomingReferralsData.length : 0,
         pendingReferrals,
         overdueAncVisits,
+        checkedInReferrals: Array.isArray(checkedInData) ? checkedInData.length : 0,
       });
+      setCheckedInList(Array.isArray(checkedInData) ? checkedInData : []);
     } catch (err) {
       console.error('Error fetching dashboard stats:', err);
       setError('Failed to load dashboard data');
@@ -228,6 +237,12 @@ export default function HealthcareDashboard() {
             color="text-orange-600"
             icon="⏳"
           />
+          <StatCard
+            title="Checked-in Mothers"
+            value={stats.checkedInReferrals}
+            color="text-purple-600"
+            icon="✅"
+          />
         </div>
 
         {/* Quick Actions */}
@@ -245,7 +260,7 @@ export default function HealthcareDashboard() {
                 href="/healthcare-dashboard/pregnancy/new"
                 className="block px-4 py-3 bg-green-600 text-white text-center rounded-lg hover:bg-green-700 transition-colors"
               >
-                Pregnancy Visit
+                New Pregnancy Visit
               </a>
               <a
                 href="/healthcare-dashboard/children/register"
@@ -317,6 +332,16 @@ export default function HealthcareDashboard() {
                   </div>
                 </div>
               )}
+              {stats.checkedInReferrals > 0 && (
+                <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                  <div className="flex items-center">
+                    <span className="text-purple-600 mr-2">✅</span>
+                    <span className="text-purple-800">
+                      {stats.checkedInReferrals} checked-in referral{stats.checkedInReferrals !== 1 ? 's' : ''} awaiting decision/unlock
+                    </span>
+                  </div>
+                </div>
+              )}
               {stats.overdueVaccinations === 0 && stats.highRiskPregnancies === 0 && stats.followUpNeeded === 0 && stats.pendingReferrals === 0 && (
                 <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
                   <div className="flex items-center">
@@ -327,6 +352,33 @@ export default function HealthcareDashboard() {
               )}
             </div>
           </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Checked-in Mothers</h2>
+          {checkedInList.length === 0 ? (
+            <p className="text-sm text-gray-600">No checked-in referrals yet.</p>
+          ) : (
+            <div className="space-y-3">
+              {checkedInList.slice(0, 6).map((r: any) => (
+                <button
+                  key={r._id}
+                  onClick={() => router.push(`/referrals/${r._id}`)}
+                  className="w-full text-left p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  <p className="font-medium text-gray-900">
+                    Referral #{r.referralCode ?? r._id?.slice(-6)}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    Mother: {r?.motherId?.name ?? '-'} {r?.motherId?.age ? `(${r.motherId.age}y)` : ''}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    From: {r?.fromHospital?.name ?? '-'} • Status: {r.status}
+                  </p>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Recent Activity */}

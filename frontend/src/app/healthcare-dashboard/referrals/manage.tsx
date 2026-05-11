@@ -19,6 +19,7 @@ interface Referral {
   urgency: string;
   reasonForReferral: string;
   clinicalNotes?: string;
+  liaisonNote?: string;
   createdAt: string;
   activityLog: any[];
   // Frontend convenience aliases
@@ -27,13 +28,15 @@ interface Referral {
 }
 
 export default function ReferralManagement() {
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
   const router = useRouter();
   const [incomingReferralsData, setIncomingReferrals] = useState<Referral[]>([]);
   const [sentReferralsData, setSentReferrals] = useState<Referral[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'incoming' | 'sent'>('incoming');
+  const canUnlockReferral =
+    !!user?.role && ['DOCTOR', 'NURSE', 'MIDWIFE', 'SPECIALIST'].includes(user.role);
 
   useEffect(() => {
     fetchReferrals();
@@ -61,7 +64,10 @@ export default function ReferralManagement() {
 
   const handleRespondToReferral = async (referralId: string, response: 'ACCEPT' | 'REJECT', note?: string) => {
     try {
-      await referralsApi.respond(referralId, { status: response === 'ACCEPT' ? 'ACCEPTED' : 'REJECTED', justification: note });
+      await referralsApi.respond(referralId, {
+        status: response === 'ACCEPT' ? 'ACCEPTED' : 'REJECTED',
+        justification: note,
+      });
       await fetchReferrals(); // Refresh data
     } catch (err: any) {
       console.error('Error responding to referral:', err);
@@ -69,9 +75,19 @@ export default function ReferralManagement() {
     }
   };
 
-  const handleSendReferral = async (referralId: string, targetHospitalId: string) => {
+  const handleUnlockReferral = async (referralCode: string) => {
     try {
-      await referralsApi.send(referralId, targetHospitalId);
+      await referralsApi.unlock({ referralCode });
+      await fetchReferrals();
+    } catch (err: any) {
+      console.error('Error unlocking referral:', err);
+      setError(err?.message || 'Failed to unlock referral');
+    }
+  };
+
+  const handleSendReferral = async (referralId: string, targetHospitalId: string, liaisonNote?: string) => {
+    try {
+      await referralsApi.send(referralId, targetHospitalId, liaisonNote);
       await fetchReferrals(); // Refresh data
     } catch (err: any) {
       console.error('Error sending referral:', err);
@@ -109,6 +125,32 @@ export default function ReferralManagement() {
         </span>
       </div>
 
+      <div className="mb-4 space-y-1">
+        <p className="text-sm text-gray-600">
+          <span className="font-medium">Mother:</span>{" "}
+          {referral.motherId?.name || referral.motherId?.fullName || "-"}{" "}
+          {referral.motherId?.age ? `(${referral.motherId.age}y)` : ""}
+          {referral.motherId?.phone ? ` • ${referral.motherId.phone}` : ""}
+        </p>
+        <p className="text-sm text-gray-600">
+          <span className="font-medium">Reason:</span> {referral.reasonForReferral || "-"}
+        </p>
+        {referral.liaisonNote && (
+          <p className="text-sm text-gray-600">
+            <span className="font-medium">Liaison note:</span> {referral.liaisonNote}
+          </p>
+        )}
+        <p className="text-sm text-gray-600">
+          <span className="font-medium">From:</span> {referral.fromHospital?.name || referral.fromHospital || "-"}
+        </p>
+        <p className="text-sm text-gray-600">
+          <span className="font-medium">To:</span> {referral.toHospital?.name || referral.toHospital || "-"}
+        </p>
+        <p className="text-sm text-gray-600">
+          <span className="font-medium">By:</span> {referral.createdBy?.fullName || referral.createdBy?.name || "-"}
+        </p>
+      </div>
+
       {referral.targetHospitalId && (
         <div className="mb-4">
           <p className="text-sm text-gray-600">
@@ -126,32 +168,21 @@ export default function ReferralManagement() {
       )}
 
       <div className="flex space-x-3">
-        {isIncoming && referral.status === 'PENDING' && (
+        {isIncoming && referral.status === 'CHECKED_IN' && canUnlockReferral && (
           <>
             <button
-              onClick={() => handleRespondToReferral(referral._id, 'ACCEPT')}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              onClick={() => handleUnlockReferral(referral.referralCode)}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
-              Accept
-            </button>
-            <button
-              onClick={() => handleRespondToReferral(referral._id, 'REJECT')}
-              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-            >
-              Reject
+              Unlock Clinical Data
             </button>
           </>
         )}
-        
-        {!isIncoming && referral.status === 'DRAFT' && (
-          <button
-            onClick={() => router.push(`/healthcare-dashboard/referrals/${referral._id}/send`)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            Send Referral
-          </button>
+        {isIncoming && referral.status === 'PENDING' && (
+          <p className="text-xs text-gray-600 self-center">Waiting for gate check-in before decision.</p>
         )}
-
+        
+        
         <button
           onClick={() => router.push(`/referrals/${referral._id}`)}
           className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"

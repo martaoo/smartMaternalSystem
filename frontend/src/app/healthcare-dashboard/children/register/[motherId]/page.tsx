@@ -47,7 +47,6 @@ export default function RegisterChild() {
 
   const [mothers, setMothers] = useState<any[]>([]);
   const [hospitals, setHospitals] = useState<any[]>([]);
-  const [healthWorkers, setHealthWorkers] = useState<any[]>([]);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [userHospital, setUserHospital] = useState<any>(null);
   const [availableHospitals, setAvailableHospitals] = useState<any[]>([]);
@@ -64,7 +63,6 @@ export default function RegisterChild() {
     getCurrentUser();
     fetchMothers();
     fetchHospitals();
-    fetchHealthWorkers();
   }, []);
 
   useEffect(() => {
@@ -172,18 +170,6 @@ export default function RegisterChild() {
     }
   };
 
-  const fetchHealthWorkers = async () => {
-    try {
-      const data = await api.getUsers();
-      const healthcareWorkers = data.filter((user: any) => 
-        ['DOCTOR', 'NURSE', 'MIDWIFE'].includes(user.role)
-      );
-      setHealthWorkers(healthcareWorkers);
-    } catch (err) {
-      console.error('Error fetching health workers:', err);
-    }
-  };
-
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
@@ -196,11 +182,11 @@ export default function RegisterChild() {
     if (!registeredChildId) return;
     setSendingToWoreda(true);
     try {
-      await childrenApi.verify(registeredChildId);
+      await childrenApi.notifyWoreda(registeredChildId);
       setSentToWoreda(true);
     } catch (err: any) {
-      // verify endpoint may fail if woreda check is strict — still mark as attempted
-      setSentToWoreda(true);
+      console.error('Failed to notify woreda:', err);
+      setSentToWoreda(true); // still mark as attempted so UI doesn't block
     } finally {
       setSendingToWoreda(false);
     }
@@ -229,8 +215,8 @@ export default function RegisterChild() {
       setFormData({
         name: '',
         birthDate: '',
-        motherId: '',
         gender: 'MALE',
+        motherId: motherId ?? '',
         birthHospital: '',
         deliveredBy: '',
         birthWeight: '',
