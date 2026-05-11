@@ -1,0 +1,32 @@
+{
+  "@@locale": "en",
+  "appTitle": "Smart Maternal Health",
+
+  "languageEnglish": "English",
+  "languageAmharic": "አማርኛ",
+
+  "loginWelcomeBack": "Welcome Back",
+  "loginSystemName": "Smart Maternal Health System",
+  "loginBeginJourneyTitle": "Begin Your Motherhood Journey",
+  "loginBeginJourneySubtitle": "A modern, comprehensive platform designed to support you and your baby's health every step of the way.",
+  "loginToAccount": "Login to your account",
+  "loginEmailOrPhone": "Email or Phone Number",
+  "loginPassword": "Password",
+  "loginForgotPassword": "Forgot Password?",
+  "loginButton": "Login",
+  "loginSuccessToast": "Login successful!",
+  "loginFailedToast": "Login failed. Please check your credentials.",
+  "loginErrorToast": "An error occurred. Please try again.",
+  "loginEnterEmailOrPhone": "Please enter your email/phone",
+  "loginEnterPassword": "Please enter your password",
+  "loginPasswordTooShort": "Password must be at least 6 characters",
+
+  "appointmentsTitle": "Appointments",
+  "appointmentsYourSchedule": "Your schedule",
+  "appointmentsNoUpcoming": "No upcoming visits. Your healthcare provider will schedule your next ANC visit.",
+  "appointmentsReminderOn": "Reminder on",
+  "appointmentsReminderOff": "Reminder off",
+  "appointmentsDetails": "Details",
+  "appointmentsUnableToLoad": "Unable to load appointments",
+  "appointmentsRetry": "Retry"
+}

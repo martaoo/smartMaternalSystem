@@ -6,7 +6,9 @@ import { Mother, MotherSchema } from './schemas/mother.schema';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([{ name: Mother.name, schema: MotherSchema }])
+    MongooseModule.forFeature([{ name: Mother.name, schema: MotherSchema }]),
+    PregnancyModule
+
   ],
   controllers: [MothersController],
   providers: [MothersService],

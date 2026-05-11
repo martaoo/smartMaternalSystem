@@ -256,4 +256,137 @@ async findByPhoneOrEmail(phone: string, email?: string): Promise<Mother | null> 
         return result;
       });
   }
+
+  private _plusDays(date: Date, days: number): Date {
+    const out = new Date(date);
+    out.setDate(out.getDate() + days);
+    return out;
+  }
+
+  private _plusMonths(date: Date, months: number): Date {
+    const out = new Date(date);
+    const d = out.getDate();
+    out.setMonth(out.getMonth() + months);
+    if (out.getDate() < d) {
+      out.setDate(0);
+    }
+    return out;
+  }
+
+  private _plusYears(date: Date, years: number): Date {
+    const out = new Date(date);
+    out.setFullYear(out.getFullYear() + years);
+    return out;
+  }
+
+  private _toDateOrNull(value: any): Date | null {
+    if (!value) return null;
+    const d = value instanceof Date ? value : new Date(value);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+
+  private _tdStatus(dateGiven: Date | null, dueDate: Date | null, prereqDone: boolean): 'COMPLETED' | 'UPCOMING' | 'MISSED' | 'PENDING' {
+    if (dateGiven) return 'COMPLETED';
+    if (!prereqDone) return 'PENDING';
+    if (!dueDate) return 'UPCOMING';
+    const today = new Date();
+    const t0 = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const d0 = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate());
+    return d0 < t0 ? 'MISSED' : 'UPCOMING';
+  }
+
+  async getTdSchedule(motherId: string, userRole: string, userHospitalId?: string, userWoredaId?: string) {
+    const mother = await this.findById(motherId, userRole, userHospitalId, userWoredaId);
+
+    const td = (mother as any).tdVaccinations || {};
+    const td1 = this._toDateOrNull(td.TD1);
+    const td2 = this._toDateOrNull(td.TD2);
+    const td3 = this._toDateOrNull(td.TD3);
+    const td4 = this._toDateOrNull(td.TD4);
+    const td5 = this._toDateOrNull(td.TD5);
+
+    const td2Due = td1 ? this._plusDays(td1, 28) : null;
+    const td3Due = td2 ? this._plusMonths(td2, 6) : null;
+    const td4Due = td3 ? this._plusYears(td3, 1) : null;
+    const td5Due = td4 ? this._plusYears(td4, 1) : null;
+
+    const doses = [
+      {
+        doseKey: 'TD1',
+        title: 'First contact',
+        dateGiven: td1,
+        dueDate: null,
+        status: this._tdStatus(td1, null, true),
+      },
+      {
+        doseKey: 'TD2',
+        title: '4 weeks after TD1',
+        dateGiven: td2,
+        dueDate: td2Due,
+        status: this._tdStatus(td2, td2Due, !!td1),
+      },
+      {
+        doseKey: 'TD3',
+        title: '6 months after TD2',
+        dateGiven: td3,
+        dueDate: td3Due,
+        status: this._tdStatus(td3, td3Due, !!td2),
+      },
+      {
+        doseKey: 'TD4',
+        title: '1 year after TD3',
+        dateGiven: td4,
+        dueDate: td4Due,
+        status: this._tdStatus(td4, td4Due, !!td3),
+      },
+      {
+        doseKey: 'TD5',
+        title: '1 year after TD4',
+        dateGiven: td5,
+        dueDate: td5Due,
+        status: this._tdStatus(td5, td5Due, !!td4),
+      },
+    ];
+
+    const nextDose = doses.find((d) => d.status !== 'COMPLETED') ?? null;
+    const completedCount = doses.filter((d) => d.status === 'COMPLETED').length;
+
+    return {
+      motherId: (mother as any)._id.toString(),
+      doses,
+      completedCount,
+      totalDoses: 5,
+      nextDose,
+    };
+  }
+
+  async setTdDoseDate(
+    motherId: string,
+    doseKey: 'TD1' | 'TD2' | 'TD3' | 'TD4' | 'TD5',
+    dateGiven: string,
+    userRole: string,
+    userHospitalId?: string,
+    userWoredaId?: string,
+  ) {
+    const allowed = ['TD1', 'TD2', 'TD3', 'TD4', 'TD5'];
+    if (!allowed.includes(doseKey)) {
+      throw new BadRequestException('doseKey must be one of TD1..TD5');
+    }
+
+    const parsed = new Date(dateGiven);
+    if (Number.isNaN(parsed.getTime())) {
+      throw new BadRequestException('dateGiven must be a valid date');
+    }
+
+    // Access check
+    await this.findById(motherId, userRole, userHospitalId, userWoredaId);
+
+    await this.motherModel.findByIdAndUpdate(
+      motherId,
+      { $set: { [`tdVaccinations.${doseKey}`]: parsed } },
+      { new: true },
+    );
+
+    return this.getTdSchedule(motherId, userRole, userHospitalId, userWoredaId);
+  }
 }

@@ -37,7 +37,7 @@ export class VaccinationsController {
     return this.vaccinationsService.createVaccine(createVaccineDto);
   }
 
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
+  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'MOTHER')
   @Get('vaccines')
   @ApiOperation({ summary: 'Get all vaccines' })
   @ApiResponse({ status: 200, description: 'Vaccines retrieved successfully' })
@@ -99,7 +99,7 @@ export class VaccinationsController {
     );
   }
 
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
+  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'MOTHER')
   @Get('records/child/:childId')
   @ApiOperation({ summary: 'Get vaccination records for a child' })
   @ApiParam({ name: 'childId', description: 'Child ID' })

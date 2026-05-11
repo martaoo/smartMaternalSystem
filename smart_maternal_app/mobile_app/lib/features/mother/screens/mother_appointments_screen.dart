@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 import '../../../services/notification_service.dart';
 import '../../../services/mother_service.dart';
@@ -63,7 +64,12 @@ class _MotherAppointmentsScreenState extends State<MotherAppointmentsScreen> wit
       for (final a in _appointments) {
         final base = _notificationBaseId(a.id);
         if (base != null) {
-          if (ids.contains(base + 1000) || ids.contains(base + 2000)) {
+          // Countdown reminders: base + 5001..5005
+          if (ids.contains(base + 5001) ||
+              ids.contains(base + 5002) ||
+              ids.contains(base + 5003) ||
+              ids.contains(base + 5004) ||
+              ids.contains(base + 5005)) {
             enabled.add(a.id);
           }
         }
@@ -89,6 +95,7 @@ class _MotherAppointmentsScreenState extends State<MotherAppointmentsScreen> wit
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final next = _appointments.where((a) => _derivedStatus(a) == _ApptStatus.upcoming).toList()
       ..sort((a, b) => a.dateTime.compareTo(b.dateTime));
     final nextVisit = next.isEmpty ? null : next.first;
@@ -101,7 +108,7 @@ class _MotherAppointmentsScreenState extends State<MotherAppointmentsScreen> wit
     return Scaffold(
       backgroundColor: const Color(0xFFF7FBFF),
       appBar: AppBar(
-        title: const Text('Appointments', style: TextStyle(fontWeight: FontWeight.w900)),
+        title: Text(l10n.appointmentsTitle, style: const TextStyle(fontWeight: FontWeight.w900)),
         backgroundColor: const Color(0xFFB01257),
         foregroundColor: Colors.white,
         elevation: 0,
@@ -169,6 +176,7 @@ class _MotherAppointmentsScreenState extends State<MotherAppointmentsScreen> wit
   }
 
   Widget _buildHero(Appointment? nextVisit) {
+    final l10n = AppLocalizations.of(context)!;
     final upcomingCount = _appointments.where((a) => _derivedStatus(a) == _ApptStatus.upcoming).length;
     final completedCount = _appointments.where((a) => _derivedStatus(a) == _ApptStatus.completed).length;
     final missedCount = _appointments.where((a) => _derivedStatus(a) == _ApptStatus.missed).length;
@@ -205,10 +213,10 @@ class _MotherAppointmentsScreenState extends State<MotherAppointmentsScreen> wit
                 child: const Icon(Icons.calendar_month, color: Colors.white),
               ),
               const SizedBox(width: 12),
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'Your schedule',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18),
+                  l10n.appointmentsYourSchedule,
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18),
                 ),
               ),
               _miniPill(icon: Icons.upcoming, label: 'Upcoming $upcomingCount'),
@@ -225,7 +233,7 @@ class _MotherAppointmentsScreenState extends State<MotherAppointmentsScreen> wit
           const SizedBox(height: 12),
           if (nextVisit == null)
             Text(
-              'No upcoming visits. Your healthcare provider will schedule your next ANC visit.',
+              l10n.appointmentsNoUpcoming,
               style: TextStyle(color: Colors.white.withOpacity(0.9), height: 1.35),
             )
           else ...[
@@ -538,6 +546,7 @@ class _MotherAppointmentsScreenState extends State<MotherAppointmentsScreen> wit
   }
 
   Widget _buildAppointmentCard(Appointment a) {
+    final l10n = AppLocalizations.of(context)!;
     final status = _derivedStatus(a);
     final statusColor = status.color;
     final reminderEnabled = _reminderEnabledAppointmentIds.contains(a.id);
@@ -622,13 +631,13 @@ class _MotherAppointmentsScreenState extends State<MotherAppointmentsScreen> wit
                 children: [
                   _chip(
                     icon: reminderEnabled ? Icons.notifications_active : Icons.notifications_none,
-                    label: reminderEnabled ? 'Reminder on' : 'Reminder off',
+                    label: reminderEnabled ? l10n.appointmentsReminderOn : l10n.appointmentsReminderOff,
                     color: reminderEnabled ? const Color(0xFF2E7D32) : const Color(0xFF546E7A),
                     onTap: (_remindersLoading || status != _ApptStatus.upcoming) ? null : () => _toggleReminder(a),
                   ),
                   _chip(
                     icon: Icons.info_outline,
-                    label: 'Details',
+                    label: l10n.appointmentsDetails,
                     color: const Color(0xFF3949AB),
                     onTap: () => _detailsSheet(a),
                   ),
@@ -717,6 +726,7 @@ class _MotherAppointmentsScreenState extends State<MotherAppointmentsScreen> wit
   }
 
   Widget _buildErrorState() {
+    final l10n = AppLocalizations.of(context)!;
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
@@ -736,7 +746,7 @@ class _MotherAppointmentsScreenState extends State<MotherAppointmentsScreen> wit
             child: Icon(Icons.error_outline, color: Colors.red.shade400, size: 30),
           ),
           const SizedBox(height: 12),
-          const Text('Unable to load appointments', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+          Text(l10n.appointmentsUnableToLoad, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
           const SizedBox(height: 6),
           Text(
             _errorMessage ?? 'Unknown error occurred',
@@ -747,7 +757,7 @@ class _MotherAppointmentsScreenState extends State<MotherAppointmentsScreen> wit
           ElevatedButton.icon(
             onPressed: _refresh,
             icon: const Icon(Icons.refresh),
-            label: const Text('Retry'),
+            label: Text(l10n.appointmentsRetry),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFB01257),
               foregroundColor: Colors.white,
@@ -806,18 +816,10 @@ class _MotherAppointmentsScreenState extends State<MotherAppointmentsScreen> wit
     final enabled = _reminderEnabledAppointmentIds.contains(a.id);
     try {
       if (enabled) {
-        await _notificationService.cancelNotification(base + 1000);
-        await _notificationService.cancelNotification(base + 2000);
+        await _notificationService.cancelFiveDayCountdownReminders(base);
         setState(() => _reminderEnabledAppointmentIds.remove(a.id));
       } else {
-        await _notificationService.schedulePreReminder(
-          appointmentId: base,
-          title: a.title,
-          facility: a.facility,
-          appointmentTime: a.dateTime,
-          appointmentType: a.type,
-        );
-        await _notificationService.scheduleSameDayReminder(
+        await _notificationService.scheduleFiveDayCountdownReminders(
           appointmentId: base,
           title: a.title,
           facility: a.facility,

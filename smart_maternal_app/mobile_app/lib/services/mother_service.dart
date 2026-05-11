@@ -189,44 +189,49 @@ class MotherService {
 
   /// Get upcoming appointments from pregnancy visits
   Future<List<Appointment>> getUpcomingAppointments() async {
-    final visits = await getPregnancyVisits();
-    final now = DateTime.now();
-    
-    return visits
-        .where((visit) => visit.nextVisitDate != null && visit.nextVisitDate!.isAfter(now))
-        .map((visit) => _convertVisitToAppointment(visit, isUpcoming: true))
-        .toList()
-      ..sort((a, b) => a.dateTime.compareTo(b.dateTime));
+    final summary = await getDashboardSummary();
+    final latest = summary?.latestPregnancy;
+    if (latest == null) return [];
+    if (latest.nextVisitDate == null) return [];
+    if (!latest.nextVisitDate!.isAfter(DateTime.now())) return [];
+
+    return [_convertVisitToAppointment(latest, isUpcoming: true)];
   }
 
   /// Get past appointments from pregnancy visits
   Future<List<Appointment>> getPastAppointments() async {
-    final visits = await getPregnancyVisits();
-    final now = DateTime.now();
-    
-    return visits
-        .where((visit) => visit.visitDate.isBefore(now))
-        .map((visit) => _convertVisitToAppointment(visit, isUpcoming: false))
-        .toList()
-      ..sort((a, b) => b.dateTime.compareTo(a.dateTime));
+    final summary = await getDashboardSummary();
+    final latest = summary?.latestPregnancy;
+    if (latest == null) return [];
+    if (!latest.visitDate.isBefore(DateTime.now())) return [];
+
+    return [_convertVisitToAppointment(latest, isUpcoming: false)];
   }
 
   /// Get all appointments (both upcoming and past)
   Future<List<Appointment>> getAllAppointments() async {
-    final upcoming = await getUpcomingAppointments();
-    final past = await getPastAppointments();
-    
-    return [...upcoming, ...past]..sort((a, b) => b.dateTime.compareTo(a.dateTime));
+    final summary = await getDashboardSummary();
+    final latest = summary?.latestPregnancy;
+    if (latest == null) return [];
+
+    final appts = <Appointment>[];
+    // Next visit as UPCOMING if present and in future.
+    if (latest.nextVisitDate != null && latest.nextVisitDate!.isAfter(DateTime.now())) {
+      appts.add(_convertVisitToAppointment(latest, isUpcoming: true));
+    }
+    // Latest recorded visit as COMPLETED if it occurred in the past.
+    if (latest.visitDate.isBefore(DateTime.now())) {
+      appts.add(_convertVisitToAppointment(latest, isUpcoming: false));
+    }
+    appts.sort((a, b) => b.dateTime.compareTo(a.dateTime));
+    return appts;
   }
 
   /// Get health metrics from latest pregnancy visit
   Future<HealthMetrics?> getLatestHealthMetrics() async {
-    final visits = await getPregnancyVisits();
-    if (visits.isEmpty) return null;
-    
-    // Get the most recent visit
-    visits.sort((a, b) => b.visitDate.compareTo(a.visitDate));
-    final latestVisit = visits.first;
+    final summary = await getDashboardSummary();
+    final latestVisit = summary?.latestPregnancy;
+    if (latestVisit == null) return null;
     
     return HealthMetrics(
       systolicBP: latestVisit.systolicBP,
@@ -244,36 +249,21 @@ class MotherService {
 
   /// Get symptoms and medications from pregnancy visits
   Future<List<SymptomMedication>> getSymptomsAndMedications() async {
-    final visits = await getPregnancyVisits();
-    final List<SymptomMedication> items = [];
-    
-    for (final visit in visits) {
-      // Add symptoms
-      if (visit.symptoms != null) {
-        for (final symptom in visit.symptoms!) {
-          items.add(SymptomMedication(
-            type: 'symptom',
-            name: symptom,
-            date: visit.visitDate,
-            week: visit.week,
-          ));
-        }
-      }
-      
-      // Add medications
-      if (visit.medications != null) {
-        for (final medication in visit.medications!) {
-          items.add(SymptomMedication(
-            type: 'medication',
-            name: medication,
-            date: visit.visitDate,
-            week: visit.week,
-          ));
-        }
-      }
+    final summary = await getDashboardSummary();
+    final visit = summary?.latestPregnancy;
+    if (visit == null) return [];
+
+    final items = <SymptomMedication>[];
+
+    for (final symptom in visit.symptoms ?? const <String>[]) {
+      items.add(SymptomMedication(type: 'symptom', name: symptom, date: visit.visitDate, week: visit.week));
     }
-    
-    return items..sort((a, b) => b.date.compareTo(a.date));
+    for (final medication in visit.medications ?? const <String>[]) {
+      items.add(SymptomMedication(type: 'medication', name: medication, date: visit.visitDate, week: visit.week));
+    }
+
+    items.sort((a, b) => b.date.compareTo(a.date));
+    return items;
   }
 
   // Helper methods for data parsing and conversion

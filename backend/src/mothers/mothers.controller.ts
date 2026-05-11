@@ -90,6 +90,42 @@ export class MothersController {
     );
   }
 
+  @Roles('MOTHER', 'SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
+  @Get(':id/td-schedule')
+  @ApiOperation({ summary: 'Get maternal TD vaccination schedule (TD1-TD5)' })
+  @ApiParam({ name: 'id', description: 'Mother ID' })
+  @ApiResponse({ status: 200, description: 'TD schedule retrieved successfully' })
+  async getTdSchedule(@Param('id') id: string, @Request() req) {
+    const user = req.user;
+    return this.mothersService.getTdSchedule(
+      id,
+      user.role,
+      user.hospitalId?.toString(),
+      user.woredaId?.toString(),
+    );
+  }
+
+  @Roles('MOTHER', 'SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
+  @Patch(':id/td-schedule')
+  @ApiOperation({ summary: 'Update one maternal TD dose date (TD1-TD5)' })
+  @ApiParam({ name: 'id', description: 'Mother ID' })
+  @ApiResponse({ status: 200, description: 'TD schedule updated successfully' })
+  async updateTdSchedule(
+    @Param('id') id: string,
+    @Body() body: { doseKey: 'TD1' | 'TD2' | 'TD3' | 'TD4' | 'TD5'; dateGiven: string },
+    @Request() req,
+  ) {
+    const user = req.user;
+    return this.mothersService.setTdDoseDate(
+      id,
+      body.doseKey,
+      body.dateGiven,
+      user.role,
+      user.hospitalId?.toString(),
+      user.woredaId?.toString(),
+    );
+  }
+
   @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
   @Patch(':id')
   @ApiOperation({ summary: 'Update mother information' })
@@ -137,6 +173,47 @@ export class MothersController {
       return { message: 'Mother profile not found', data: null };
     }
     return { message: 'Mother profile retrieved successfully', data: mother };
+  }
+
+  @Roles('MOTHER')
+  @Get('me/td-schedule')
+  @ApiOperation({ summary: 'Get maternal TD vaccination schedule for logged-in mother' })
+  @ApiResponse({ status: 200, description: 'TD schedule retrieved successfully' })
+  async getMyTdSchedule(@Request() req) {
+    const mother = await this.mothersService.findMotherForAuthenticatedAppUser(req.user);
+    if (!mother) {
+      return { message: 'Mother profile not found', data: null };
+    }
+    const schedule = await this.mothersService.getTdSchedule(
+      (mother as any)._id.toString(),
+      req.user.role,
+      req.user.hospitalId?.toString(),
+      req.user.woredaId?.toString(),
+    );
+    return { message: 'TD schedule retrieved successfully', data: schedule };
+  }
+
+  @Roles('MOTHER')
+  @Patch('me/td-schedule')
+  @ApiOperation({ summary: 'Update one TD dose date for logged-in mother' })
+  @ApiResponse({ status: 200, description: 'TD schedule updated successfully' })
+  async updateMyTdSchedule(
+    @Body() body: { doseKey: 'TD1' | 'TD2' | 'TD3' | 'TD4' | 'TD5'; dateGiven: string },
+    @Request() req,
+  ) {
+    const mother = await this.mothersService.findMotherForAuthenticatedAppUser(req.user);
+    if (!mother) {
+      return { message: 'Mother profile not found', data: null };
+    }
+    const schedule = await this.mothersService.setTdDoseDate(
+      (mother as any)._id.toString(),
+      body.doseKey,
+      body.dateGiven,
+      req.user.role,
+      req.user.hospitalId?.toString(),
+      req.user.woredaId?.toString(),
+    );
+    return { message: 'TD schedule updated successfully', data: schedule };
   }
 
   @Roles('MOTHER')

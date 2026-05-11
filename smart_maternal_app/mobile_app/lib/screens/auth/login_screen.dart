@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import '../../services/locale_service.dart';
 import '../../services/auth_service.dart';
 import '../../features/mother/screens/mother_shell_screen.dart';
 
@@ -17,7 +19,6 @@ class _LoginScreenState extends State<LoginScreen> {
   final AuthService _authService = AuthService();
   bool _isLoading = false;
   bool _obscurePassword = true;
-  String _selectedLanguage = 'English';
 
   // Colors based on user theme
   final Color primaryBrown = const Color(0xFF8D6E63);
@@ -47,9 +48,10 @@ class _LoginScreenState extends State<LoginScreen> {
         _passwordController.text,
       );
 
+      final l10n = AppLocalizations.of(context)!;
       if (success) {
         Fluttertoast.showToast(
-          msg: _selectedLanguage == 'English' ? "Login successful!" : "በተሳካ ሁኔታ ገብተዋል!",
+          msg: l10n.loginSuccessToast,
           toastLength: Toast.LENGTH_SHORT,
           gravity: ToastGravity.BOTTOM,
           backgroundColor: Colors.green,
@@ -64,7 +66,7 @@ class _LoginScreenState extends State<LoginScreen> {
         }
       } else {
         Fluttertoast.showToast(
-          msg: _selectedLanguage == 'English' ? "Login failed. Please check your credentials." : "መግባት አልተሳካም። እባክዎ መረጃዎን ያረጋግጡ።",
+          msg: l10n.loginFailedToast,
           toastLength: Toast.LENGTH_SHORT,
           gravity: ToastGravity.BOTTOM,
           backgroundColor: Colors.red,
@@ -72,8 +74,9 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       }
     } catch (e) {
+      final l10n = AppLocalizations.of(context)!;
       Fluttertoast.showToast(
-        msg: _selectedLanguage == 'English' ? "An error occurred. Please try again." : "ስህተት ተከስቷል። እባክዎ እንደገና ይሞክሩ።",
+        msg: l10n.loginErrorToast,
         toastLength: Toast.LENGTH_SHORT,
         gravity: ToastGravity.BOTTOM,
         backgroundColor: Colors.red,
@@ -89,6 +92,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Widget _buildLanguageSwitch({bool isDark = false}) {
+    final l10n = AppLocalizations.of(context)!;
     return Container(
       decoration: BoxDecoration(
         color: isDark ? primaryBrown.withOpacity(0.1) : Colors.white.withOpacity(0.2),
@@ -98,23 +102,20 @@ class _LoginScreenState extends State<LoginScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
-          value: _selectedLanguage,
+          value: Localizations.localeOf(context).languageCode,
           icon: Icon(Icons.language, color: isDark ? primaryBrown : Colors.white, size: 20),
           dropdownColor: isDark ? Colors.white : primaryBrown,
           style: TextStyle(
             color: isDark ? textDark : Colors.white, 
             fontWeight: FontWeight.w600,
           ),
-          items: <String>['English', 'አማርኛ'].map((String value) {
-            return DropdownMenuItem<String>(
-              value: value,
-              child: Text(value),
-            );
-          }).toList(),
+          items: <DropdownMenuItem<String>>[
+            DropdownMenuItem<String>(value: 'en', child: Text(l10n.languageEnglish)),
+            DropdownMenuItem<String>(value: 'am', child: Text(l10n.languageAmharic)),
+          ],
           onChanged: (String? newValue) {
-            setState(() {
-              _selectedLanguage = newValue!;
-            });
+            if (newValue == null) return;
+            LocaleService.instance.setLocale(Locale(newValue));
           },
         ),
       ),
@@ -134,7 +135,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Widget _buildDesktopLayout(Size size) {
-    final isAmharic = _selectedLanguage == 'አማርኛ';
+    final l10n = AppLocalizations.of(context)!;
 
     return Row(
       children: [
@@ -170,7 +171,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const Spacer(),
                     Text(
-                      isAmharic ? 'የእናትነት ጉዞዎን ይጀምሩ' : 'Begin Your Motherhood Journey',
+                      l10n.loginBeginJourneyTitle,
                       style: const TextStyle(
                         fontSize: 52,
                         fontWeight: FontWeight.w800,
@@ -180,9 +181,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 24),
                     Text(
-                      isAmharic 
-                        ? 'የእርስዎን እና የልጅዎን ጤና ለመከታተል የተዘጋጀ ዘመናዊ መተግበሪያ። ደህንነትዎ የተጠበቀ ነው።' 
-                        : 'A modern, comprehensive platform designed to support you and your baby\'s health every step of the way.',
+                      l10n.loginBeginJourneySubtitle,
                       style: TextStyle(
                         fontSize: 18,
                         color: Colors.white.withOpacity(0.9),
@@ -223,7 +222,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Widget _buildMobileLayout(Size size) {
-    final isAmharic = _selectedLanguage == 'አማርኛ';
+    final l10n = AppLocalizations.of(context)!;
 
     return SingleChildScrollView(
       child: Column(
@@ -278,7 +277,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      isAmharic ? 'እንኳን በደህና መጡ' : 'Welcome Back',
+                      l10n.loginWelcomeBack,
                       style: const TextStyle(
                         fontSize: 26,
                         fontWeight: FontWeight.bold,
@@ -288,7 +287,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      isAmharic ? 'ስማርት የእናቶች ጤና' : 'Smart Maternal Health System',
+                      l10n.loginSystemName,
                       style: TextStyle(
                         fontSize: 14,
                         color: Colors.white.withOpacity(0.9),
@@ -311,7 +310,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Widget _buildFormContent() {
-    final isAmharic = _selectedLanguage == 'አማርኛ';
+    final l10n = AppLocalizations.of(context)!;
 
     return Container(
       decoration: BoxDecoration(
@@ -332,7 +331,7 @@ class _LoginScreenState extends State<LoginScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              isAmharic ? 'ወደ አካውንትዎ ይግቡ' : 'Login to your account',
+              l10n.loginToAccount,
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.w700,
@@ -347,7 +346,7 @@ class _LoginScreenState extends State<LoginScreen> {
               keyboardType: TextInputType.emailAddress,
               style: const TextStyle(fontSize: 15),
               decoration: InputDecoration(
-                labelText: isAmharic ? 'ኢሜል ወይም ስልክ ቁጥር' : 'Email or Phone Number',
+                labelText: l10n.loginEmailOrPhone,
                 labelStyle: TextStyle(color: Colors.grey.shade600, fontSize: 14),
                 prefixIcon: Icon(Icons.person_outline, color: primaryBrown),
                 border: OutlineInputBorder(
@@ -368,7 +367,7 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               validator: (value) {
                 if (value == null || value.isEmpty) {
-                  return isAmharic ? 'እባክዎ ኢሜል ወይም ስልክ ቁጥር ያስገቡ' : 'Please enter your email/phone';
+                  return l10n.loginEnterEmailOrPhone;
                 }
                 return null;
               },
@@ -381,7 +380,7 @@ class _LoginScreenState extends State<LoginScreen> {
               obscureText: _obscurePassword,
               style: const TextStyle(fontSize: 15),
               decoration: InputDecoration(
-                labelText: isAmharic ? 'የይለፍ ቃል' : 'Password',
+                labelText: l10n.loginPassword,
                 labelStyle: TextStyle(color: Colors.grey.shade600, fontSize: 14),
                 prefixIcon: Icon(Icons.lock_outline, color: primaryBrown),
                 suffixIcon: IconButton(
@@ -413,10 +412,10 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               validator: (value) {
                 if (value == null || value.isEmpty) {
-                  return isAmharic ? 'እባክዎ የይለፍ ቃል ያስገቡ' : 'Please enter your password';
+                  return l10n.loginEnterPassword;
                 }
                 if (value.length < 6) {
-                  return isAmharic ? 'የይለፍ ቃል ቢያንስ 6 ፊደላት መሆን አለበት' : 'Password must be at least 6 characters';
+                  return l10n.loginPasswordTooShort;
                 }
                 return null;
               },
@@ -435,7 +434,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
                 child: Text(
-                  isAmharic ? 'የይለፍ ቃል ረሱ?' : 'Forgot Password?',
+                  l10n.loginForgotPassword,
                   style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
                 ),
               ),
@@ -467,7 +466,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       )
                     : Text(
-                        isAmharic ? 'ይግቡ' : 'Login',
+                        l10n.loginButton,
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,

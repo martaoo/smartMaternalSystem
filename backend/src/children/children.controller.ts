@@ -119,7 +119,7 @@ export class ChildrenController {
     );
   }
 
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
+  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'MOTHER')
   @Get('mother/:motherId')
   @ApiOperation({ summary: 'Get children for a specific mother' })
   @ApiParam({ name: 'motherId', description: 'Mother ID' })
@@ -135,7 +135,7 @@ export class ChildrenController {
     );
   }
 
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
+  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'MOTHER')
   @Get(':id')
   @ApiOperation({ summary: 'Get child by ID' })
   @ApiParam({ name: 'id', description: 'Child ID' })
