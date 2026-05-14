@@ -108,8 +108,7 @@ export default function HealthcareDashboard() {
   };
 
   const handleLogout = () => {
-    logout();
-    router.push('/auth');
+    logout(() => router.push('/auth'));
   };
 
   const StatCard = ({ title, value, color, icon }: { title: string; value: number; color: string; icon: string }) => (

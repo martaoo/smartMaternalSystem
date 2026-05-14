@@ -83,6 +83,13 @@ export class ReferralsService {
         para: mother?.para,
         lmp: mother?.lmp,
         bloodType: mother?.bloodType,
+        rhFactor: mother?.rhFactor,
+        hivStatus: mother?.hivStatus,
+        hepatitisB: mother?.hepatitisB,
+        hypertension: mother?.hypertension,
+        diabetes: mother?.diabetes,
+        anemia: mother?.anemia,
+        previousCSection: mother?.previousCSection,
       },
       referralCode: `REF-${Date.now()}`,
       createdBy: doctorId,
@@ -104,7 +111,11 @@ export class ReferralsService {
   async attachFile(referralId: string, filePath: string, uploaderFacilityId: string) {
     const referral = await this.referralModel.findById(referralId);
     if (!referral) throw new NotFoundException('Referral not found');
-    if (referral.fromHospital?.toString() !== uploaderFacilityId?.toString()) {
+    const fromHospitalId = typeof referral.fromHospital === 'string' 
+      ? referral.fromHospital 
+      : (referral.fromHospital as any)._id.toString();
+
+    if (fromHospitalId !== uploaderFacilityId?.toString()) {
       throw new ForbiddenException('Only the sending facility can attach referral files');
     }
     return this.referralModel.findByIdAndUpdate(
@@ -119,7 +130,11 @@ export class ReferralsService {
   ): Promise<Referral> {
     const referral = await this.referralModel.findById(referralId);
     if (!referral) throw new NotFoundException('Referral not found');
-    if (referral.fromHospital?.toString() !== updaterFacilityId?.toString()) {
+    const fromHospitalId = typeof referral.fromHospital === 'string' 
+      ? referral.fromHospital 
+      : (referral.fromHospital as any)._id.toString();
+
+    if (fromHospitalId !== updaterFacilityId?.toString()) {
       throw new ForbiddenException('Only the sending facility can edit this referral');
     }
     if (referral.status !== ReferralStatus.DRAFT) {
@@ -314,7 +329,7 @@ async createSystemReferral(data: {
   async getIncomingReferrals(facilityId: string): Promise<Referral[]> {
     return this.referralModel.find({
       toHospital: facilityId,
-      status: { $in: [ReferralStatus.PENDING, ReferralStatus.CHECKED_IN] },
+      status: { $in: [ReferralStatus.PENDING, ReferralStatus.CHECKED_IN, ReferralStatus.ARRIVED] },
     })
     .populate('fromHospital', 'name type')
     .populate('createdBy', 'name email')
@@ -325,7 +340,7 @@ async createSystemReferral(data: {
   async getCheckedInReferrals(facilityId: string): Promise<Referral[]> {
     return this.referralModel.find({
       toHospital: facilityId,
-      status: ReferralStatus.CHECKED_IN,
+      status: { $in: [ReferralStatus.CHECKED_IN, ReferralStatus.ARRIVED] },
     })
     .populate('fromHospital', 'name type')
     .populate('toHospital', 'name type')
@@ -518,7 +533,7 @@ async createSystemReferral(data: {
   async getSpecialistQueue(facilityId: string): Promise<Referral[]> {
     return this.referralModel.find({
       toHospital: facilityId,
-      status: { $in: [ReferralStatus.ACCEPTED, ReferralStatus.CHECKED_IN] },
+      status: { $in: [ReferralStatus.ACCEPTED, ReferralStatus.CHECKED_IN, ReferralStatus.ARRIVED] },
     })
     .populate('motherId', 'name phone age')
     .populate('fromHospital', 'name type')
@@ -565,7 +580,9 @@ async createSystemReferral(data: {
 
     const isReceiver = referral.toHospital &&
       facilityId &&
-      referral.toHospital.toString() === facilityId.toString();
+      (typeof referral.toHospital === 'string' 
+        ? referral.toHospital === facilityId.toString()
+        : (referral.toHospital as any)._id.toString() === facilityId.toString());
 
     const nonClinicalReceiverRoles = new Set([
       'LIAISON_OFFICER',
@@ -590,6 +607,10 @@ async createSystemReferral(data: {
           age: referral.motherSnapshot.age,
           phone: referral.motherSnapshot.phone,
           highRisk: referral.motherSnapshot.highRisk,
+          bloodType: referral.motherSnapshot.bloodType,
+          rhFactor: referral.motherSnapshot.rhFactor,
+          hivStatus: referral.motherSnapshot.hivStatus,
+          hepatitisB: referral.motherSnapshot.hepatitisB,
         } as any;
       }
     }
@@ -598,13 +619,13 @@ async createSystemReferral(data: {
   }
 
   async getAdminReferralStats() {
-    const [total, draft, pending, accepted, checkedIn, completed, rejected, expired] =
+    const [total, draft, pending, accepted, arrived, completed, rejected, expired] =
       await Promise.all([
         this.referralModel.countDocuments({}),
         this.referralModel.countDocuments({ status: ReferralStatus.DRAFT }),
         this.referralModel.countDocuments({ status: ReferralStatus.PENDING }),
         this.referralModel.countDocuments({ status: ReferralStatus.ACCEPTED }),
-        this.referralModel.countDocuments({ status: ReferralStatus.CHECKED_IN }),
+        this.referralModel.countDocuments({ status: ReferralStatus.ARRIVED }),
         this.referralModel.countDocuments({ status: ReferralStatus.COMPLETED }),
         this.referralModel.countDocuments({ status: ReferralStatus.REJECTED }),
         this.referralModel.countDocuments({ status: ReferralStatus.EXPIRED }),
@@ -615,37 +636,35 @@ async createSystemReferral(data: {
       draft,
       pending,
       accepted,
-      checkedIn,
+      arrived,
       completed,
       rejected,
       expired,
-      active: draft + pending + accepted + checkedIn,
+      active: draft + pending + accepted + arrived,
     };
   }
 
   async getSystemAdminReferralStats(regionId: string) {
-    // Get all hospitals in the region
     const regionHospitals = await this.hospitalModel.find({ 
       regionId: new Types.ObjectId(regionId) 
     }).select('_id');
     
     const hospitalIds = regionHospitals.map(h => h._id);
     
-    // Filter referrals where either source or target hospital is in the region
     const regionFilter = {
       $or: [
-        { sourceHospitalId: { $in: hospitalIds } },
-        { targetHospitalId: { $in: hospitalIds } }
+        { fromHospital: { $in: hospitalIds } },
+        { toHospital: { $in: hospitalIds } }
       ]
     };
 
-    const [total, draft, pending, accepted, checkedIn, completed, rejected, expired] =
+    const [total, draft, pending, accepted, arrived, completed, rejected, expired] =
       await Promise.all([
         this.referralModel.countDocuments(regionFilter),
         this.referralModel.countDocuments({ ...regionFilter, status: ReferralStatus.DRAFT }),
         this.referralModel.countDocuments({ ...regionFilter, status: ReferralStatus.PENDING }),
         this.referralModel.countDocuments({ ...regionFilter, status: ReferralStatus.ACCEPTED }),
-        this.referralModel.countDocuments({ ...regionFilter, status: ReferralStatus.CHECKED_IN }),
+        this.referralModel.countDocuments({ ...regionFilter, status: ReferralStatus.ARRIVED }),
         this.referralModel.countDocuments({ ...regionFilter, status: ReferralStatus.COMPLETED }),
         this.referralModel.countDocuments({ ...regionFilter, status: ReferralStatus.REJECTED }),
         this.referralModel.countDocuments({ ...regionFilter, status: ReferralStatus.EXPIRED }),
@@ -656,11 +675,46 @@ async createSystemReferral(data: {
       draft,
       pending,
       accepted,
-      checkedIn,
+      arrived,
       completed,
       rejected,
       expired,
-      active: draft + pending + accepted + checkedIn,
+      active: draft + pending + accepted + arrived,
     };
+  }
+
+  async updateReferralStatus(
+    referralId: string,
+    status: ReferralStatus,
+    actorId: string,
+    facilityId: string,
+    note?: string,
+  ): Promise<Referral> {
+    const referral = await this.referralModel.findById(referralId);
+    if (!referral) throw new NotFoundException('Referral not found');
+
+    const isFrom = referral.fromHospital.toString() === facilityId.toString();
+    const isTo = referral.toHospital?.toString() === facilityId.toString();
+
+    if (!isFrom && !isTo) {
+      throw new ForbiddenException('Your facility is not authorized to update this referral');
+    }
+
+    referral.status = status;
+    
+    if (status === ReferralStatus.ARRIVED || status === ReferralStatus.CHECKED_IN) {
+      referral.gateCheckedInAt = new Date();
+    } else if (status === ReferralStatus.COMPLETED) {
+      referral.completedAt = new Date();
+    }
+
+    referral.activityLog.push({
+      status,
+      actor: actorId,
+      note: note || `Status updated to ${status}`,
+      timestamp: new Date(),
+    });
+
+    return referral.save();
   }
 }

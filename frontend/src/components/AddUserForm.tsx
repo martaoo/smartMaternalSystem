@@ -160,7 +160,16 @@ export function AddUserForm({
 
   // ── Handlers ──────────────────────────────────────────────────────────────
   const handleWoredaChange = (woredaId: string) => {
-    setFormData(prev => ({ ...prev, woredaId, hospitalId: '' }));
+    const selectedWoreda = woredas.find(w => w._id === woredaId);
+    const regionId = selectedWoreda?.regionId?._id || selectedWoreda?.regionId || '';
+    
+    setFormData(prev => ({ 
+      ...prev, 
+      woredaId, 
+      hospitalId: '',
+      regionId: regionId.toString()
+    }));
+    
     if (woredaId) {
       const inWoreda = hospitals.filter((h: any) => extractWoredaId(h) === woredaId);
       setFilteredHospitals(inWoreda);
@@ -177,7 +186,16 @@ export function AddUserForm({
     const selected = hospitals.find((h: any) => h._id?.toString() === hospitalId);
     if (selected) {
       const wid = extractWoredaId(selected);
-      setFormData(prev => ({ ...prev, hospitalId, woredaId: wid || prev.woredaId }));
+      // Try to get regionId from hospital first, then from woreda if available
+      const regionId = selected.regionId?._id || selected.regionId || '';
+      
+      setFormData(prev => ({ 
+        ...prev, 
+        hospitalId, 
+        woredaId: wid || prev.woredaId,
+        regionId: regionId ? regionId.toString() : prev.regionId
+      }));
+      
       if (wid) {
         setFilteredHospitals(hospitals.filter((h: any) => extractWoredaId(h) === wid));
       }
@@ -338,7 +356,7 @@ export function AddUserForm({
               <select
                 required
                 value={formData.woredaId}
-                onChange={(e) => setFormData({ ...formData, woredaId: e.target.value })}
+                onChange={(e) => handleWoredaChange(e.target.value)}
                 className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
               >
                 <option value="">Select Woreda</option>

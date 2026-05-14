@@ -35,7 +35,7 @@ export function ChildList({ children, onVerify, onRefresh }: ChildListProps) {
   const [facilityFilter, setFacilityFilter] = useState<string>('all');
 
   // Get unique facilities for filter dropdown
-  const facilities = Array.from(new Set(children.map(c => c.birthFacility.name)));
+  const facilities = Array.from(new Set(children.map(c => c.birthFacility?.name).filter(Boolean))) as string[];
 
   // Filter children based on selected filters
   const filteredChildren = children.filter(child => {
@@ -43,7 +43,7 @@ export function ChildList({ children, onVerify, onRefresh }: ChildListProps) {
       (filter === 'verified' && child.verified) || 
       (filter === 'pending' && !child.verified);
     
-    const facilityMatch = facilityFilter === 'all' || child.birthFacility.name === facilityFilter;
+    const facilityMatch = facilityFilter === 'all' || child.birthFacility?.name === facilityFilter;
     
     return statusMatch && facilityMatch;
   });
@@ -137,16 +137,10 @@ export function ChildList({ children, onVerify, onRefresh }: ChildListProps) {
                     Child Name
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Date of Birth
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Gender
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Mother
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Birth Facility
+                    Maternal & Birth Details
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Registered
@@ -167,21 +161,26 @@ export function ChildList({ children, onVerify, onRefresh }: ChildListProps) {
                         {child.name || 'Not Named Yet'}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {formatDate(child.dateOfBirth)}
-                    </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getGenderColor(child.gender)}`}>
                         {child.gender}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{child.mother.name}</div>
-                      <div className="text-xs text-gray-500">{child.mother.phone}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{child.birthFacility.name}</div>
-                      <div className="text-xs text-gray-500">{child.birthFacility.type.replace('_', ' ')}</div>
+                      <div className="flex flex-col space-y-1">
+                        <div className="flex items-center text-sm">
+                          <span className="font-medium text-gray-900 mr-2">Mother:</span>
+                          <span className="text-gray-700">{child.mother?.name || 'Unknown'}</span>
+                        </div>
+                        <div className="flex items-center text-xs">
+                          <span className="font-medium text-gray-500 mr-2">Facility:</span>
+                          <span className="text-gray-600">{child.birthFacility?.name || 'Unknown'}</span>
+                        </div>
+                        <div className="flex items-center text-xs">
+                          <span className="font-medium text-gray-500 mr-2">DOB:</span>
+                          <span className="text-gray-600">{formatDate(child.dateOfBirth)}</span>
+                        </div>
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {formatDate(child.registrationTimestamp)}
@@ -278,11 +277,11 @@ export function ChildList({ children, onVerify, onRefresh }: ChildListProps) {
                   <div className="space-y-2">
                     <div className="flex justify-between">
                       <span className="text-sm text-gray-600">Name:</span>
-                      <span className="text-sm font-medium">{selectedChild.mother.name}</span>
+                      <span className="text-sm font-medium">{selectedChild.mother?.name || 'Unknown'}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-sm text-gray-600">Phone:</span>
-                      <span className="text-sm font-medium">{selectedChild.mother.phone}</span>
+                      <span className="text-sm font-medium">{selectedChild.mother?.phone || 'N/A'}</span>
                     </div>
                   </div>
                 </div>
@@ -292,11 +291,11 @@ export function ChildList({ children, onVerify, onRefresh }: ChildListProps) {
                   <div className="space-y-2">
                     <div className="flex justify-between">
                       <span className="text-sm text-gray-600">Facility Name:</span>
-                      <span className="text-sm font-medium">{selectedChild.birthFacility.name}</span>
+                      <span className="text-sm font-medium">{selectedChild.birthFacility?.name || 'Unknown'}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-sm text-gray-600">Facility Type:</span>
-                      <span className="text-sm font-medium">{selectedChild.birthFacility.type.replace('_', ' ')}</span>
+                      <span className="text-sm font-medium">{selectedChild.birthFacility?.type?.replace('_', ' ') || 'Unknown'}</span>
                     </div>
                   </div>
                 </div>

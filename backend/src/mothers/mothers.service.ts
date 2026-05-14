@@ -65,6 +65,15 @@ export class MothersService {
       lmp: createMotherDto.lmp,
       registeredBy: createMotherDto.registeredBy || 'System',
       
+      bloodType: createMotherDto.bloodType,
+      rhFactor: createMotherDto.rhFactor,
+      hivStatus: createMotherDto.hivStatus,
+      hepatitisB: createMotherDto.hepatitisB,
+      hypertension: createMotherDto.hypertension,
+      diabetes: createMotherDto.diabetes,
+      anemia: createMotherDto.anemia,
+      previousCSection: createMotherDto.previousCSection,
+      
       woredaId: effectiveWoredaId
         ? new Types.ObjectId(effectiveWoredaId)
         : (createMotherDto.woredaId ? new Types.ObjectId(createMotherDto.woredaId) : undefined),

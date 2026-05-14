@@ -33,7 +33,7 @@ const getDashboardForRole = (role: string): string => {
 interface AuthContextType extends AuthState {
   login: (credentials: LoginCredentials) => Promise<void>;
   register: (credentials: RegisterCredentials) => Promise<void>;
-  logout: () => void;
+  logout: (callback?: () => void) => void;
   clearError: () => void;
 }
 
@@ -103,6 +103,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             hospitalId: user.hospitalId ? String(user.hospitalId) : undefined,
             woredaId: user.woredaId ? String(user.woredaId) : undefined,
             regionId: user.regionId ? String(user.regionId) : undefined,
+            assignedRegion: user.assignedRegion ?? undefined,
+            phoneNumber: user.phoneNumber ?? undefined,
           };
           dispatch({ type: 'LOGIN_SUCCESS', payload: normalizedUser });
         } catch (error) {
@@ -205,7 +207,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const logout = () => {
+  const logout = (callback?: () => void) => {
     localStorage.removeItem('user');
     localStorage.removeItem('auth_token');
     localStorage.removeItem('token');
@@ -213,6 +215,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     sessionStorage.removeItem('auth_token');
     dispatch({ type: 'LOGOUT' });
     fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
+    if (typeof callback === 'function') {
+      callback();
+    }
   };
 
   const clearError = () => {

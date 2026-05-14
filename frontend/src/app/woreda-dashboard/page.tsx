@@ -60,11 +60,10 @@ interface Facility {
 export default function WoredaDashboard() {
   const { user } = useAuth();
   const [children, setChildren] = useState<Child[]>([]);
-  const [mothers, setMothers] = useState<Mother[]>([]);
   const [facilities, setFacilities] = useState<Facility[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'children' | 'mothers' | 'facilities'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'children' | 'facilities'>('overview');
 
   useEffect(() => {
     // Wait until user is loaded before fetching
@@ -88,9 +87,8 @@ export default function WoredaDashboard() {
       }
 
       // Fetch all data in parallel
-      const [childrenResponse, mothersResponse, facilitiesResponse] = await Promise.all([
+      const [childrenResponse, facilitiesResponse] = await Promise.all([
         childrenApi.getAll().catch(() => []),
-        mothersApi.getAll().catch(() => []),
         api.getHospitals().catch(() => []),
       ]);
 
@@ -107,7 +105,7 @@ export default function WoredaDashboard() {
           })
         : [];
 
-      // Get the IDs of facilities in this woreda for child/mother filtering
+      // Get the IDs of facilities in this woreda for child filtering
       const facilityIds = new Set(filteredFacilities.map((f: any) => f._id?.toString()));
 
       // Filter children whose birth hospital is in this woreda
@@ -123,24 +121,7 @@ export default function WoredaDashboard() {
           })
         : [];
 
-      // Filter mothers whose health center is in this woreda
-      const filteredMothers = Array.isArray(mothersResponse)
-        ? mothersResponse.filter((mother: any) => {
-            const hcId =
-              mother.healthCenter?._id?.toString() ??
-              mother.healthCenter?.toString() ??
-              '';
-            const mWoreda =
-              mother.woredaId?._id?.toString() ??
-              mother.woredaId?.toString() ??
-              mother.woreda?.toString() ??
-              '';
-            return facilityIds.has(hcId) || mWoreda === woreda.toString();
-          })
-        : [];
-
       setChildren(filteredChildren);
-      setMothers(filteredMothers);
       setFacilities(filteredFacilities);
     } catch (err: any) {
       console.error('Error fetching woreda data:', err);
@@ -252,16 +233,6 @@ export default function WoredaDashboard() {
                 Newborn Children ({children.length})
               </button>
               <button
-                onClick={() => setActiveTab('mothers')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'mothers'
-                    ? 'border-green-500 text-green-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                Mothers ({mothers.length})
-              </button>
-              <button
                 onClick={() => setActiveTab('facilities')}
                 className={`py-4 px-1 border-b-2 font-medium text-sm ${
                   activeTab === 'facilities'
@@ -287,7 +258,7 @@ export default function WoredaDashboard() {
             {activeTab === 'overview' && (
               <div className="space-y-6">
                 <WoredaStats 
-                  mothers={mothers}
+                  mothers={[]}
                   children={children}
                   facilities={facilities}
                 />
@@ -302,15 +273,6 @@ export default function WoredaDashboard() {
               />
             )}
 
-            {activeTab === 'mothers' && (
-              <div className="bg-white rounded-lg shadow-md p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">Mothers in Woreda</h2>
-                {/* Mother list component can be added here */}
-                <div className="text-center py-8">
-                  <p className="text-gray-500">Mother management component coming soon...</p>
-                </div>
-              </div>
-            )}
 
             {activeTab === 'facilities' && (
               <FacilityList 

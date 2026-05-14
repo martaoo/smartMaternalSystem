@@ -164,8 +164,11 @@ export default function RegisterMother() {
                 try {
                   const woredaList = await api.getWoredas();
                   const hospitalWoreda = woredaList.find((w: any) => w._id === hospitalWoredaId);
-                  if (hospitalWoreda?.region) {
-                    setFormData(prev => ({ ...prev, region: hospitalWoreda.region }));
+                  
+                  // Try to get region from various possible fields
+                  const regionVal = hospitalWoreda?.regionId?.name || hospitalWoreda?.regionId || hospitalWoreda?.region || currentUser.assignedRegion;
+                  if (regionVal) {
+                    setFormData(prev => ({ ...prev, region: regionVal.toString() }));
                   }
                 } catch { /* silent */ }
               }
@@ -176,10 +179,13 @@ export default function RegisterMother() {
           try {
             const woredaList = await api.getWoredas();
             const userWoreda = woredaList.find((w: any) => w._id === currentUser.woredaId);
-            if (userWoreda?.region) {
-              setFormData(prev => ({ ...prev, region: userWoreda.region }));
+            const regionVal = userWoreda?.regionId?.name || userWoreda?.regionId || userWoreda?.region || currentUser.assignedRegion;
+            if (regionVal) {
+              setFormData(prev => ({ ...prev, region: regionVal.toString() }));
             }
           } catch { /* silent */ }
+        } else if (currentUser.assignedRegion) {
+          setFormData(prev => ({ ...prev, region: currentUser.assignedRegion }));
         } else if (currentUser.regionId) {
           setFormData(prev => ({ ...prev, region: currentUser.regionId }));
         }
@@ -383,7 +389,18 @@ export default function RegisterMother() {
       console.log('Current formData before validation:', formData);
       
       if (!formData.region) {
-        throw new Error('Please select a region first');
+        // If region is missing, try to infer it from currentUser before throwing error
+        if (currentUser?.assignedRegion) {
+          formData.region = currentUser.assignedRegion;
+        } else if (userHospital?.woredaId?.regionId?.name) {
+          formData.region = userHospital.woredaId.regionId.name;
+        } else {
+          // If we still can't find it, but we have a health center/woreda, we can skip this check
+          // as the backend doesn't strictly require the region string name.
+          if (!formData.woredaId && !formData.healthCenter) {
+            throw new Error('Please select a region first');
+          }
+        }
       }
       
       if (!formData.woredaId) {
@@ -464,6 +481,14 @@ export default function RegisterMother() {
         registeredBy: currentUser?.name || 'Unknown',
         tempUsername: tempUsername,
         tempPassword: tempPassword,
+        bloodType: formData.bloodType || undefined,
+        rhFactor: formData.rhFactor || undefined,
+        hivStatus: formData.hivStatus || undefined,
+        hepatitisB: formData.hepatitisB || undefined,
+        hypertension: formData.hypertension,
+        diabetes: formData.diabetes,
+        anemia: formData.anemia,
+        previousCSection: formData.previousCSection,
       };
       
       console.log('motherData.woredaId:', motherData.woredaId);

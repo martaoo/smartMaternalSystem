@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
 import { AddUserForm } from '@/components/AddUserForm';
@@ -10,32 +11,52 @@ import { referralsApi } from '@/lib/healthcare-api';
 
 interface Stats {
   totalStaff: number;
+  totalMothers: number;
+  totalChildren: number;
   pendingReferrals: number;
   inboundReferrals: number;
 }
 
 export default function HealthCenterDashboard() {
   const { user, logout } = useAuth();
+  const router = useRouter();
   const [showAddUser, setShowAddUser] = useState(false);
-  const [stats, setStats] = useState<Stats>({ totalStaff: 0, pendingReferrals: 0, inboundReferrals: 0 });
+  const [stats, setStats] = useState<Stats>({ 
+    totalStaff: 0, 
+    totalMothers: 0,
+    totalChildren: 0,
+    pendingReferrals: 0, 
+    inboundReferrals: 0 
+  });
   const [statsLoading, setStatsLoading] = useState(true);
 
   const loadStats = async () => {
     if (!user) return;
     setStatsLoading(true);
     try {
-      const [users, outbound, inbound] = await Promise.allSettled([
+      const [usersRes, outboundRes, inboundRes] = await Promise.allSettled([
         api.getUsers(),
         referralsApi.getOutbox(),
         referralsApi.getAll('inbound'),
       ]);
-      const u = users.status === 'fulfilled' && Array.isArray(users.value) ? users.value : [];
-      const ob = outbound.status === 'fulfilled' && Array.isArray(outbound.value) ? outbound.value : [];
-      const ib = inbound.status === 'fulfilled' && Array.isArray(inbound.value) ? inbound.value : [];
+      
+      const allUsers = usersRes.status === 'fulfilled' && Array.isArray(usersRes.value) ? usersRes.value : [];
+      const outbound = outboundRes.status === 'fulfilled' && Array.isArray(outboundRes.value) ? outboundRes.value : [];
+      const inbound = inboundRes.status === 'fulfilled' && Array.isArray(inboundRes.value) ? inboundRes.value : [];
+      
+      const hospitalId = typeof user?.hospitalId === 'string' ? user.hospitalId : (user?.hospitalId as any)?._id;
+
+      const getHospId = (usr: any) => {
+        if (!usr.hospitalId) return null;
+        return typeof usr.hospitalId === 'object' ? (usr.hospitalId._id?.toString() || usr.hospitalId.toString()) : usr.hospitalId.toString();
+      };
+
       setStats({
-        totalStaff: u.length,
-        pendingReferrals: ob.filter((r: any) => r.status === 'PENDING').length,
-        inboundReferrals: ib.filter((r: any) => r.status === 'PENDING').length,
+        totalStaff: allUsers.filter((usr: any) => getHospId(usr) === hospitalId && usr.role !== 'MOTHER' && usr.role !== 'CHILD').length,
+        totalMothers: allUsers.filter((usr: any) => getHospId(usr) === hospitalId && usr.role === 'MOTHER').length,
+        totalChildren: allUsers.filter((usr: any) => getHospId(usr) === hospitalId && usr.role === 'CHILD').length,
+        pendingReferrals: outbound.filter((r: any) => r.status === 'PENDING').length,
+        inboundReferrals: inbound.filter((r: any) => r.status === 'PENDING').length,
       });
     } catch {
       // non-critical
@@ -71,7 +92,7 @@ export default function HealthCenterDashboard() {
                   My Profile
                 </Link>
                 <button
-                  onClick={logout}
+                  onClick={() => logout(() => router.push('/auth'))}
                   className="whitespace-nowrap bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors duration-200 text-sm"
                 >
                   Logout
@@ -85,21 +106,31 @@ export default function HealthCenterDashboard() {
           <div className="px-4 py-6 sm:px-0 space-y-6">
 
             {/* Stats row */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
               <div className="bg-white rounded-lg shadow p-5 border-l-4 border-teal-500">
-                <p className="text-sm text-gray-500">Total Staff</p>
+                <p className="text-sm text-gray-500 font-medium">Total Staff</p>
                 <p className="text-3xl font-bold text-gray-900 mt-1">{statVal(stats.totalStaff)}</p>
-                <p className="text-xs text-gray-400 mt-1">Registered at your facility</p>
+                <p className="text-xs text-gray-400 mt-1">At your facility</p>
+              </div>
+              <div className="bg-white rounded-lg shadow p-5 border-l-4 border-pink-500">
+                <p className="text-sm text-gray-500 font-medium">Total Mothers</p>
+                <p className="text-3xl font-bold text-gray-900 mt-1">{statVal(stats.totalMothers)}</p>
+                <p className="text-xs text-gray-400 mt-1">Registered patients</p>
+              </div>
+              <div className="bg-white rounded-lg shadow p-5 border-l-4 border-blue-500">
+                <p className="text-sm text-gray-500 font-medium">Total Children</p>
+                <p className="text-3xl font-bold text-gray-900 mt-1">{statVal(stats.totalChildren)}</p>
+                <p className="text-xs text-gray-400 mt-1">Tracked dependents</p>
               </div>
               <div className="bg-white rounded-lg shadow p-5 border-l-4 border-yellow-500">
-                <p className="text-sm text-gray-500">Pending Outbound Referrals</p>
+                <p className="text-sm text-gray-500 font-medium">Outbound Referrals</p>
                 <p className="text-3xl font-bold text-gray-900 mt-1">{statVal(stats.pendingReferrals)}</p>
-                <p className="text-xs text-gray-400 mt-1">Awaiting receiving hospital response</p>
+                <p className="text-xs text-gray-400 mt-1">Pending response</p>
               </div>
               <div className="bg-white rounded-lg shadow p-5 border-l-4 border-indigo-500">
-                <p className="text-sm text-gray-500">Pending Inbound Referrals</p>
+                <p className="text-sm text-gray-500 font-medium">Inbound Referrals</p>
                 <p className="text-3xl font-bold text-gray-900 mt-1">{statVal(stats.inboundReferrals)}</p>
-                <p className="text-xs text-gray-400 mt-1">Awaiting your response</p>
+                <p className="text-xs text-gray-400 mt-1">Awaiting decision</p>
               </div>
             </div>
 
@@ -139,66 +170,58 @@ export default function HealthCenterDashboard() {
                 <p className="text-xs text-blue-600 mt-3 font-medium group-hover:underline">View reports →</p>
               </Link>
 
-              {/* Care Tracking */}
+              {/* Analytics */}
               <Link
-                href="/healthcare-dashboard"
+                href="/health-center-dashboard/analytics"
                 className="bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow group"
               >
                 <div className="flex items-center gap-3 mb-3">
-                  <div className="h-10 w-10 bg-green-100 rounded-lg flex items-center justify-center group-hover:bg-green-200 transition-colors">
-                    <svg className="h-5 w-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                  <div className="h-10 w-10 bg-purple-100 rounded-lg flex items-center justify-center group-hover:bg-purple-200 transition-colors">
+                    <svg className="h-5 w-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
                   </div>
-                  <h2 className="text-lg font-semibold text-gray-900">Care Tracking</h2>
+                  <h2 className="text-lg font-semibold text-gray-900">Analytics</h2>
                 </div>
-                <p className="text-sm text-gray-600">Monitor maternal and child health services, pregnancies, vaccinations and referrals.</p>
-                <p className="text-xs text-green-600 mt-3 font-medium group-hover:underline">Open care dashboard →</p>
+                <p className="text-sm text-gray-600">Detailed analytics on patient flows and facility service performance.</p>
+                <p className="text-xs text-purple-600 mt-3 font-medium group-hover:underline">View analytics →</p>
               </Link>
             </div>
 
             {/* Quick Actions */}
             <div className="bg-white rounded-lg shadow p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
                 <button
                   onClick={() => setShowAddUser(true)}
                   className="flex items-center justify-center gap-2 px-4 py-3 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors text-sm font-medium"
                 >
-                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
                   </svg>
                   Add Staff
                 </button>
 
                 <Link
-                  href="/health-center-dashboard/users"
-                  className="flex items-center justify-center gap-2 px-4 py-3 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors text-sm font-medium"
+                  href="/health-center-dashboard/patients"
+                  className="flex items-center justify-center gap-2 px-4 py-3 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition-colors text-sm font-medium"
                 >
-                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                  View Staff
+                  Manage Mothers
                 </Link>
 
-                <Link
-                  href="/health-center-dashboard/reports"
-                  className="flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-                >
-                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                  </svg>
-                  View Reports
-                </Link>
+                <button className="flex items-center justify-center gap-2 px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium">
+                  Mothers: {statVal(stats.totalMothers)}
+                </button>
+
+                <button className="flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium">
+                  Children: {statVal(stats.totalChildren)}
+                </button>
 
                 <Link
-                  href="/health-center-dashboard/profile"
-                  className="flex items-center justify-center gap-2 px-4 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm font-medium"
+                  href="/healthcare-dashboard"
+                  className="flex items-center justify-center gap-2 px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
                 >
-                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
-                  My Profile
+                  Open Care Dashboard
                 </Link>
               </div>
             </div>

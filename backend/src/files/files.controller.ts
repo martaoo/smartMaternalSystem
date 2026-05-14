@@ -23,7 +23,7 @@ export class FilesController {
     if (!file) throw new BadRequestException('File upload failed');
 
     // Cloudinary gives you a 'path' (the URL) or 'secure_url'
-    const filePath = file.path; 
+    const filePath = file.path || file.secure_url || file.url; 
 
     // Attach the URL to the referral in your DB
     const facilityId = req.user.facilityId ?? req.user.hospitalId;

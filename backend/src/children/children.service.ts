@@ -38,7 +38,7 @@ export class ChildrenService {
     const child = await this.childModel
       .findById(id)
       .populate({ path: 'birthHospital', select: 'name type woredaId' })
-      .populate('motherId', 'name phone age address')
+      .populate('motherId', 'name phone age address woredaId')
       .exec();
 
     if (!child) throw new NotFoundException('Child not found');
@@ -237,8 +237,8 @@ export class ChildrenService {
 
   async verifyChild(id: string, userRole: string, userWoredaId?: string): Promise<Child> {
     const child = await this.childModel.findById(id)
-      .populate('motherId', 'name phone age address')
-      .populate('birthHospital', 'name type address')
+      .populate('motherId', 'name phone age address woredaId')
+      .populate('birthHospital', 'name type address woredaId')
       .populate('deliveredBy', 'name email role')
       .populate('assignedHealthWorker', 'name email role')
       .exec();
@@ -250,9 +250,10 @@ export class ChildrenService {
     // Check if user has permission to verify this child
     if (userRole === 'WOREDA_ADMIN') {
       // For woreda admin, check if the child belongs to their woreda
-      // This might require checking through the birth facility or mother
-      const hospitalWoreda = (child.birthHospital as any)?.woreda;
-      if (hospitalWoreda !== userWoredaId) {
+      const motherWoredaId = (child.motherId as any)?.woredaId?.toString();
+      const hospitalWoredaId = (child.birthHospital as any)?.woredaId?.toString();
+      
+      if (motherWoredaId !== userWoredaId && hospitalWoredaId !== userWoredaId) {
         throw new BadRequestException('You can only verify children in your woreda');
       }
     }

@@ -53,10 +53,7 @@ export function AddHospitalForm({ onClose, onSuccess, hospitalToEdit }: AddHospi
       if (hospitalToEdit?._id) {
         await api.updateHospital(hospitalToEdit._id, formData);
       } else {
-        await api.createHospital({
-        ...formData,
-        type: 'HEALTH_CENTER',
-      });
+        await api.createHospital(formData);
       }
       onSuccess();
       onClose();
@@ -84,6 +81,19 @@ export function AddHospitalForm({ onClose, onSuccess, hospitalToEdit }: AddHospi
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
             />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Facility Type</label>
+            <select
+              required
+              value={formData.type}
+              onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+            >
+              <option value="HOSPITAL">Hospital</option>
+              <option value="HEALTH_CENTER">Health Center</option>
+              <option value="CLINIC">Clinic</option>
+            </select>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700">Location</label>
