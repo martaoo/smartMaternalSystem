@@ -88,11 +88,11 @@ export default function WoredaDashboard() {
 
       // Fetch all data in parallel
       const [childrenResponse, facilitiesResponse] = await Promise.all([
-        childrenApi.getAll().catch(() => []),
+        childrenApi.getByWoreda(woreda.toString()).catch(() => []),
         api.getHospitals().catch(() => []),
       ]);
 
-      // Filter facilities by woreda — hospitals store woredaId as ObjectId or populated object
+      // Filter facilities by woreda
       const filteredFacilities = Array.isArray(facilitiesResponse)
         ? facilitiesResponse.filter((facility: any) => {
             const fWoreda =
@@ -105,23 +105,7 @@ export default function WoredaDashboard() {
           })
         : [];
 
-      // Get the IDs of facilities in this woreda for child filtering
-      const facilityIds = new Set(filteredFacilities.map((f: any) => f._id?.toString()));
-
-      // Filter children whose birth hospital is in this woreda
-      const filteredChildren = Array.isArray(childrenResponse)
-        ? childrenResponse.filter((child: any) => {
-            const hospitalId =
-              child.birthHospital?._id?.toString() ??
-              child.birthHospital?.toString() ??
-              child.birthFacility?._id?.toString() ??
-              child.birthFacility?.toString() ??
-              '';
-            return facilityIds.has(hospitalId);
-          })
-        : [];
-
-      setChildren(filteredChildren);
+      setChildren(Array.isArray(childrenResponse) ? childrenResponse : []);
       setFacilities(filteredFacilities);
     } catch (err: any) {
       console.error('Error fetching woreda data:', err);
