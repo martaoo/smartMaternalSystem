@@ -1,14 +1,14 @@
 // Maternal Referral System Types and Constants
 
 export enum ReferralStatus {
-  CREATED = 'CREATED',
+  DRAFT = 'DRAFT',
   PENDING = 'PENDING', 
   ACCEPTED = 'ACCEPTED',
+  REJECTED = 'REJECTED',
   IN_TRANSIT = 'IN_TRANSIT',
   ARRIVED = 'ARRIVED',
   IN_PROGRESS = 'IN_PROGRESS',
   COMPLETED = 'COMPLETED',
-  REJECTED = 'REJECTED',
   NO_SHOW = 'NO_SHOW',
   EXPIRED = 'EXPIRED'
 }
@@ -27,7 +27,13 @@ export enum RiskLevel {
 export interface MaternalReferral {
   _id: string;
   referralCode: string;
-  motherId: string;
+  motherId: string | {
+    _id: string;
+    name: string;
+    phone: string;
+    age: number;
+    address?: string;
+  };
   mother?: {
     _id: string;
     name: string;
@@ -35,8 +41,9 @@ export interface MaternalReferral {
     age: number;
     address?: string;
   };
-  fromHospital: string;
-  toHospital: string;
+  fromHospital: string | { _id: string; name: string; type: string };
+  toHospital: string | { _id: string; name: string; type: string };
+  createdBy: string | { _id: string; name: string; email: string; role: string };
   fromHospitalName?: string;
   toHospitalName?: string;
   status: ReferralStatus;
@@ -54,6 +61,7 @@ export interface MaternalReferral {
   reasonForReferral: string;
   clinicalNotes?: string;
   doctorName?: string;
+  attachments?: string[];
   
   // Lifecycle tracking
   createdAt: string;
@@ -111,15 +119,15 @@ export interface ReferralAction {
 
 // Status-based action mapping
 export const REFERRAL_ACTIONS: Record<ReferralStatus, ReferralAction[]> = {
-  [ReferralStatus.CREATED]: [
+  [ReferralStatus.DRAFT]: [
     {
       status: ReferralStatus.PENDING,
-      label: 'Send Referral',
+      label: 'Send Referral (Liaison Review)',
       icon: 'send',
       color: 'blue',
-      allowedRoles: ['HEALTH_CENTER_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE'],
+      allowedRoles: ['LIAISON_OFFICER', 'HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN'],
       requiresConfirmation: true,
-      confirmationMessage: 'Are you sure you want to send this referral?'
+      confirmationMessage: 'Has this referral been reviewed and is it ready to be sent?'
     }
   ],
   [ReferralStatus.PENDING]: [
@@ -200,12 +208,12 @@ export const STATUS_CONFIG: Record<ReferralStatus, {
   icon: string;
   description: string;
 }> = {
-  [ReferralStatus.CREATED]: {
-    label: 'Created',
+  [ReferralStatus.DRAFT]: {
+    label: 'Draft',
     color: 'text-gray-600',
     bgColor: 'bg-gray-100',
     icon: 'file-text',
-    description: 'Referral created, ready to send'
+    description: 'Referral drafted, ready to send'
   },
   [ReferralStatus.PENDING]: {
     label: 'Pending',
@@ -220,6 +228,13 @@ export const STATUS_CONFIG: Record<ReferralStatus, {
     bgColor: 'bg-green-100',
     icon: 'check',
     description: 'Referral accepted by receiving hospital'
+  },
+  [ReferralStatus.REJECTED]: {
+    label: 'Rejected',
+    color: 'text-red-600',
+    bgColor: 'bg-red-100',
+    icon: 'x-circle',
+    description: 'Referral rejected by hospital'
   },
   [ReferralStatus.IN_TRANSIT]: {
     label: 'In Transit',
@@ -248,13 +263,6 @@ export const STATUS_CONFIG: Record<ReferralStatus, {
     bgColor: 'bg-green-100',
     icon: 'check-circle',
     description: 'Referral completed successfully'
-  },
-  [ReferralStatus.REJECTED]: {
-    label: 'Rejected',
-    color: 'text-red-600',
-    bgColor: 'bg-red-100',
-    icon: 'x-circle',
-    description: 'Referral rejected by hospital'
   },
   [ReferralStatus.NO_SHOW]: {
     label: 'No Show',

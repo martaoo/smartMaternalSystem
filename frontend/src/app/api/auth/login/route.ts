@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 
-const BACKEND_BASE = process.env.BACKEND_BASE_URL ?? "http://localhost:3001/api"
+const BACKEND_BASE = process.env.BACKEND_BASE_URL || 
+  (process.env.API_URL ? (process.env.API_URL.endsWith('/api') ? process.env.API_URL : `${process.env.API_URL}/api`) : "http://127.0.0.1:3001/api");
 const COOKIE_NAME = "sms_token"
 const COOKIE_MAX_AGE = 60 * 60 * 24 // 24 hours
 

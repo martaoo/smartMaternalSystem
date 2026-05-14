@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
 import { AddUserForm } from '@/components/AddUserForm';
@@ -16,6 +17,7 @@ interface Stats {
 
 export default function HospitalDashboard() {
   const { user, logout } = useAuth();
+  const router = useRouter();
   const [showAddUser, setShowAddUser] = useState(false);
   const [stats, setStats] = useState<Stats>({ totalStaff: 0, pendingReferrals: 0, inboundReferrals: 0 });
   const [statsLoading, setStatsLoading] = useState(true);
@@ -84,7 +86,7 @@ export default function HospitalDashboard() {
                   My Profile
                 </Link>
                 <button
-                  onClick={logout}
+                  onClick={() => logout(() => router.push('/auth'))}
                   className="whitespace-nowrap bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors duration-200 text-sm"
                 >
                   Logout

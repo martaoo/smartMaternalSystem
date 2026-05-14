@@ -64,7 +64,11 @@ export default function ReferralDetails() {
     );
   };
 
-  const handleActionClick = (action: any) => {
+  const handleLogout = () => {
+    logout(() => router.push('/auth'));
+  };
+
+  const handleAction = async (action: any, note?: string) => {
     setSelectedAction(action);
     setActionNote('');
     setShowActionModal(true);
@@ -131,21 +135,21 @@ export default function ReferralDetails() {
 
   const getStatusColor = (status?: ReferralStatus) => {
     if (!status || !STATUS_CONFIG[status]) {
-      return STATUS_CONFIG[ReferralStatus.CREATED].bgColor;
+      return STATUS_CONFIG[ReferralStatus.DRAFT].bgColor;
     }
     return STATUS_CONFIG[status].bgColor;
   };
 
   const getStatusTextColor = (status?: ReferralStatus) => {
     if (!status || !STATUS_CONFIG[status]) {
-      return STATUS_CONFIG[ReferralStatus.CREATED].color;
+      return STATUS_CONFIG[ReferralStatus.DRAFT].color;
     }
     return STATUS_CONFIG[status].color;
   };
 
   const getStatusLabel = (status?: ReferralStatus) => {
     if (!status || !STATUS_CONFIG[status]) {
-      return STATUS_CONFIG[ReferralStatus.CREATED].label;
+      return STATUS_CONFIG[ReferralStatus.DRAFT].label;
     }
     return STATUS_CONFIG[status].label;
   };
@@ -220,7 +224,14 @@ export default function ReferralDetails() {
               <h1 className="text-2xl font-bold text-gray-900">Referral Details</h1>
               <p className="text-sm text-gray-600">Referral Code: {referral.referralCode}</p>
             </div>
-            <div className="flex items-center space-x-4">
+            <div className="flex space-x-3">
+              <button
+                onClick={fetchReferralDetails}
+                className="px-4 py-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors flex items-center"
+                disabled={loading}
+              >
+                {loading ? '...' : 'Refresh'}
+              </button>
               <button
                 onClick={() => router.push('/healthcare-dashboard/maternal-referrals')}
                 className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
@@ -228,7 +239,7 @@ export default function ReferralDetails() {
                 Back to Referrals
               </button>
               <button
-                onClick={logout}
+                onClick={handleLogout}
                 className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
               >
                 Logout
@@ -335,19 +346,27 @@ export default function ReferralDetails() {
             <div className="space-y-3">
               <div className="flex justify-between">
                 <span className="text-gray-600">Name:</span>
-                <span className="font-medium">{referral.mother?.name || 'Unknown'}</span>
+                <span className="font-medium">
+                  {typeof referral.motherId === 'object' ? referral.motherId.name : (referral.mother?.name || 'Unknown')}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Phone:</span>
-                <span className="font-medium">{referral.mother?.phone || 'Not provided'}</span>
+                <span className="font-medium">
+                  {typeof referral.motherId === 'object' ? referral.motherId.phone : (referral.mother?.phone || 'Not provided')}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Age:</span>
-                <span className="font-medium">{referral.mother?.age || 'Unknown'} years</span>
+                <span className="font-medium">
+                  {typeof referral.motherId === 'object' ? referral.motherId.age : (referral.mother?.age || 'Unknown')} years
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Address:</span>
-                <span className="font-medium">{referral.mother?.address || 'Not provided'}</span>
+                <span className="font-medium">
+                  {typeof referral.motherId === 'object' ? referral.motherId.address : (referral.mother?.address || 'Not provided')}
+                </span>
               </div>
             </div>
           </div>
@@ -356,16 +375,26 @@ export default function ReferralDetails() {
             <h3 className="text-lg font-medium text-gray-900 mb-4">Referral Information</h3>
             <div className="space-y-3">
               <div className="flex justify-between">
-                <span className="text-gray-600">From Hospital:</span>
-                <span className="font-medium">{referral.fromHospitalName || 'Unknown'}</span>
+                <span className="text-gray-600">From Facility:</span>
+                <span className="font-medium">
+                  {typeof referral.fromHospital === 'object' 
+                    ? `${referral.fromHospital.name} (${referral.fromHospital.type})` 
+                    : (referral.fromHospitalName || 'Unknown')}
+                </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">To Hospital:</span>
-                <span className="font-medium">{referral.toHospitalName || 'Unknown'}</span>
+                <span className="text-gray-600">To Facility:</span>
+                <span className="font-medium">
+                  {typeof referral.toHospital === 'object' 
+                    ? `${referral.toHospital.name} (${referral.toHospital.type})` 
+                    : (referral.toHospitalName || 'Unknown')}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Doctor:</span>
-                <span className="font-medium">{referral.doctorName || 'Unknown'}</span>
+                <span className="font-medium">
+                  {typeof referral.createdBy === 'object' ? referral.createdBy.name : (referral.doctorName || 'Unknown')}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Created:</span>
@@ -443,6 +472,43 @@ export default function ReferralDetails() {
             )}
           </div>
         </div>
+
+        {/* Attachments Section */}
+        {(referral.attachments?.length > 0 || referral.status === ReferralStatus.DRAFT) && (
+          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Attachments & Medical Documents</h3>
+            {referral.attachments?.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                {referral.attachments.map((url: string, idx: number) => {
+                  const isImage = url.match(/\.(jpeg|jpg|gif|png)$/i);
+                  return (
+                    <a 
+                      key={idx} 
+                      href={url} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors group"
+                    >
+                      <span className="text-blue-600 mr-2 group-hover:scale-110 transition-transform">
+                        {isImage ? '🖼️' : '📄'}
+                      </span>
+                      <div className="flex flex-col overflow-hidden">
+                        <span className="text-sm font-medium text-gray-700 truncate">
+                          Medical Document {idx + 1}
+                        </span>
+                        <span className="text-xs text-gray-400 truncate">
+                          Click to view
+                        </span>
+                      </div>
+                    </a>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-gray-500 text-sm">No attachments provided.</p>
+            )}
+          </div>
+        )}
 
         {/* Transport Information (for emergency cases) */}
         {isEmergency() && referral.transportInfo && (

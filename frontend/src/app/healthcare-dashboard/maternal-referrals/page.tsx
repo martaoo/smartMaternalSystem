@@ -78,11 +78,14 @@ export default function MaternalReferralDashboard() {
 
     // Search filter
     if (searchTerm) {
-      filtered = filtered.filter(referral => 
-        referral.mother?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        referral.referralCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        referral.toHospitalName?.toLowerCase().includes(searchTerm.toLowerCase())
-      );
+      filtered = filtered.filter(referral => {
+        const motherName = typeof referral.motherId === 'object' ? referral.motherId.name : (referral.mother?.name || '');
+        const hospitalName = typeof referral.toHospital === 'object' ? referral.toHospital.name : (referral.toHospitalName || '');
+        
+        return motherName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+               referral.referralCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
+               hospitalName.toLowerCase().includes(searchTerm.toLowerCase());
+      });
     }
 
     // Status filter
@@ -105,21 +108,21 @@ export default function MaternalReferralDashboard() {
 
   const getStatusColor = (status?: ReferralStatus) => {
     if (!status || !STATUS_CONFIG[status]) {
-      return STATUS_CONFIG[ReferralStatus.CREATED].bgColor;
+      return STATUS_CONFIG[ReferralStatus.DRAFT].bgColor;
     }
     return STATUS_CONFIG[status].bgColor;
   };
 
   const getStatusTextColor = (status?: ReferralStatus) => {
     if (!status || !STATUS_CONFIG[status]) {
-      return STATUS_CONFIG[ReferralStatus.CREATED].color;
+      return STATUS_CONFIG[ReferralStatus.DRAFT].color;
     }
     return STATUS_CONFIG[status].color;
   };
 
   const getStatusLabel = (status?: ReferralStatus) => {
     if (!status || !STATUS_CONFIG[status]) {
-      return STATUS_CONFIG[ReferralStatus.CREATED].label;
+      return STATUS_CONFIG[ReferralStatus.DRAFT].label;
     }
     return STATUS_CONFIG[status].label;
   };
@@ -151,6 +154,10 @@ export default function MaternalReferralDashboard() {
       return RISK_CONFIG[RiskLevel.LOW].label;
     }
     return RISK_CONFIG[risk].label;
+  };
+
+  const handleLogout = () => {
+    logout(() => router.push('/auth'));
   };
 
   const isEmergency = (referral: MaternalReferral) => {
@@ -196,7 +203,7 @@ export default function MaternalReferralDashboard() {
                 Back to Dashboard
               </button>
               <button
-                onClick={logout}
+                onClick={handleLogout}
                 className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
               >
                 Logout
@@ -333,14 +340,14 @@ export default function MaternalReferralDashboard() {
                         <div className="flex-shrink-0">
                           <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center">
                             <span className="text-indigo-600 font-medium text-lg">
-                              {referral.mother?.name?.charAt(0).toUpperCase() || 'M'}
+                              {(typeof referral.motherId === 'object' ? referral.motherId.name : (referral.mother?.name || 'M')).charAt(0).toUpperCase()}
                             </span>
                           </div>
                         </div>
                         <div className="flex-1">
                           <div className="flex items-center space-x-3 mb-1">
                             <h3 className="text-lg font-medium text-gray-900">
-                              {referral.mother?.name || 'Unknown Mother'}
+                              {typeof referral.motherId === 'object' ? referral.motherId.name : (referral.mother?.name || 'Unknown Mother')}
                             </h3>
                             <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(referral.status)} ${getStatusTextColor(referral.status)}`}>
                               {getStatusLabel(referral.status)}
@@ -349,8 +356,8 @@ export default function MaternalReferralDashboard() {
                           
                           <div className="flex items-center space-x-4 text-sm text-gray-600 mb-2">
                             <span>📋 {referral.referralCode}</span>
-                            <span>📞 {referral.mother?.phone || 'No phone'}</span>
-                            <span>🏥 {referral.toHospitalName || 'Unknown hospital'}</span>
+                            <span>📞 {typeof referral.motherId === 'object' ? referral.motherId.phone : (referral.mother?.phone || 'No phone')}</span>
+                            <span>🏥 {typeof referral.toHospital === 'object' ? `${referral.toHospital.name} (${referral.toHospital.type})` : (referral.toHospitalName || 'Unknown hospital')}</span>
                             <span>📅 {new Date(referral.createdAt).toLocaleDateString()}</span>
                           </div>
                           

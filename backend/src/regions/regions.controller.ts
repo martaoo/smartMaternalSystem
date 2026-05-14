@@ -24,18 +24,14 @@ export class RegionsController {
     return this.regionsService.create(createRegionDto);
   }
 
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN')
+  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN', 'MOH_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'DISPATCHER', 'LIAISON_OFFICER')
   @Get()
   @ApiOperation({ summary: 'Get all regions' })
   @ApiResponse({ status: 200, description: 'Regions retrieved successfully' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async findAll(@Request() req) {
     const user = req.user;
-    if (user.role === 'SUPER_ADMIN') {
-      return this.regionsService.findAll();
-    }
-    // System admin can only see their own region
-    if (!user.regionId || !/^[0-9a-fA-F]{24}$/.test(user.regionId)) {
+    if (user.role === 'SUPER_ADMIN' || user.role === 'SYSTEM_ADMIN') {
       return this.regionsService.findAll();
     }
     return this.regionsService.findByUserRegion(user.regionId);
