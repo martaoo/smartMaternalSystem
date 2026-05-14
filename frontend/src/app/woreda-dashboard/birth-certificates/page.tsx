@@ -137,7 +137,7 @@ export default function BirthCertificatesPage() {
                 </div>
                 <div>
                   <h1 className="text-xl font-bold text-gray-900">Birth Certificates</h1>
-                  <p className="text-sm text-gray-500">Woreda: {user?.woredaId || 'Not Assigned'}</p>
+                  <p className="text-sm text-gray-500">Woreda: {typeof user?.woredaId === 'string' ? user.woredaId : (user?.woredaId as any)?._id || 'Not Assigned'}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3">

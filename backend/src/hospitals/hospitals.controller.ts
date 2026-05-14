@@ -34,6 +34,15 @@ export class HospitalsController {
     return this.hospitalsService.findAllWithRoleFilter(user.role, user.hospitalId?.toString(), user.regionId?.toString());
   }
 
+  @Roles('SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN', 'MOH_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'LIAISON_OFFICER')
+  @Get(':id')
+  @ApiOperation({ summary: 'Get hospital by ID' })
+  @ApiResponse({ status: 200, description: 'Hospital retrieved successfully' })
+  @ApiResponse({ status: 404, description: 'Hospital not found' })
+  async findOne(@Param('id') id: string) {
+    return this.hospitalsService.findById(id);
+  }
+
   @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN')
   @Patch(':id')
   @ApiOperation({ summary: 'Update a hospital' })

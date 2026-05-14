@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Child, ChildDocument } from './schemas/child.schema';
 import { GrowthRecord, GrowthRecordDocument } from './schemas/growth-record.schema';
+import { Hospital, HospitalDocument } from '../hospitals/schemas/hospital.schema';
 import { CreateChildDto } from './dto/create-child.dto';
 import { CreateGrowthRecordDto } from './dto/create-growth-record.dto';
 
@@ -10,23 +11,25 @@ import { CreateGrowthRecordDto } from './dto/create-growth-record.dto';
 export class ChildrenService {
   constructor(
     @InjectModel(Child.name) private childModel: Model<ChildDocument>,
-    @InjectModel(GrowthRecord.name) private growthRecordModel: Model<GrowthRecordDocument>
+    @InjectModel(GrowthRecord.name) private growthRecordModel: Model<GrowthRecordDocument>,
+    @InjectModel(Hospital.name) private hospitalModel: Model<HospitalDocument>
   ) {}
 
   async findByWoreda(woredaId: string): Promise<Child[]> {
-    // Find children whose birth hospital belongs to this woreda
+    if (!woredaId) return [];
+    
+    // 1. Find all hospitals belonging to this woreda
+    const hospitals = await this.hospitalModel.find({ woredaId }).select('_id').exec();
+    const hospitalIds = hospitals.map(h => h._id);
+
+    // 2. Find children born in these hospitals
     return this.childModel
-      .find()
-      .populate({
-        path: 'birthHospital',
-        match: { woredaId },
-        select: 'name type address woredaId',
-      })
+      .find({ birthHospital: { $in: hospitalIds } })
+      .populate('birthHospital', 'name type address woredaId')
       .populate('motherId', 'name phone age address')
       .populate('deliveredBy', 'name email role')
       .sort({ registrationDate: -1 })
-      .exec()
-      .then(children => children.filter(c => c.birthHospital !== null));
+      .exec();
   }
 
   async issueBirthCertificate(
@@ -50,7 +53,14 @@ export class ChildrenService {
     // Generate a unique certificate number: BC-YYYY-WOREDA-XXXXXX
     const year = new Date().getFullYear();
     const random = Math.floor(100000 + Math.random() * 900000);
-    const woredaCode = userWoredaId ? userWoredaId.slice(-4).toUpperCase() : 'XXXX';
+    
+    // Robust woreda code generation
+    let woredaCode = 'XXXX';
+    if (userWoredaId) {
+      const idStr = userWoredaId.toString();
+      woredaCode = idStr.length >= 4 ? idStr.slice(-4).toUpperCase() : idStr.toUpperCase();
+    }
+    
     const certificateNumber = `BC-${year}-${woredaCode}-${random}`;
 
     const updateData: any = {
