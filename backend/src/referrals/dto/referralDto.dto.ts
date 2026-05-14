@@ -77,6 +77,31 @@ export class CreateReferralDto {
   @IsOptional()
   @IsString()
   requiredBedType?: string;
+
+  // Maternal fields
+  @IsOptional()
+  @Type(() => Number)
+  gestationalAge?: number;
+
+  @IsOptional()
+  @IsDateString()
+  expectedDeliveryDate?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  gravida?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  para?: number;
+
+  @IsOptional()
+  @IsString()
+  clinicalCondition?: string;
+
+  @IsOptional()
+  @IsString()
+  riskLevel?: string;
 }
 
 // ─────────────────────────────────────────

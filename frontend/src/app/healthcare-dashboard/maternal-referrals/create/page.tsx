@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { mothersApi, hospitalsApi, referralsApi } from '@/lib/healthcare-api';
+import { mothersApi, hospitalsApi, referralsApi, filesApi, pregnancyApi } from '@/lib/healthcare-api';
 import { useAuth } from '@/contexts/AuthContext';
 import { 
   CreateMaternalReferralRequest, 
@@ -39,6 +39,8 @@ export default function CreateMaternalReferral() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadingFile, setUploadingFile] = useState(false);
 
   useEffect(() => {
     if (!authLoading) {
@@ -78,20 +80,63 @@ export default function CreateMaternalReferral() {
     }
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const handleInputChange = async (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     
     setFormData(prev => ({
       ...prev,
       [name]: value,
     }));
-
-    // When mother is selected, fetch her details
+ 
+    // When mother is selected, fetch her details and latest visit
     if (name === 'motherId' && value) {
       const mother = mothers.find((m: any) => m._id === value);
       if (mother) {
         setSelectedMother(mother);
+        
+        // Pre-fill from mother record first
+        setFormData(prev => ({
+          ...prev,
+          expectedDeliveryDate: mother.expectedDeliveryDate ? new Date(mother.expectedDeliveryDate).toISOString().split('T')[0] : prev.expectedDeliveryDate,
+          gravida: mother.gravida || prev.gravida,
+          para: mother.para || prev.para,
+          riskLevel: mother.highRisk ? RiskLevel.HIGH : RiskLevel.LOW,
+        }));
+ 
+        // Then fetch latest visit for more detailed clinical info
+        try {
+          const visits = await pregnancyApi.getByMotherId(value);
+          if (Array.isArray(visits) && visits.length > 0) {
+            // Sort by date descending
+            const latestVisit = [...visits].sort((a, b) => 
+              new Date(b.visitDate).getTime() - new Date(a.visitDate).getTime()
+            )[0];
+ 
+            setFormData(prev => ({
+              ...prev,
+              gestationalAge: latestVisit.gestationalAge || latestVisit.week || prev.gestationalAge,
+              riskLevel: latestVisit.riskLevel === 'HIGH' ? RiskLevel.HIGH : 
+                         latestVisit.riskLevel === 'MODERATE' ? RiskLevel.HIGH : // Map moderate to high for safety in referral
+                         RiskLevel.LOW,
+              clinicalCondition: latestVisit.clinicalCondition || latestVisit.notes || prev.clinicalCondition,
+            }));
+          }
+        } catch (err) {
+          console.error('Error fetching latest pregnancy visit:', err);
+        }
       }
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      // Limit to 5MB
+      if (file.size > 5 * 1024 * 1024) {
+        setError('File size exceeds 5MB limit');
+        return;
+      }
+      setSelectedFile(file);
     }
   };
 
@@ -113,6 +158,12 @@ export default function CreateMaternalReferral() {
         fromHospital: formData.fromHospital,
         toHospital: formData.toHospital,
         urgency: formData.urgency,
+        riskLevel: formData.riskLevel,
+        gestationalAge: Number(formData.gestationalAge) || undefined,
+        expectedDeliveryDate: formData.expectedDeliveryDate || undefined,
+        gravida: Number(formData.gravida) || undefined,
+        para: Number(formData.para) || undefined,
+        clinicalCondition: formData.clinicalCondition || undefined,
         patientName: selectedMother?.name || 'Unknown Mother',
         patientPhone: selectedMother?.phone || '',
         reasonForReferral: formData.reasonForReferral,
@@ -122,6 +173,21 @@ export default function CreateMaternalReferral() {
 
       const response = await referralsApi.create(referralData);
       console.log('Maternal referral created:', response);
+
+      // If a file was selected, upload it
+      if (selectedFile && response._id) {
+        try {
+          setUploadingFile(true);
+          await filesApi.uploadReferralDoc(response._id, selectedFile);
+          console.log('Referral file uploaded successfully');
+        } catch (fileErr) {
+          console.error('Error uploading referral file:', fileErr);
+          // Don't fail the whole process if file upload fails, but inform the user
+          setError('Referral created, but file upload failed. You can try uploading it later.');
+        } finally {
+          setUploadingFile(false);
+        }
+      }
 
       setSuccess(true);
       
@@ -179,7 +245,10 @@ export default function CreateMaternalReferral() {
                 Back to Referrals
               </button>
               <button
-                onClick={logout}
+                onClick={() => {
+                  logout();
+                  router.push('/auth');
+                }}
                 className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
               >
                 Logout
@@ -404,6 +473,27 @@ export default function CreateMaternalReferral() {
               />
             </div>
 
+            {/* File Attachment */}
+            <div className="border-t pt-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Attach Medical Document (PDF, Image, Max 5MB)
+              </label>
+              <div className="mt-1 flex items-center">
+                <input
+                  type="file"
+                  onChange={handleFileChange}
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+                />
+              </div>
+              {selectedFile && (
+                <p className="mt-2 text-sm text-gray-600 flex items-center">
+                  <span className="mr-2">📎</span>
+                  {selectedFile.name} ({(selectedFile.size / 1024).toFixed(1)} KB)
+                </p>
+              )}
+            </div>
+
             {/* Submit Buttons */}
             <div className="flex justify-end space-x-4">
               <button
@@ -415,10 +505,10 @@ export default function CreateMaternalReferral() {
               </button>
               <button
                 type="submit"
-                disabled={submitting}
+                disabled={submitting || uploadingFile}
                 className="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {submitting ? 'Creating Referral...' : 'Create Referral'}
+                {submitting ? 'Creating Referral...' : uploadingFile ? 'Uploading Document...' : 'Create Referral'}
               </button>
             </div>
           </form>

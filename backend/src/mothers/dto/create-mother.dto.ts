@@ -67,6 +67,41 @@ woredaId: string;
   @IsString()
   registeredBy?: string;
   @ApiProperty({ example: '664f1c2a8a3e2f0098765432', description: 'Health Center ID' })
-@IsMongoId()
-healthCenter: string;
+  @IsMongoId()
+  healthCenter: string;
+
+  @ApiPropertyOptional({ example: 'Positive', description: 'RH Factor' })
+  @IsOptional()
+  @IsString()
+  rhFactor?: string;
+
+  @ApiPropertyOptional({ example: 'Negative', description: 'HIV Status' })
+  @IsOptional()
+  @IsString()
+  hivStatus?: string;
+
+  @ApiPropertyOptional({ example: 'Negative', description: 'Hepatitis B Status' })
+  @IsOptional()
+  @IsString()
+  hepatitisB?: string;
+
+  @ApiPropertyOptional({ example: false, description: 'Has Hypertension' })
+  @IsOptional()
+  @IsBoolean()
+  hypertension?: boolean;
+
+  @ApiPropertyOptional({ example: false, description: 'Has Diabetes' })
+  @IsOptional()
+  @IsBoolean()
+  diabetes?: boolean;
+
+  @ApiPropertyOptional({ example: false, description: 'Has Anemia' })
+  @IsOptional()
+  @IsBoolean()
+  anemia?: boolean;
+
+  @ApiPropertyOptional({ example: false, description: 'Had previous C-Section' })
+  @IsOptional()
+  @IsBoolean()
+  previousCSection?: boolean;
 }

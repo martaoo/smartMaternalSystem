@@ -16,6 +16,8 @@ export class UsersService {
     private woredasService: WoredasService,
   ) {}
   private readonly hospitalManagedRoles = [
+    'HOSPITAL_ADMIN',
+    'HEALTH_CENTER_ADMIN',
     'DOCTOR',
     'NURSE',
     'MIDWIFE',
@@ -24,6 +26,11 @@ export class UsersService {
     'HOSPITAL_APPROVER',
     'GATEKEEPER',
     'SPECIALIST',
+    'SUPER_ADMIN',
+    'SYSTEM_ADMIN',
+    'WOREDA_ADMIN',
+    'MOH_ADMIN',
+    'MOTHER',
   ];
 
   private async normalizeEmptyReferenceFields(): Promise<void> {
@@ -54,8 +61,12 @@ export class UsersService {
       email,
       password: hashedPassword,
       role,
-      hospitalId: selectedHospitalId ? new Types.ObjectId(selectedHospitalId) : undefined,
-      woredaId: woredaId ? new Types.ObjectId(woredaId) : undefined,
+      hospitalId: selectedHospitalId && Types.ObjectId.isValid(selectedHospitalId) 
+        ? new Types.ObjectId(selectedHospitalId) 
+        : undefined,
+      woredaId: woredaId && Types.ObjectId.isValid(woredaId) 
+        ? new Types.ObjectId(woredaId) 
+        : undefined,
     });
 
     return user.save();
@@ -150,9 +161,14 @@ export class UsersService {
         // Force hospital and woreda from the creator — ignore whatever the frontend sent
         const dto = {
           ...createUserDto,
-          hospitalId: creatorHospitalId,
-          woredaId: creatorWoredaId ?? createUserDto.woredaId,
+          hospitalId: creatorHospitalId || undefined,
+          woredaId: creatorWoredaId || createUserDto.woredaId || undefined,
         };
+        
+        // Remove empty strings to prevent Mongoose cast errors
+        if (dto.hospitalId === '') delete dto.hospitalId;
+        if (dto.woredaId === '') delete dto.woredaId;
+        
         return this.create(dto);
       }
       
@@ -232,11 +248,22 @@ export class UsersService {
     });
   }
 
-  async findAllWithRoleFilter(role: string, hospitalId?: string, regionId?: string): Promise<User[]> {
+  async findAllWithRoleFilter(role: string, hospitalId?: string, woredaId?: string, regionId?: string): Promise<User[]> {
     await this.normalizeEmptyReferenceFields();
     if ((role === 'HOSPITAL_ADMIN' || role === 'HEALTH_CENTER_ADMIN') && hospitalId) {
+      if (!Types.ObjectId.isValid(hospitalId)) return [];
       return this.userModel
         .find({ hospitalId: new Types.ObjectId(hospitalId) })
+        .select('-password')
+        .populate({ path: 'hospitalId', populate: { path: 'woredaId' } })
+        .populate('woredaId')
+        .exec();
+    }
+
+    if (role === 'WOREDA_ADMIN' && woredaId) {
+      if (!Types.ObjectId.isValid(woredaId)) return [];
+      return this.userModel
+        .find({ woredaId: new Types.ObjectId(woredaId) })
         .select('-password')
         .populate({ path: 'hospitalId', populate: { path: 'woredaId' } })
         .populate('woredaId')
@@ -341,7 +368,7 @@ export class UsersService {
     return this.userModel.findByIdAndUpdate(id, updateData, { new: true }).select('-password').exec();
   }
 
-  async updateWithRoleValidation(id: string, updateUserDto: UpdateUserDto, creatorRole: string, creatorHospitalId?: string): Promise<User> {
+  async updateWithRoleValidation(id: string, updateUserDto: UpdateUserDto, creatorRole: string, creatorHospitalId?: string, creatorId?: string): Promise<User> {
     const { role: newRole, hospitalId } = updateUserDto;
 
     // Find the user to update
@@ -351,17 +378,26 @@ export class UsersService {
     }
 
     // Role-based update permissions
-    if (creatorRole === 'HOSPITAL_ADMIN') {
+    if (creatorRole === 'HOSPITAL_ADMIN' || creatorRole === 'HEALTH_CENTER_ADMIN') {
+      // Allow users to update their own profile regardless of other checks
+      if (id === creatorId) {
+        return this.update(id, updateUserDto);
+      }
+
       // Hospital Admin can only update workers for his own hospital
       if (!this.hospitalManagedRoles.includes(userToUpdate.role)) {
-        throw new BadRequestException('Hospital Admin can only update hospital staff users');
+        throw new BadRequestException(`${creatorRole} can only update hospital staff users`);
       }
+      
       if (userToUpdate.hospitalId?.toString() !== creatorHospitalId) {
-        throw new BadRequestException('Hospital Admin can only update workers in their own hospital');
+        // If they are not in the same hospital, they must be a super admin to override, 
+        // but this block is only for HOSPITAL_ADMIN / HEALTH_CENTER_ADMIN.
+        throw new BadRequestException(`${creatorRole} can only update workers in their own facility`);
       }
-      // Ensure hospitalId in update matches
+      
+      // Ensure hospitalId in update matches (cannot move workers to another hospital)
       if (hospitalId && hospitalId !== creatorHospitalId) {
-        throw new BadRequestException('Cannot change hospital for workers');
+        throw new BadRequestException('Cannot change facility for workers');
       }
     }
 
@@ -431,7 +467,7 @@ export class UsersService {
     }
   }
 
-  async deleteWithRoleValidation(id: string, creatorRole: string, creatorHospitalId?: string): Promise<void> {
+  async deleteWithRoleValidation(id: string, creatorRole: string, creatorHospitalId?: string, creatorId?: string): Promise<void> {
     // Find the user to delete
     const userToDelete = await this.userModel.findById(id);
     if (!userToDelete) {
@@ -439,13 +475,53 @@ export class UsersService {
     }
 
     // Role-based delete permissions
-    if (creatorRole === 'HOSPITAL_ADMIN') {
+    if (creatorRole === 'HOSPITAL_ADMIN' || creatorRole === 'HEALTH_CENTER_ADMIN') {
+      // Don't allow deleting self through this method (prevent accidental lockout)
+      if (id === creatorId) {
+        throw new BadRequestException('Cannot delete your own account from this dashboard');
+      }
+
       // Hospital Admin can only delete workers for his own hospital
       if (!this.hospitalManagedRoles.includes(userToDelete.role)) {
-        throw new BadRequestException('Hospital Admin can only delete hospital staff users');
+        throw new BadRequestException(`${creatorRole} can only delete hospital staff users`);
       }
       if (userToDelete.hospitalId?.toString() !== creatorHospitalId) {
-        throw new BadRequestException('Hospital Admin can only delete workers in their own hospital');
+        throw new BadRequestException(`${creatorRole} can only delete workers in their own facility`);
+      }
+    }
+
+    return this.delete(id);
+  }
+
+  async updateWithWoredaValidation(
+    id: string,
+    updateUserDto: UpdateUserDto,
+    creatorRole: string,
+    creatorWoredaId: string,
+  ): Promise<User> {
+    const userToUpdate = await this.userModel.findById(id);
+    if (!userToUpdate) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (creatorRole === 'WOREDA_ADMIN') {
+      if (userToUpdate.woredaId?.toString() !== creatorWoredaId) {
+        throw new BadRequestException('Woreda Admin can only update users in their own woreda');
+      }
+    }
+
+    return this.update(id, updateUserDto);
+  }
+
+  async deleteWithWoredaValidation(id: string, creatorRole: string, creatorWoredaId: string): Promise<void> {
+    const userToDelete = await this.userModel.findById(id);
+    if (!userToDelete) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (creatorRole === 'WOREDA_ADMIN') {
+      if (userToDelete.woredaId?.toString() !== creatorWoredaId) {
+        throw new BadRequestException('Woreda Admin can only delete users in their own woreda');
       }
     }
 

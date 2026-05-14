@@ -319,3 +319,27 @@ export const referralsApi = {
   delete: (id: string) =>
     fetch(`${API_BASE}/referrals/${id}`, getFetchOptions('DELETE')).then(handleResponse),
 };
+
+// Files API
+export const filesApi = {
+  uploadReferralDoc: (referralId: string, file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('referralId', referralId);
+
+    // Get token for manual fetch since getFetchOptions uses JSON.stringify
+    const token = typeof window !== 'undefined'
+      ? localStorage.getItem('token') ||
+        localStorage.getItem('auth_token') ||
+        sessionStorage.getItem('token')
+      : null;
+
+    return fetch(`${API_BASE}/files/upload-referral-doc`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+      body: formData,
+    }).then(handleResponse);
+  },
+};

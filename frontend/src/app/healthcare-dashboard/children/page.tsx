@@ -48,8 +48,8 @@ export default function ChildrenManagement() {
     } else {
       const filtered = children.filter(child =>
         child.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        child.motherId.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        child.motherId.phone.includes(searchQuery)
+        child.motherId?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        child.motherId?.phone?.includes(searchQuery)
       );
       setFilteredChildren(filtered);
     }
@@ -275,8 +275,8 @@ export default function ChildrenManagement() {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{child.motherId.name}</div>
-                        <div className="text-xs text-gray-500">{child.motherId.phone}</div>
+                        <div className="text-sm text-gray-900">{child.motherId?.name ?? 'Unknown'}</div>
+                        <div className="text-xs text-gray-500">{child.motherId?.phone ?? '—'}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">{child.birthHospital.name}</div>

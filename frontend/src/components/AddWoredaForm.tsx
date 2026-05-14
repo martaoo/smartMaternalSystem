@@ -87,20 +87,23 @@ export function AddWoredaForm({ onClose, onSuccess, woredaToEdit }: AddWoredaFor
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700">Region</label>
+            <label className="block text-sm font-medium text-gray-700">Region <span className="text-red-500">*</span></label>
             <select
               required
-              value={formData.city}
-              onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+              value={formData.regionId}
+              onChange={(e) => setFormData({ ...formData, regionId: e.target.value })}
               className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
             >
               <option value="">Select a region</option>
-              {ethiopianRegions.map((region) => (
-                <option key={region} value={region}>
-                  {region}
+              {regions.map((region: any) => (
+                <option key={region._id} value={region._id}>
+                  {region.name}
                 </option>
               ))}
             </select>
+            {regions.length === 0 && (
+              <p className="text-xs text-amber-600 mt-1">No active regions found. Please contact system admin.</p>
+            )}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700">City</label>

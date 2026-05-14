@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 
-const BACKEND_BASE = process.env.BACKEND_BASE_URL ?? "http://localhost:3001/api"
+const BACKEND_BASE = process.env.BACKEND_BASE_URL || 
+  (process.env.API_URL ? (process.env.API_URL.endsWith('/api') ? process.env.API_URL : `${process.env.API_URL}/api`) : "http://127.0.0.1:3001/api");
 const COOKIE_NAME = "sms_token"
 
 export const dynamic = "force-dynamic"
@@ -54,16 +55,48 @@ async function handler(
   }
 
   const headers = new Headers()
-  headers.set("Content-Type", "application/json")
+  const originalContentType = req.headers.get("content-type")
+  if (originalContentType) {
+    headers.set("Content-Type", originalContentType)
+  } else {
+    headers.set("Content-Type", "application/json")
+  }
+  
   if (token) headers.set("Authorization", `Bearer ${token}`)
 
-  try {
-    const upstream = await fetch(targetUrl, {
+  if (process.env.NODE_ENV === "development") {
+    console.log(`[PROXY] Forwarding ${req.method} to ${targetUrl}`)
+  }
+
+  const performFetch = async (url: string) => {
+    return fetch(url, {
       method: req.method,
       headers,
       body: ["GET", "HEAD"].includes(req.method) ? undefined : await req.arrayBuffer(),
       redirect: "manual",
     })
+  }
+
+  try {
+    let upstream: Response
+    try {
+      upstream = await performFetch(targetUrl)
+    } catch (error: any) {
+      const code = error?.cause?.code ?? error?.code
+      // If we failed to reach the configured URL and we are in development, 
+      // try falling back to 127.0.0.1 as a last resort.
+      if (code === "ECONNREFUSED" && !targetUrl.includes("127.0.0.1") && !targetUrl.includes("localhost")) {
+        const fallbackUrl = targetUrl.replace(/https?:\/\/[^\/]+/, "http://127.0.0.1:3001")
+        console.warn(`[PROXY] ⚠️ Connection refused to ${targetUrl}. Falling back to local: ${fallbackUrl}`)
+        upstream = await performFetch(fallbackUrl)
+      } else {
+        throw error
+      }
+    }
+
+    if (process.env.NODE_ENV === "development") {
+      console.log(`[PROXY] ← Backend responded with ${upstream.status}`)
+    }
 
     const resHeaders = new Headers(upstream.headers)
     resHeaders.delete("set-cookie")
@@ -75,10 +108,13 @@ async function handler(
     })
   } catch (error: any) {
     const code = error?.cause?.code ?? error?.code
+    console.error(`[PROXY] ❌ Connection error to ${targetUrl}:`, code || error.message)
+    
     const message =
       code === "ECONNREFUSED" || code === "ETIMEDOUT"
         ? "Backend service is unavailable"
-        : "Failed to reach backend service"
+        : `Failed to reach backend service (${code || 'Unknown error'})`
+        
     return NextResponse.json({ message, code }, { status: 502 })
   }
 }

@@ -15,7 +15,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@ne
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
-  @Roles('SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN','HEALTH_CENTER_ADMIN')
+  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN')
   @Post()
   @ApiOperation({ summary: 'Create a new user' })
   @ApiResponse({ status: 201, description: 'User successfully created' })
@@ -87,11 +87,12 @@ export class UsersController {
     return this.usersService.findAllWithRoleFilter(
       user.role,
       user.hospitalId?.toString(),
+      user.woredaId?.toString(),
       user.regionId?.toString(),
     );
   }
 
-  @Roles('SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN')
+  @Roles('SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN')
   @Get('role/:role')
   @ApiOperation({ summary: 'Get users by role' })
   @ApiParam({ name: 'role', description: 'User role' })
@@ -107,7 +108,7 @@ export class UsersController {
     );
   }
 
-  @Roles('SYSTEM_ADMIN', 'HOSPITAL_ADMIN')
+  @Roles('SYSTEM_ADMIN', 'HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN')
   @Get(':id')
   @ApiOperation({ summary: 'Get user by ID' })
   @ApiParam({ name: 'id', description: 'User ID' })
@@ -128,7 +129,7 @@ export class UsersController {
     );
   }
 
-  @Roles('SYSTEM_ADMIN', 'HOSPITAL_ADMIN')
+  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN')
   @Patch(':id')
   @ApiOperation({ summary: 'Update a user' })
   @ApiParam({ name: 'id', description: 'User ID' })
@@ -140,19 +141,27 @@ export class UsersController {
   async update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto, @Request() req) {
     const user = req.user;
     
-    if (user.role === 'SYSTEM_ADMIN') {
+    if (user.role === 'SYSTEM_ADMIN' || user.role === 'SUPER_ADMIN') {
       return this.usersService.update(id, updateUserDto);
-    } else if (user.role === 'HOSPITAL_ADMIN') {
+    } else if (user.role === 'HOSPITAL_ADMIN' || user.role === 'HEALTH_CENTER_ADMIN') {
       return this.usersService.updateWithRoleValidation(
         id,
         updateUserDto, 
         user.role, 
-        user.hospitalId?.toString()
+        user.hospitalId?.toString(),
+        user._id?.toString()
+      );
+    } else if (user.role === 'WOREDA_ADMIN') {
+      return this.usersService.updateWithWoredaValidation(
+        id,
+        updateUserDto,
+        user.role,
+        user.woredaId?.toString()
       );
     }
   }
 
-  @Roles('SYSTEM_ADMIN', 'HOSPITAL_ADMIN')
+  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN')
   @Delete(':id')
   @ApiOperation({ summary: 'Delete a user' })
   @ApiParam({ name: 'id', description: 'User ID' })
@@ -163,13 +172,20 @@ export class UsersController {
   async delete(@Param('id') id: string, @Request() req) {
     const user = req.user;
     
-    if (user.role === 'SYSTEM_ADMIN') {
+    if (user.role === 'SYSTEM_ADMIN' || user.role === 'SUPER_ADMIN') {
       return this.usersService.delete(id);
-    } else if (user.role === 'HOSPITAL_ADMIN') {
+    } else if (user.role === 'HOSPITAL_ADMIN' || user.role === 'HEALTH_CENTER_ADMIN') {
       return this.usersService.deleteWithRoleValidation(
         id,
         user.role, 
-        user.hospitalId?.toString()
+        user.hospitalId?.toString(),
+        user._id?.toString()
+      );
+    } else if (user.role === 'WOREDA_ADMIN') {
+      return this.usersService.deleteWithWoredaValidation(
+        id,
+        user.role,
+        user.woredaId?.toString()
       );
     }
   }

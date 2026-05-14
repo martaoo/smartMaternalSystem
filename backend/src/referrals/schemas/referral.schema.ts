@@ -67,6 +67,27 @@ export class Referral {
   attachments: string[];
 
   // ─────────────────────────────────────────
+  // MATERNAL CLINICAL DATA
+  // ─────────────────────────────────────────
+  @Prop()
+  gestationalAge?: number;
+
+  @Prop()
+  expectedDeliveryDate?: Date;
+
+  @Prop()
+  gravida?: number;
+
+  @Prop()
+  para?: number;
+
+  @Prop()
+  clinicalCondition?: string;
+
+  @Prop({ type: String, enum: ['LOW', 'HIGH'], default: 'LOW' })
+  riskLevel: string;
+
+  // ─────────────────────────────────────────
   // MOTHER SNAPSHOT (TRANSFERRED / LOCKABLE)
   // A point-in-time copy of key mother fields so the referral
   // carries the necessary information even if the Mother record changes.
@@ -86,6 +107,13 @@ export class Referral {
       para: Number,
       lmp: Date,
       bloodType: String,
+      rhFactor: String,
+      hivStatus: String,
+      hepatitisB: String,
+      hypertension: Boolean,
+      diabetes: Boolean,
+      anemia: Boolean,
+      previousCSection: Boolean,
     },
   })
   motherSnapshot?: {
@@ -101,6 +129,13 @@ export class Referral {
     para?: number;
     lmp?: Date;
     bloodType?: string;
+    rhFactor?: string;
+    hivStatus?: string;
+    hepatitisB?: string;
+    hypertension?: boolean;
+    diabetes?: boolean;
+    anemia?: boolean;
+    previousCSection?: boolean;
   };
 
   // ─────────────────────────────────────────

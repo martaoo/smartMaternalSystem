@@ -245,26 +245,27 @@ export function UserManagement() {
   const canEditUser = (targetUser: User) => {
     if (!user) return false;
 
+    // Super Admin can edit everyone
+    if (user.role === 'SUPER_ADMIN') return true;
+
+    // For other administrative roles, if they can see the user in their filtered list, 
+    // they should generally be able to edit them (except themselves if it's a delete, etc.)
+    // The backend already handles the heavy lifting of filtering users by region/woreda.
+    
     switch (user.role) {
-      case 'SUPER_ADMIN':
+      case 'SYSTEM_ADMIN':
+        // System Admin can edit any user in their filtered list (already region-filtered by backend)
         return true;
 
-      case 'SYSTEM_ADMIN':
-        // System Admin can edit any user in their region
-        return targetUser._id === user.id || isUserInRegion(targetUser);
-
       case 'WOREDA_ADMIN':
-        return targetUser._id === user.id ||
-          (normalizeId(targetUser.woredaId) === normalizeId(user.woredaId)) ||
-          (normalizeId(targetUser.hospitalId) && hospitals.some(h => h._id === normalizeId(targetUser.hospitalId) && normalizeId(h.woredaId) === normalizeId(user.woredaId)));
+        // Woreda Admin can edit any user in their filtered list (already woreda-filtered by backend/frontend)
+        return true;
 
       case 'HOSPITAL_ADMIN':
-        // Can edit users in their hospital
-        return (targetUser.hospitalId && typeof targetUser.hospitalId === 'string' && targetUser.hospitalId === user.hospitalId);
-      
       case 'HEALTH_CENTER_ADMIN':
-        // Can edit users in their health center
-        return (targetUser.hospitalId && typeof targetUser.hospitalId === 'string' && targetUser.hospitalId === user.hospitalId);
+        // Facility admins can edit users in their facility
+        const targetHospitalId = normalizeId(targetUser.hospitalId);
+        return targetHospitalId === user.hospitalId;
       
       default:
         return targetUser._id === user.id;

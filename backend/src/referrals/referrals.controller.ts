@@ -113,6 +113,15 @@ export class ReferralsController {
     );
   }
 
+  // ── GATE CHECK-IN ──────────────────────────────────────────────────────────
+  @Patch('gate-check-in')
+  @Roles(UserRole.LIAISON_OFFICER, UserRole.GATEKEEPER)
+  async gateCheckIn(@Body() dto: GateCheckInDto, @Req() req: any) {
+    return this.referralsService.gateCheckIn(
+      dto, req.user._id ?? req.user.userId, getFacilityId(req.user),
+    );
+  }
+
   // ── UPDATE DRAFT ───────────────────────────────────────────────────────────
   @Patch(':id')
   @Roles(
@@ -137,12 +146,24 @@ export class ReferralsController {
     return this.referralsService.deleteReferral(id, getFacilityId(req.user));
   }
 
-  // ── GATE CHECK-IN ──────────────────────────────────────────────────────────
-  @Patch('gate-check-in')
-  @Roles(UserRole.LIAISON_OFFICER, UserRole.GATEKEEPER)
-  async gateCheckIn(@Body() dto: GateCheckInDto, @Req() req: any) {
-    return this.referralsService.gateCheckIn(
-      dto, req.user._id ?? req.user.userId, getFacilityId(req.user),
+  // ── UPDATE STATUS (Generic) ────────────────────────────────────────────────
+  @Patch(':id/status')
+  @Roles(
+    UserRole.LIAISON_OFFICER, UserRole.DOCTOR, UserRole.NURSE, UserRole.MIDWIFE,
+    UserRole.HOSPITAL_ADMIN, UserRole.HEALTH_CENTER_ADMIN, UserRole.GATEKEEPER,
+  )
+  async updateStatus(
+    @Param('id') id: string,
+    @Body('status') status: any,
+    @Body('note') note: string,
+    @Req() req: any,
+  ) {
+    const actorId = req.user._id ?? req.user.userId;
+    const facilityId = getFacilityId(req.user);
+    if (!facilityId) throw new ForbiddenException('User facility information missing');
+
+    return this.referralsService.updateReferralStatus(
+      id, status, actorId, facilityId, note,
     );
   }
 
@@ -217,6 +238,10 @@ export class ReferralsController {
   }
 
   @Get()
+  @Roles(
+    UserRole.SUPER_ADMIN, UserRole.SYSTEM_ADMIN, UserRole.HOSPITAL_ADMIN, UserRole.HEALTH_CENTER_ADMIN,
+    UserRole.LIAISON_OFFICER, UserRole.DOCTOR, UserRole.NURSE, UserRole.MIDWIFE,
+  )
   async getReferrals(
     @Req() req: any,
     @Query('type') type: 'inbound' | 'outbound' = 'outbound',
