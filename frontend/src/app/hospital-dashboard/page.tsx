@@ -8,38 +8,48 @@ import { useAuth } from '@/contexts/AuthContext';
 import { AddUserForm } from '@/components/AddUserForm';
 import { api } from '@/lib/api';
 import { referralsApi } from '@/lib/healthcare-api';
+import { listMothers } from '@/services/mothers';
+import { listChildren } from '@/services/children';
 
 interface Stats {
   totalStaff: number;
   pendingReferrals: number;
   inboundReferrals: number;
+  registeredMothers: number;
+  registeredChildren: number;
 }
 
 export default function HospitalDashboard() {
   const { user, logout } = useAuth();
   const router = useRouter();
   const [showAddUser, setShowAddUser] = useState(false);
-  const [stats, setStats] = useState<Stats>({ totalStaff: 0, pendingReferrals: 0, inboundReferrals: 0 });
+  const [stats, setStats] = useState<Stats>({ totalStaff: 0, pendingReferrals: 0, inboundReferrals: 0, registeredMothers: 0, registeredChildren: 0 });
   const [statsLoading, setStatsLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
       if (!user) return;
       try {
-        const [users, outbound, inbound] = await Promise.allSettled([
+        const [users, outbound, inbound, mothers, children] = await Promise.allSettled([
           api.getUsers(),
           referralsApi.getOutbox(),
           referralsApi.getAll('inbound'),
+          listMothers(),
+          listChildren(),
         ]);
 
         const u = users.status === 'fulfilled' && Array.isArray(users.value) ? users.value : [];
         const ob = outbound.status === 'fulfilled' && Array.isArray(outbound.value) ? outbound.value : [];
         const ib = inbound.status === 'fulfilled' && Array.isArray(inbound.value) ? inbound.value : [];
+        const m = mothers.status === 'fulfilled' && Array.isArray(mothers.value) ? mothers.value : [];
+        const c = children.status === 'fulfilled' && Array.isArray(children.value) ? children.value : [];
 
         setStats({
           totalStaff: u.length,
           pendingReferrals: ob.filter((r: any) => r.status === 'PENDING').length,
           inboundReferrals: ib.filter((r: any) => r.status === 'PENDING').length,
+          registeredMothers: m.length,
+          registeredChildren: c.length,
         });
       } catch {
         // stats are non-critical, silently fail
@@ -189,12 +199,14 @@ export default function HospitalDashboard() {
                   </svg>
                   Manage Staff
                 </Link>
-                <button className="w-full bg-purple-600 text-white px-4 py-3 rounded-lg hover:bg-purple-700 transition-colors duration-200">
-                  Number of Mothers Registered
-                </button>
-                <button className="w-full bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 transition-colors duration-200">
-                  Number of Children Registered
-                </button>
+                <Link href="/hospital-dashboard/patients" className="w-full bg-purple-600 text-white px-4 py-3 rounded-lg hover:bg-purple-700 transition-colors duration-200 flex items-center justify-between group">
+                  <span className="text-sm font-medium">Registered Mothers</span>
+                  <span className="text-xl font-bold bg-purple-800 px-3 py-1 rounded-full group-hover:bg-purple-900 transition-colors">{statVal(stats.registeredMothers)}</span>
+                </Link>
+                <Link href="/hospital-dashboard/patients" className="w-full bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 transition-colors duration-200 flex items-center justify-between group">
+                  <span className="text-sm font-medium">Registered Children</span>
+                  <span className="text-xl font-bold bg-blue-800 px-3 py-1 rounded-full group-hover:bg-blue-900 transition-colors">{statVal(stats.registeredChildren)}</span>
+                </Link>
                 <button className="w-full bg-indigo-600 text-white px-4 py-3 rounded-lg hover:bg-indigo-700 transition-colors duration-200">
                   View Reports
                 </button>

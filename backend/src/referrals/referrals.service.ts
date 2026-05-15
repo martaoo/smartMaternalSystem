@@ -227,6 +227,10 @@ async createSystemReferral(data: {
       throw new BadRequestException('Referral already finalized');
     }
 
+    if (referral.toHospital && referral.toHospital.toString() !== targetFacilityId.toString()) {
+      throw new BadRequestException('Destination facility cannot be different from what the doctor assigned');
+    }
+
     const targetFacility = await this.hospitalModel.findById(targetFacilityId);
     if (!targetFacility) throw new NotFoundException('Target facility does not exist');
 
@@ -363,6 +367,10 @@ async createSystemReferral(data: {
 
       if (![ReferralStatus.PENDING, ReferralStatus.ACCEPTED].includes(referral.status)) {
         throw new BadRequestException('Referral not valid for entry');
+      }
+
+      if (userHospitalId && referral.toHospital?.toString() !== userHospitalId.toString()) {
+        throw new ForbiddenException('Check-in can only be performed at the destination hospital');
       }
 
       referral.gateCheckedInAt = new Date();
@@ -698,6 +706,10 @@ async createSystemReferral(data: {
 
     if (!isFrom && !isTo) {
       throw new ForbiddenException('Your facility is not authorized to update this referral');
+    }
+
+    if ((status === ReferralStatus.ARRIVED || status === ReferralStatus.CHECKED_IN) && !isTo) {
+      throw new ForbiddenException('Check-in can only be performed by the destination hospital');
     }
 
     referral.status = status;
