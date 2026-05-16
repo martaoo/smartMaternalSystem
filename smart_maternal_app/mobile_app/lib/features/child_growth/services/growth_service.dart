@@ -1,3 +1,4 @@
+import 'dart:convert';
 import '../../../core/services/api_service.dart';
 import '../../../core/services/storage_service.dart';
 import '../../../models/growth_model.dart';
@@ -10,16 +11,17 @@ class GrowthService {
     try {
       final token = await _storageService.getToken();
       final response = await _apiService.get(
-        '/growth/child/$childId',
+        '/children/$childId/growth-records',
         token: token,
       );
 
       if (response.statusCode == 200) {
-        // Parse response and return list of growth records
-        return [];
+        final List<dynamic> data = jsonDecode(response.body);
+        return data.map((json) => GrowthModel.fromJson(json)).toList();
       }
       return [];
     } catch (e) {
+      print('Error fetching growth records: $e');
       return [];
     }
   }
