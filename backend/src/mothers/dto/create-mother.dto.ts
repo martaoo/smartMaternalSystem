@@ -15,6 +15,11 @@ export class CreateMotherDto {
   @IsString()
   email?: string;
 
+  @ApiPropertyOptional({ example: 'temporaryPassword123', description: 'Temporary password for mother mobile login' })
+  @IsOptional()
+  @IsString()
+  password?: string;
+
   @ApiProperty({ example: 28, description: 'Mother age' })
   @IsNumber()
   @Min(15)

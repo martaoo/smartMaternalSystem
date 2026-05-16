@@ -14,6 +14,9 @@ export class Mother {
   @Prop()
   email?: string;
 
+  @Prop({ type: Types.ObjectId, ref: 'User' })
+  userId?: Types.ObjectId;
+
   @Prop({ required: true })
   age: number;
 

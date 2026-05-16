@@ -43,12 +43,21 @@ export class UsersService {
     ]);
   }
 
+  private normalizeEmail(email: string): string {
+    return email?.toString().trim().toLowerCase();
+  }
+
+  private escapeRegex(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
   async create(createUserDto: CreateUserDto): Promise<User> {
     const { email, password, role, hospitalId, healthCenterId, woredaId, ...userData } = createUserDto;
     const selectedHospitalId = hospitalId ?? healthCenterId;
+    const normalizedEmail = this.normalizeEmail(email);
 
     // Check if user already exists
-    const existingUser = await this.userModel.findOne({ email });
+    const existingUser = await this.userModel.findOne({ email: normalizedEmail });
     if (existingUser) {
       throw new ConflictException('User with this email already exists');
     }
@@ -58,7 +67,7 @@ export class UsersService {
 
     const user = new this.userModel({
       ...userData,
-      email,
+      email: normalizedEmail,
       password: hashedPassword,
       role,
       hospitalId: selectedHospitalId && Types.ObjectId.isValid(selectedHospitalId) 
@@ -188,7 +197,14 @@ export class UsersService {
   }
 
   async findByEmail(email: string): Promise<User | null> {
-    return this.userModel.findOne({ email }).exec();
+    const normalizedEmail = this.normalizeEmail(email);
+    let user = await this.userModel.findOne({ email: normalizedEmail }).exec();
+    if (!user) {
+      user = await this.userModel.findOne({
+        email: { $regex: new RegExp(`^${this.escapeRegex(email.trim())}$`, 'i') },
+      }).exec();
+    }
+    return user;
   }
 
   async findById(id: string): Promise<User | null> {

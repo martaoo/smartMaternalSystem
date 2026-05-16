@@ -33,7 +33,7 @@ interface FormData {
 export default function RegisterMother() {
   const { user: currentUser } = useAuth();
 
-  // ── All hooks must be declared before any early return ──────────────────────
+  // ── ALL useState hooks MUST be declared first ──────────────────────────────
   const [formData, setFormData] = useState<FormData>({
     name: '',
     phone: '',
@@ -75,6 +75,8 @@ export default function RegisterMother() {
   const [loadingHospitals, setLoadingHospitals] = useState(true);
   const [loadingMothers, setLoadingMothers] = useState(true);
   const [selectedWoredaName, setSelectedWoredaName] = useState('');
+  const [lastGeneratedEmail, setLastGeneratedEmail] = useState('');  // ← ADDED
+  const [lastGeneratedPassword, setLastGeneratedPassword] = useState('');  // ← ADDED
 
   // Check if user has permission to register mothers
   const allowedRoles = ['HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE'];
@@ -164,7 +166,7 @@ export default function RegisterMother() {
                 try {
                   const woredaList = await api.getWoredas();
                   const hospitalWoreda = woredaList.find((w: any) => w._id === hospitalWoredaId);
-                  
+
                   // Try to get region from various possible fields
                   const regionVal = hospitalWoreda?.regionId?.name || hospitalWoreda?.regionId || hospitalWoreda?.region || currentUser.assignedRegion;
                   if (regionVal) {
@@ -266,7 +268,7 @@ export default function RegisterMother() {
     if (name === 'emergencyContact') {
       setEmergencyPhoneError(value ? validateEthiopianPhone(value) : null);
     }
-    
+
     // Implement 4-level cascading logic
     if (name === 'region') {
       // Filter woredas based on selected region
@@ -274,7 +276,7 @@ export default function RegisterMother() {
         const woredasInRegion = woredas.filter(woreda => woreda.region === value);
         setFilteredWoredas(woredasInRegion);
         console.log('Woredas in region:', woredasInRegion);
-        
+
         // Clear dependent selections
         setFormData(prev => ({
           ...prev,
@@ -291,12 +293,12 @@ export default function RegisterMother() {
         setFilteredMothers([]);
       }
     }
-    
+
     if (name === 'woredaId') {
       const selectedWoreda = woredas.find(w => w._id === value);
       setSelectedWoredaName(selectedWoreda?.name || '');
       console.log('Selected woreda name:', selectedWoreda?.name);
-      
+
       // Filter hospitals based on selected woreda
       if (value) {
         const hospitalsInWoreda = availableHospitals.filter(hospital => {
@@ -304,7 +306,7 @@ export default function RegisterMother() {
         });
         console.log('Hospitals in woreda:', hospitalsInWoreda);
         setFilteredHospitals(hospitalsInWoreda);
-        
+
         // Clear dependent selections
         setFormData(prev => ({
           ...prev,
@@ -318,7 +320,7 @@ export default function RegisterMother() {
         setFilteredMothers([]);
       }
     }
-    
+
     if (name === 'healthCenter') {
       // Filter mothers based on selected health center
       if (value) {
@@ -327,7 +329,7 @@ export default function RegisterMother() {
         });
         console.log('Mothers in facility:', mothersInFacility);
         setFilteredMothers(mothersInFacility);
-        
+
         // Clear mother selection
         setFormData(prev => ({
           ...prev,
@@ -387,7 +389,7 @@ export default function RegisterMother() {
     try {
       console.log('=== FORM SUBMIT DEBUG ===');
       console.log('Current formData before validation:', formData);
-      
+
       if (!formData.region) {
         // If region is missing, try to infer it from currentUser before throwing error
         if (currentUser?.assignedRegion) {
@@ -402,12 +404,12 @@ export default function RegisterMother() {
           }
         }
       }
-      
+
       if (!formData.woredaId) {
         console.error('woredaId is empty! Available woredas:', woredas);
         throw new Error('Please select a woreda');
       }
-      
+
       if (!formData.healthCenter) {
         if (filteredHospitals.length === 0) {
           throw new Error(`No health centers found in ${selectedWoredaName}. Please contact administrator to add health centers to this woreda.`);
@@ -443,28 +445,28 @@ export default function RegisterMother() {
       console.log('userHospital._id:', userHospital?._id);
       console.log('userHospital.woredaId:', userHospital?.woredaId);
       console.log('userHospital.woredaId type:', typeof userHospital?.woredaId);
-      
+
       const extractedWoredaId = userHospital?.woredaId?._id || userHospital?.woredaId;
       console.log('extractedWoredaId:', extractedWoredaId);
-      
+
       // Validation check
       if (!userHospital?._id) {
         throw new Error('Please select your health center before registering a mother.');
       }
-      
+
       if (!extractedWoredaId) {
         throw new Error('Health center does not have a valid woreda assigned. Please contact your administrator.');
       }
-      
+
       // Phone validation
       if (!formData.phone || !/^09\d{8}$/.test(formData.phone)) {
         throw new Error('Phone number must start with 09 followed by 8 digits (e.g., 0911234567)');
       }
-      
-      // Generate temporary credentials for mother
-      const tempUsername = `mother_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+      // Generate temporary credentials for mother (using EMAIL)
+      const tempEmail = `mother_${Date.now()}_${Math.random().toString(36).substr(2, 9)}@maternal.com`;
       const tempPassword = Math.random().toString(36).substr(-8) + Math.random().toString(36).substr(-8) + Math.random().toString(36).substr(-4);
-      
+
       const motherData = {
         name: formData.name,
         phone: formData.phone,
@@ -479,8 +481,8 @@ export default function RegisterMother() {
         woredaId: extractedWoredaId,
         healthCenter: userHospital?._id,
         registeredBy: currentUser?.name || 'Unknown',
-        tempUsername: tempUsername,
-        tempPassword: tempPassword,
+        email: tempEmail,
+        password: tempPassword,
         bloodType: formData.bloodType || undefined,
         rhFactor: formData.rhFactor || undefined,
         hivStatus: formData.hivStatus || undefined,
@@ -490,10 +492,10 @@ export default function RegisterMother() {
         anemia: formData.anemia,
         previousCSection: formData.previousCSection,
       };
-      
+
       console.log('motherData.woredaId:', motherData.woredaId);
       console.log('motherData.healthCenter:', motherData.healthCenter);
-      console.log('Generated temp username:', tempUsername);
+      console.log('Generated temp email:', tempEmail);
       console.log('Generated temp password:', tempPassword);
       console.log('=== END DEBUG ===');
 
@@ -503,8 +505,11 @@ export default function RegisterMother() {
 
       const result = await mothersApi.create(motherData);
       console.log('API Response:', result);
-      
+
+      setLastGeneratedEmail(tempEmail);
+      setLastGeneratedPassword(tempPassword);
       setSuccess(true);
+
       setFormData({
         name: '',
         phone: '',
@@ -538,11 +543,8 @@ export default function RegisterMother() {
     }
   };
 
+  // Success screen - NO useState hooks here!
   if (success) {
-    // Get the generated credentials from the most recent submission
-    const tempUsername = `mother_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    const tempPassword = Math.random().toString(36).substr(-8) + Math.random().toString(36).substr(-8) + Math.random().toString(36).substr(-4);
-    
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="bg-white rounded-lg shadow-md p-8 max-w-md w-full">
@@ -550,34 +552,34 @@ export default function RegisterMother() {
             <div className="text-green-600 text-6xl mb-4">✅</div>
             <h2 className="text-2xl font-bold text-gray-900 mb-2">Mother Registered Successfully!</h2>
             <p className="text-gray-600 mb-6">The mother has been registered in the system.</p>
-            
+
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
               <h3 className="text-lg font-semibold text-blue-900 mb-3">Mobile App Login Credentials</h3>
               <p className="text-sm text-blue-700 mb-4">Please give these credentials to the mother for her mobile application login:</p>
-              
+
               <div className="space-y-2">
                 <div className="bg-white p-3 rounded border border-gray-200">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Username:</label>
-                  <div className="font-mono text-lg bg-gray-100 p-2 rounded border border-gray-300">
-                    {tempUsername}
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Email:</label>
+                  <div className="font-mono text-lg bg-gray-100 p-2 rounded border border-gray-300 break-all">
+                    {lastGeneratedEmail}
                   </div>
                 </div>
-                
+
                 <div className="bg-white p-3 rounded border border-gray-200">
                   <label className="block text-sm font-medium text-gray-700 mb-1">Password:</label>
                   <div className="font-mono text-lg bg-gray-100 p-2 rounded border border-gray-300">
-                    {tempPassword}
+                    {lastGeneratedPassword}
                   </div>
                 </div>
               </div>
-              
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mt-4">
                 <p className="text-sm text-yellow-800">
                   <strong className="text-yellow-900">Important:</strong> Mother should change these credentials on her first login to the mobile app for security.
                 </p>
               </div>
             </div>
-            
+
             <div className="space-y-3">
               <a
                 href="/healthcare-dashboard/mothers"
@@ -659,9 +661,8 @@ export default function RegisterMother() {
                     onChange={handleInputChange}
                     required
                     placeholder="09XXXXXXXX or +2519XXXXXXXX"
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                      phoneError ? 'border-red-400 bg-red-50' : 'border-gray-300'
-                    }`}
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${phoneError ? 'border-red-400 bg-red-50' : 'border-gray-300'
+                      }`}
                   />
                   {phoneError ? (
                     <p className="text-xs text-red-600 mt-1">⚠ {phoneError}</p>
@@ -689,7 +690,7 @@ export default function RegisterMother() {
                   />
                 </div>
 
-                
+
                 <div className="md:col-span-2">
                   <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-2">
                     Address *
@@ -711,7 +712,7 @@ export default function RegisterMother() {
             {/* Location & Facility Assignment - Auto-assigned from logged-in user */}
             <div>
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Location & Facility Assignment</h2>
-              
+
               {/* Current User Facility Summary */}
               {currentUser && (
                 <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg">
@@ -731,7 +732,7 @@ export default function RegisterMother() {
                             {userHospital.name}
                           </div>
                           <div className="text-sm text-gray-600">
-                            {userHospital.type === 'HEALTH_CENTER' ? 'Health Center' : 'Hospital'} • 
+                            {userHospital.type === 'HEALTH_CENTER' ? 'Health Center' : 'Hospital'} •
                             {(() => {
                               const woreda = woredas.find(w => w._id === formData.woredaId);
                               return woreda ? ` ${woreda.name}` : '';
@@ -747,7 +748,7 @@ export default function RegisterMother() {
                   </div>
                 </div>
               )}
-              
+
               <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                 <p className="text-sm text-blue-800">
                   <strong>Automatic Assignment:</strong> Region, Woreda, and Facility are automatically assigned based on your logged-in profile.
@@ -835,13 +836,13 @@ export default function RegisterMother() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   >
                     <option value="">
-                      {!formData.healthCenter 
-                        ? 'Please select a health center first' 
-                        : loadingMothers 
-                        ? 'Loading mothers...' 
-                        : filteredMothers.length === 0
-                        ? 'No mothers found in this facility'
-                        : 'Select Existing Mother (Optional)'
+                      {!formData.healthCenter
+                        ? 'Please select a health center first'
+                        : loadingMothers
+                          ? 'Loading mothers...'
+                          : filteredMothers.length === 0
+                            ? 'No mothers found in this facility'
+                            : 'Select Existing Mother (Optional)'
                       }
                     </option>
                     {filteredMothers.map((mother) => (
@@ -878,9 +879,8 @@ export default function RegisterMother() {
                     value={formData.emergencyContact}
                     onChange={handleInputChange}
                     placeholder="09XXXXXXXX or +2519XXXXXXXX"
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                      emergencyPhoneError ? 'border-red-400 bg-red-50' : 'border-gray-300'
-                    }`}
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${emergencyPhoneError ? 'border-red-400 bg-red-50' : 'border-gray-300'
+                      }`}
                   />
                   {emergencyPhoneError ? (
                     <p className="text-xs text-red-600 mt-1">⚠ {emergencyPhoneError}</p>

@@ -8,15 +8,9 @@ async function bootstrap() {
 
   // Enable CORS
   app.enableCors({
-    origin: [
-      process.env.FRONTEND_URL || 'http://localhost:3000',
-      'http://localhost:3000',
-      'http://192.168.137.167:3000',
-      'https://localhost:3000',
-      'https://192.168.137.167:3000'
-    ],
+    origin: true,
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
     preflightContinue: false,
     optionsSuccessStatus: 204
@@ -40,7 +34,7 @@ async function bootstrap() {
     .setVersion('1.0.0')
     .addBearerAuth()
     .build();
-  
+
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
 
@@ -51,7 +45,7 @@ async function bootstrap() {
   console.log(`Swagger documentation at: http://localhost:${port}/api/docs`);
   console.log(`Root endpoint available at: http://localhost:${port}/`);
   console.log('MONGODB_URI:', process.env.MONGODB_URI);
-console.log('JWT_SECRET:', process.env.JWT_SECRET);
+  console.log('JWT_SECRET:', process.env.JWT_SECRET);
 }
 
 
