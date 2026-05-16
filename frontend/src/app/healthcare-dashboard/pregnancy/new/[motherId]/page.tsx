@@ -6,6 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 
 interface PregnancyFormData {
   motherId: string;
+  visitDate: string;
   week: string;
   gestationalAge: string;
   systolicBP: string;
@@ -34,6 +35,7 @@ export default function NewPregnancyVisit() {
   
   const [formData, setFormData] = useState<PregnancyFormData>({
     motherId: motherId || '',
+    visitDate: new Date().toISOString().split('T')[0], // Default to today
     week: '',
     gestationalAge: '',
     systolicBP: '',
@@ -170,6 +172,7 @@ export default function NewPregnancyVisit() {
     try {
       const pregnancyData = {
         ...formData,
+        visitDate: formData.visitDate || new Date().toISOString().split('T')[0],
         week: parseInt(formData.week),
         gestationalAge: parseInt(formData.gestationalAge),
         systolicBP: formData.systolicBP ? parseInt(formData.systolicBP) : undefined,
