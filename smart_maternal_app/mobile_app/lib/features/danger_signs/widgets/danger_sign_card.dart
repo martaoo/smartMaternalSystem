@@ -8,6 +8,7 @@ class DangerSignCard extends StatelessWidget {
   final IconData icon;
   final String severity;
   final String action;
+  final String? imagePath;
 
   const DangerSignCard({
     super.key,
@@ -16,12 +17,13 @@ class DangerSignCard extends StatelessWidget {
     required this.icon,
     required this.severity,
     required this.action,
+    this.imagePath,
   });
 
   @override
   Widget build(BuildContext context) {
     Color severityColor;
-    switch (severity) {
+    switch (severity.toLowerCase()) {
       case 'high':
         severityColor = AppColors.error;
         break;
@@ -36,98 +38,133 @@ class DangerSignCard extends StatelessWidget {
     }
 
     return Container(
-      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: severityColor.withOpacity(0.3)),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: severityColor.withOpacity(0.15)),
         boxShadow: [
           BoxShadow(
-            color: AppColors.shadow,
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: severityColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  icon,
-                  color: severityColor,
-                  size: 28,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (imagePath != null)
+              SizedBox(
+                height: 180,
+                width: double.infinity,
+                child: Stack(
+                  fit: StackFit.expand,
                   children: [
-                    Text(
-                      title,
-                      style: AppTextStyles.heading4,
-                    ),
-                    const SizedBox(height: 4),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: severityColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
+                    Image.asset(
+                      imagePath!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => Container(
+                        color: AppColors.primary.withOpacity(0.05),
+                        child: const Icon(Icons.image_not_supported, color: AppColors.textSecondary),
                       ),
-                      child: Text(
-                        '${severity.toUpperCase()} SEVERITY',
-                        style: AppTextStyles.caption.copyWith(
+                    ),
+                    Positioned(
+                      top: 12,
+                      right: 12,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
                           color: severityColor,
-                          fontWeight: FontWeight.w600,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 4),
+                          ],
+                        ),
+                        child: Text(
+                          severity.toUpperCase(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1,
+                          ),
                         ),
                       ),
                     ),
                   ],
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            description,
-            style: AppTextStyles.bodyMedium,
-          ),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppColors.info.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.info_outline,
-                  size: 20,
-                  color: AppColors.info,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    action,
-                    style: AppTextStyles.bodySmall.copyWith(
-                      color: AppColors.info,
-                      fontWeight: FontWeight.w600,
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: severityColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(icon, color: severityColor, size: 24),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Text(
+                          title,
+                          style: AppTextStyles.heading4.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.text,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    description,
+                    style: AppTextStyles.bodyMedium.copyWith(
+                      color: AppColors.textSecondary,
+                      height: 1.5,
                     ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.primary.withOpacity(0.1)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.emergency_outlined,
+                          size: 18,
+                          color: AppColors.primary,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            action,
+                            style: TextStyle(
+                              color: AppColors.primary,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

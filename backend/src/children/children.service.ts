@@ -6,13 +6,15 @@ import { GrowthRecord, GrowthRecordDocument } from './schemas/growth-record.sche
 import { Hospital, HospitalDocument } from '../hospitals/schemas/hospital.schema';
 import { CreateChildDto } from './dto/create-child.dto';
 import { CreateGrowthRecordDto } from './dto/create-growth-record.dto';
+import { MothersService } from '../mothers/mothers.service';
 
 @Injectable()
 export class ChildrenService {
   constructor(
     @InjectModel(Child.name) private childModel: Model<ChildDocument>,
     @InjectModel(GrowthRecord.name) private growthRecordModel: Model<GrowthRecordDocument>,
-    @InjectModel(Hospital.name) private hospitalModel: Model<HospitalDocument>
+    @InjectModel(Hospital.name) private hospitalModel: Model<HospitalDocument>,
+    private readonly mothersService: MothersService,
   ) {}
 
   async findByWoreda(woredaId: string): Promise<Child[]> {
@@ -136,6 +138,10 @@ export class ChildrenService {
       return children.filter(child => 
         child.motherId && (child.motherId as any).woredaId?.toString() === userWoredaId
       );
+    } else if (userRole === 'MOTHER' && userWoredaId) {
+      const mother = await this.mothersService.findByUserId(userWoredaId);
+      if (!mother) return [];
+      query.motherId = (mother as any)._id;
     }
 
     return this.childModel.find(query)
@@ -166,6 +172,15 @@ export class ChildrenService {
       }
     } else if (userRole === 'WOREDA_ADMIN') {
       if (child.motherId && (child.motherId as any).woredaId?.toString() !== userWoredaId) {
+        throw new NotFoundException('Child not found or access denied');
+      }
+    } else if (userRole === 'MOTHER' && userWoredaId) { // userWoredaId is used as userId in this context if coming from controller req.user._id
+      const mother = await this.mothersService.findByUserId(userWoredaId);
+      
+      const motherIdStr = (mother as any)?._id?.toString();
+      const childMotherIdStr = child.motherId?._id?.toString() ?? child.motherId?.toString();
+      
+      if (!mother || childMotherIdStr !== motherIdStr) {
         throw new NotFoundException('Child not found or access denied');
       }
     }
@@ -475,6 +490,12 @@ export class ChildrenService {
       return children.filter(c => 
         c.motherId && (c.motherId as any).woredaId?.toString() === userWoredaId
       );
+    }
+
+    if (userRole === 'MOTHER' && userWoredaId) {
+      const mother = await this.mothersService.findByUserId(userWoredaId);
+      if (!mother) return [];
+      return children.filter(c => c.motherId._id.toString() === (mother as any)._id.toString());
     }
 
     return [];

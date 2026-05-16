@@ -1,7 +1,9 @@
 import { Injectable, ConflictException, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { User, UserDocument } from './schemas/user.schema';
+import { User, UserSchema, UserDocument } from './schemas/user.schema';
+import { Mother, MotherDocument } from '../mothers/schemas/mother.schema';
+import { Pregnancy, PregnancyDocument } from '../pregnancy/schemas/pregnancy.schema';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { HospitalsService } from '../hospitals/hospitals.service';
@@ -12,6 +14,8 @@ import * as bcrypt from 'bcrypt';
 export class UsersService {
   constructor(
     @InjectModel(User.name) private userModel: Model<UserDocument>,
+    @InjectModel(Mother.name) private motherModel: Model<MotherDocument>,
+    @InjectModel(Pregnancy.name) private pregnancyModel: Model<PregnancyDocument>,
     private hospitalsService: HospitalsService,
     private woredasService: WoredasService,
   ) {}
@@ -441,6 +445,41 @@ export class UsersService {
     // If assignedRegion is not set but hospital's woreda has a region/city, derive it
     if (!userObj.assignedRegion && userObj.woredaId?.city) {
       userObj.assignedRegion = userObj.woredaId.city;
+    }
+
+    // Add pregnancy info for mothers
+    if (userObj.role === 'MOTHER') {
+      const mother = await this.motherModel.findOne({ userId: user._id }).exec();
+      if (mother) {
+        const nextVisit = await this.pregnancyModel.findOne({
+          motherId: mother._id,
+          visitStatus: 'SCHEDULED',
+          visitDate: { $gte: new Date() }
+        }).sort({ visitDate: 1 }).exec();
+
+        const lastCompletedVisit = await this.pregnancyModel.findOne({
+          motherId: mother._id,
+          visitStatus: 'COMPLETED'
+        }).sort({ visitDate: -1 }).exec();
+
+        let currentWeek = lastCompletedVisit?.week ?? 0;
+        if (currentWeek === 0 && mother.lmp) {
+          const lmpDate = new Date(mother.lmp);
+          const now = new Date();
+          const diffInMs = now.getTime() - lmpDate.getTime();
+          currentWeek = Math.floor(diffInMs / (7 * 24 * 60 * 60 * 1000));
+          // Ensure week is within reasonable pregnancy range
+          if (currentWeek < 0) currentWeek = 0;
+          if (currentWeek > 42) currentWeek = 42;
+        }
+
+        userObj.pregnancyInfo = {
+          currentWeek,
+          nextAppointment: nextVisit?.visitDate ?? null,
+          motherId: (mother as any)._id,
+          dueDate: mother.expectedDeliveryDate ?? null
+        };
+      }
     }
 
     return userObj;

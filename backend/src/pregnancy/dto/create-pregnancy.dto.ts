@@ -12,6 +12,16 @@ export class CreatePregnancyDto {
   @Max(42)
   week: number;
 
+  @ApiPropertyOptional({ example: '2024-04-15', description: 'Date of this visit' })
+  @IsOptional()
+  @IsDateString()
+  visitDate?: string;
+
+  @ApiPropertyOptional({ enum: ['SCHEDULED', 'COMPLETED', 'MISSED', 'RESCHEDULED'], example: 'COMPLETED', description: 'Status of this visit' })
+  @IsOptional()
+  @IsEnum(['SCHEDULED', 'COMPLETED', 'MISSED', 'RESCHEDULED'])
+  visitStatus?: 'SCHEDULED' | 'COMPLETED' | 'MISSED' | 'RESCHEDULED';
+
   @ApiProperty({ example: 24, description: 'Gestational age in weeks' })
   @IsNumber()
   @Min(1)

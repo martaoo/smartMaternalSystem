@@ -1,4 +1,6 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, UseGuards, Request, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, UseGuards, Request, BadRequestException, NotFoundException } from '@nestjs/common';
+import { MothersService } from '../mothers/mothers.service';
+import { UserRole } from '../common/enums/user-role.enum';
 import { PregnancyService } from './pregnancy.service';
 import { PregnancyReminderService } from './pregnancy-reminder.service';
 import { AncScheduleService } from './anc-schedule.service';
@@ -17,6 +19,7 @@ export class PregnancyController {
     private readonly pregnancyService: PregnancyService,
     private readonly pregnancyReminderService: PregnancyReminderService,
     private readonly ancScheduleService: AncScheduleService,
+    private readonly mothersService: MothersService,
   ) {}
 
   // ── Manual trigger (dev/testing) ─────────────────────────────────────────────
@@ -94,6 +97,16 @@ export class PregnancyController {
   @ApiResponse({ status: 200, description: 'Full schedule retrieved' })
   async getFullSchedule(@Param('motherId') motherId: string) {
     return this.pregnancyService.getFullSchedule(motherId);
+  }
+
+  @Roles('MOTHER')
+  @Get('my-schedule')
+  @ApiOperation({ summary: 'Get full schedule for the logged in mother' })
+  @ApiResponse({ status: 200, description: 'Schedule retrieved' })
+  async getMySchedule(@Request() req) {
+    const mother = await this.mothersService.findByUserId(req.user.userId);
+    if (!mother) throw new NotFoundException('Mother profile not found');
+    return this.pregnancyService.getFullSchedule((mother as any)._id.toString());
   }
 
   // ── ANC schedule for a mother ─────────────────────────────────────────────────

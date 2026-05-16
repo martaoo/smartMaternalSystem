@@ -5,6 +5,7 @@ import { ChildrenService } from './children.service';
 import { Child, ChildSchema } from './schemas/child.schema';
 import { GrowthRecord, GrowthRecordSchema } from './schemas/growth-record.schema';
 import { Hospital, HospitalSchema } from '../hospitals/schemas/hospital.schema';
+import { MothersModule } from '../mothers/mothers.module';
 
 @Module({
   imports: [
@@ -12,7 +13,8 @@ import { Hospital, HospitalSchema } from '../hospitals/schemas/hospital.schema';
       { name: Child.name, schema: ChildSchema },
       { name: GrowthRecord.name, schema: GrowthRecordSchema },
       { name: Hospital.name, schema: HospitalSchema }
-    ])
+    ]),
+    MothersModule
   ],
   controllers: [ChildrenController],
   providers: [ChildrenService],

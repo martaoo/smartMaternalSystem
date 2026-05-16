@@ -8,6 +8,7 @@ import { Pregnancy, PregnancySchema } from './schemas/pregnancy.schema';
 import { MaternalVaccine, MaternalVaccineSchema } from './schemas/maternal-vaccine.schema';
 import { ReferralsModule } from '@/referrals/referrals.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { MothersModule } from '../mothers/mothers.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
     ]),
     ReferralsModule,
     NotificationsModule,
+    MothersModule,
   ],
   controllers: [PregnancyController],
   providers: [PregnancyService, PregnancyReminderService, AncScheduleService],

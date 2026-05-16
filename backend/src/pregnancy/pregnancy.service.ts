@@ -15,7 +15,7 @@ export class PregnancyService {
     @InjectModel(Pregnancy.name)
     private pregnancyModel: Model<PregnancyDocument>,
     private referralService: ReferralsService,
-  ) {}
+  ) { }
 
   // =========================
   // COMPLETE A VISIT
@@ -478,10 +478,10 @@ export class PregnancyService {
     console.log('Pregnancy hospitalId:', pregnancy.hospitalId);
     console.log('Pregnancy hospitalId type:', typeof pregnancy.hospitalId);
     console.log('Mother healthCenter:', (pregnancy.motherId as any).healthCenter);
-    
+
     // Check access permissions with fallback logic
     const filtered = await this.filterPregnanciesByRole([pregnancy], userRole, userHospitalId, userWoredaId);
-    
+
     if (filtered.length === 0) {
       // Fallback: Check if user can access the mother (more permissive)
       if (userRole === 'HOSPITAL_ADMIN' || userRole === 'DOCTOR' || userRole === 'NURSE' || userRole === 'MIDWIFE') {
@@ -489,17 +489,17 @@ export class PregnancyService {
         if (mother && mother.healthCenter) {
           const motherHospitalId = mother.healthCenter.toString();
           const userHospitalIdStr = userHospitalId?.toString();
-          
+
           console.log('Fallback check - Mother hospital:', motherHospitalId);
           console.log('Fallback check - User hospital:', userHospitalIdStr);
-          
+
           if (motherHospitalId === userHospitalIdStr) {
             console.log('Access granted via mother hospital match');
             return pregnancy;
           }
         }
       }
-      
+
       throw new NotFoundException('Pregnancy record not found or access denied');
     }
 
@@ -607,7 +607,7 @@ export class PregnancyService {
     console.log('User hospitalId:', userHospitalId);
     console.log('User hospitalId type:', typeof userHospitalId);
     console.log('Pregnancies to filter:', pregnancies.length);
-    
+
     if (userRole === 'SYSTEM_ADMIN') {
       console.log('Admin access granted - returning all pregnancies');
       return pregnancies;
@@ -618,10 +618,10 @@ export class PregnancyService {
         console.log('No user hospitalId provided for hospital staff');
         return [];
       }
-      
+
       const filtered = pregnancies.filter(p => {
         let pregnancyHospitalId: string;
-        
+
         // Handle both ObjectId and populated object cases
         if (p.hospitalId) {
           if (typeof p.hospitalId === 'object' && p.hospitalId._id) {
@@ -635,25 +635,25 @@ export class PregnancyService {
           console.log('Pregnancy has no hospitalId');
           return false;
         }
-        
+
         const userHospitalIdStr = userHospitalId.toString();
         const matches = pregnancyHospitalId === userHospitalIdStr;
-        
+
         console.log('Pregnancy hospitalId:', pregnancyHospitalId);
         console.log('Pregnancy hospitalId raw:', p.hospitalId);
         console.log('User hospitalId:', userHospitalIdStr);
         console.log('Match:', matches);
-        
+
         return matches;
       });
-      
+
       console.log('Filtered pregnancies count:', filtered.length);
       return filtered;
     }
 
     if (userRole === 'WOREDA_ADMIN') {
       // Filter by woreda through mother relationship
-      const filtered = pregnancies.filter(p => 
+      const filtered = pregnancies.filter(p =>
         p.motherId && (p.motherId as any).woredaId?.toString() === userWoredaId
       );
       console.log('Woreda admin filtered pregnancies count:', filtered.length);

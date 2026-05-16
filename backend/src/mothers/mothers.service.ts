@@ -255,4 +255,8 @@ async findByPhoneOrEmail(phone: string, email?: string): Promise<Mother | null> 
       .sort({ registrationDate: -1 })
       .exec();
   }
+
+  async findByUserId(userId: string): Promise<Mother | null> {
+    return this.motherModel.findOne({ userId: new Types.ObjectId(userId) }).exec();
+  }
 }

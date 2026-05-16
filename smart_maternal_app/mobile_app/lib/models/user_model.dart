@@ -8,6 +8,8 @@ class UserModel {
   final String? woredaId;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final String? healthCenterName;
+  final PregnancyInfo? pregnancyInfo;
   
   UserModel({
     required this.id,
@@ -17,8 +19,10 @@ class UserModel {
     required this.role,
     this.regionId,
     this.woredaId,
+    this.healthCenterName,
     required this.createdAt,
     required this.updatedAt,
+    this.pregnancyInfo,
   });
   
   factory UserModel.fromJson(Map<String, dynamic> json) {
@@ -39,8 +43,12 @@ class UserModel {
       role: json['role']?.toString() ?? '',
       regionId: extractName(json['regionId']) ?? json['assignedRegion']?.toString(),
       woredaId: extractName(json['woredaId']),
+      healthCenterName: extractName(json['healthCenter']) ?? extractName(json['hospitalId']),
       createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? '') ?? DateTime.now(),
       updatedAt: DateTime.tryParse(json['updatedAt']?.toString() ?? '') ?? DateTime.now(),
+      pregnancyInfo: json['pregnancyInfo'] != null 
+          ? PregnancyInfo.fromJson(json['pregnancyInfo']) 
+          : null,
     );
   }
   
@@ -59,4 +67,31 @@ class UserModel {
   }
   
   String get fullName => name;
+}
+
+class PregnancyInfo {
+  final int currentWeek;
+  final DateTime? nextAppointment;
+  final DateTime? dueDate;
+  final String motherId;
+
+  PregnancyInfo({
+    required this.currentWeek,
+    this.nextAppointment,
+    this.dueDate,
+    required this.motherId,
+  });
+
+  factory PregnancyInfo.fromJson(Map<String, dynamic> json) {
+    return PregnancyInfo(
+      currentWeek: json['currentWeek'] ?? 0,
+      nextAppointment: json['nextAppointment'] != null 
+          ? DateTime.tryParse(json['nextAppointment']) 
+          : null,
+      dueDate: json['dueDate'] != null 
+          ? DateTime.tryParse(json['dueDate']) 
+          : null,
+      motherId: json['motherId'] ?? '',
+    );
+  }
 }

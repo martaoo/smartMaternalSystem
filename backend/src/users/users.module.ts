@@ -5,6 +5,8 @@ import { WoredasModule } from '../woredas/woredas.module';
 import { HospitalsModule } from '../hospitals/hospitals.module';
 import { RegionsModule } from '../regions/regions.module';
 import { User, UserSchema } from './schemas/user.schema';
+import { Mother, MotherSchema } from '../mothers/schemas/mother.schema';
+import { Pregnancy, PregnancySchema } from '../pregnancy/schemas/pregnancy.schema';
 import { UsersService } from './users.service';
 import { UsersController } from './users.controller';
 
@@ -12,6 +14,8 @@ import { UsersController } from './users.controller';
   imports: [
     MongooseModule.forFeature([
       { name: User.name, schema: UserSchema },
+      { name: Mother.name, schema: MotherSchema },
+      { name: Pregnancy.name, schema: PregnancySchema },
     ]),
     forwardRef(() => AuthModule),
     WoredasModule,

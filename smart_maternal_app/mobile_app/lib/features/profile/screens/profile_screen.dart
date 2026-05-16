@@ -46,55 +46,80 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  Future<void> _navigateToEditProfile() async {
+    final result = await Navigator.pushNamed(context, '/edit-profile', arguments: _user);
+    if (result == true) {
+      _loadProfile();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBarWidget(
-        title: 'Profile',
+        title: 'My Profile',
         actions: [
-          IconButton(
-            icon: const Icon(Icons.edit),
-            onPressed: () async {
-              // Navigate to Edit Profile and wait for result
-              final result = await Navigator.pushNamed(context, '/edit-profile', arguments: _user);
-              if (result == true) {
-                // Reload profile if updated
-                _loadProfile();
-              }
-            },
+          Container(
+            margin: const EdgeInsets.only(right: 8),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              shape: BoxShape.circle,
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.edit_outlined, color: AppColors.textLight),
+              onPressed: _navigateToEditProfile,
+            ),
           ),
         ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  ProfileHeader(user: _user),
-                  const SizedBox(height: 24),
-                  _buildProfileSection(
-                    'Personal Information',
-                    [
-                      _buildProfileItem('Full Name', _user?.name ?? 'N/A'),
-                      _buildProfileItem('Email', _user?.email ?? 'N/A'),
-                      _buildProfileItem('Phone', _user?.phoneNumber ?? 'N/A'),
-                      _buildProfileItem('Role', _user?.role ?? 'N/A'),
-                      _buildProfileItem('Region', _user?.regionId ?? 'N/A'),
-                      _buildProfileItem('Wereda', _user?.woredaId ?? 'N/A'),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  _buildProfileSection(
-                    'Account Info',
-                    [
-                      _buildProfileItem('Last Update', _formatDate(_user?.updatedAt)),
-                      _buildProfileItem('Created', _formatDate(_user?.createdAt)),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  _buildLogoutButton(),
-                ],
+          : RefreshIndicator(
+              onRefresh: _loadProfile,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  children: [
+                    ProfileHeader(
+                      user: _user,
+                      onEdit: _navigateToEditProfile,
+                    ),
+                    const SizedBox(height: 32),
+                    _buildProfileSection(
+                      context,
+                      'Personal Details',
+                      [
+                        _buildProfileItem(Icons.person_outline, 'Full Name', _user?.name ?? 'N/A'),
+                        _buildProfileItem(Icons.email_outlined, 'Email Address', _user?.email ?? 'N/A'),
+                        _buildProfileItem(Icons.phone_outlined, 'Phone Number', _user?.phoneNumber ?? 'N/A'),
+                        _buildProfileItem(Icons.badge_outlined, 'User Role', _user?.role ?? 'N/A'),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    _buildProfileSection(
+                      context,
+                      'Location Information',
+                      [
+                        _buildProfileItem(Icons.map_outlined, 'Region', _user?.regionId ?? 'N/A'),
+                        _buildProfileItem(Icons.location_city_outlined, 'Wereda', _user?.woredaId ?? 'N/A'),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    _buildProfileSection(
+                      context,
+                      'Account History',
+                      [
+                        _buildProfileItem(Icons.update, 'Last Updated', _formatDate(_user?.updatedAt)),
+                        _buildProfileItem(Icons.calendar_today_outlined, 'Joined Date', _formatDate(_user?.createdAt)),
+                      ],
+                    ),
+                    const SizedBox(height: 40),
+                    _buildLogoutButton(),
+                    const SizedBox(height: 20),
+                  ],
+                ),
               ),
             ),
     );
@@ -102,55 +127,89 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   static String _formatDate(DateTime? date) {
     if (date == null) return 'N/A';
-    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+    final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return '${date.day} ${months[date.month - 1]}, ${date.year}';
   }
 
-  static Widget _buildProfileSection(String title, List<Widget> children) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.divider),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
+  Widget _buildProfileSection(BuildContext context, String title, List<Widget> items) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 12),
+          child: Text(
             title,
-            style: const TextStyle(
-              fontSize: 18,
+            style: TextStyle(
+              fontSize: 14,
               fontWeight: FontWeight.bold,
-              color: AppColors.text,
+              color: AppColors.textSecondary.withOpacity(0.7),
+              letterSpacing: 1.2,
             ),
           ),
-          const SizedBox(height: 16),
-          ...children,
-        ],
-      ),
+        ),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.03),
+                blurRadius: 15,
+                offset: const Offset(0, 5),
+              ),
+            ],
+          ),
+          child: Column(
+            children: List.generate(items.length, (index) {
+              return Column(
+                children: [
+                  items[index],
+                  if (index < items.length - 1)
+                    Divider(height: 1, color: Colors.grey.withOpacity(0.1), indent: 56),
+                ],
+              );
+            }),
+          ),
+        ),
+      ],
     );
   }
 
-  static Widget _buildProfileItem(String label, String value) {
+  Widget _buildProfileItem(IconData icon, String label, String value) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.all(16),
+      child: Row(
         children: [
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 12,
-              color: AppColors.textSecondary,
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(12),
             ),
+            child: Icon(icon, size: 22, color: AppColors.primary),
           ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 16,
-              color: AppColors.text,
-              fontWeight: FontWeight.w500,
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.text,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -161,21 +220,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget _buildLogoutButton() {
     return Container(
       width: double.infinity,
-      child: ElevatedButton(
+      height: 56,
+      child: OutlinedButton.icon(
         onPressed: _handleLogout,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.error,
-          foregroundColor: AppColors.textLight,
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
+        icon: const Icon(Icons.logout_rounded, size: 20),
+        label: const Text(
+          'Logout Account',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
-        child: const Text(
-          'Logout',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
+        style: OutlinedButton.styleFrom(
+          foregroundColor: AppColors.error,
+          side: const BorderSide(color: AppColors.error, width: 1.5),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
           ),
         ),
       ),

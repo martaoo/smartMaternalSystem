@@ -119,7 +119,7 @@ export class ChildrenController {
     );
   }
 
-  @Roles('SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'LIAISON_OFFICER')
+  @Roles('SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'LIAISON_OFFICER', 'MOTHER')
   @Get('mother/:motherId')
   @ApiOperation({ summary: 'Get children for a specific mother' })
   @ApiParam({ name: 'motherId', description: 'Mother ID' })
@@ -131,11 +131,24 @@ export class ChildrenController {
       motherId,
       user.role,
       user.hospitalId?.toString(),
-      user.woredaId?.toString()
+      user.woredaId?.toString() || user._id?.toString()
     );
   }
 
-  @Roles('SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'LIAISON_OFFICER')
+  @Roles('MOTHER')
+  @Get('my-children')
+  @ApiOperation({ summary: 'Get children for the logged in mother' })
+  @ApiResponse({ status: 200, description: 'Children retrieved successfully' })
+  async findMyChildren(@Request() req) {
+    const user = req.user;
+    return this.childrenService.findAll(
+      user.role,
+      user.hospitalId?.toString(),
+      user._id?.toString()
+    );
+  }
+
+  @Roles('SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'LIAISON_OFFICER', 'MOTHER')
   @Get(':id')
   @ApiOperation({ summary: 'Get child by ID' })
   @ApiParam({ name: 'id', description: 'Child ID' })
@@ -148,7 +161,7 @@ export class ChildrenController {
       id,
       user.role,
       user.hospitalId?.toString(),
-      user.woredaId?.toString()
+      user.woredaId?.toString() || user._id?.toString()
     );
   }
 
@@ -245,7 +258,7 @@ export class ChildrenController {
     );
   }
 
-  @Roles('SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
+  @Roles('SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'MOTHER')
   @Get(':childId/growth-records')
   @ApiOperation({ summary: 'Get growth records for a child' })
   @ApiParam({ name: 'childId', description: 'Child ID' })
@@ -260,7 +273,7 @@ export class ChildrenController {
     );
   }
 
-  @Roles('SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
+  @Roles('SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'MOTHER')
   @Get(':childId/growth-records/latest')
   @ApiOperation({ summary: 'Get latest growth record for a child' })
   @ApiParam({ name: 'childId', description: 'Child ID' })

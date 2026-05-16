@@ -74,8 +74,8 @@ export class VaccinationsService {
     return record.save();
   }
 
-  async getVaccinationRecordsByChildId(childId: string, userRole: string, userHospitalId?: string): Promise<VaccinationRecord[]> {
-    await this.childrenService.findById(childId, userRole, userHospitalId);
+  async getVaccinationRecordsByChildId(childId: string, userRole: string, userHospitalId?: string, userId?: string): Promise<VaccinationRecord[]> {
+    await this.childrenService.findById(childId, userRole, userHospitalId, userId);
 
     return this.vaccinationRecordModel.find({ childId: new Types.ObjectId(childId) })
       .populate('vaccineId', 'name code description category recommendedAge')

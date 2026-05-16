@@ -99,7 +99,7 @@ export class VaccinationsController {
     );
   }
 
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
+  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'MOTHER')
   @Get('records/child/:childId')
   @ApiOperation({ summary: 'Get vaccination records for a child' })
   @ApiParam({ name: 'childId', description: 'Child ID' })
@@ -110,7 +110,8 @@ export class VaccinationsController {
     return this.vaccinationsService.getVaccinationRecordsByChildId(
       childId,
       user.role,
-      user.hospitalId?.toString()
+      user.hospitalId?.toString(),
+      user._id?.toString()
     );
   }
 
