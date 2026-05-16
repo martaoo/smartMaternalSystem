@@ -280,15 +280,24 @@ export class PregnancyService {
       throw new BadRequestException('Hospital ID is required');
     }
 
+    // Determine visitStatus based on visitDate
+    const visitDate = new Date(createPregnancyDto.visitDate || new Date());
+    const now = new Date();
+    const isVisitInPast = visitDate < now;
+    
+    const visitStatus = createPregnancyDto.visitStatus || (isVisitInPast ? 'COMPLETED' : 'SCHEDULED');
+
     const pregnancy = await new this.pregnancyModel({
       ...createPregnancyDto,
       motherId: new Types.ObjectId(createPregnancyDto.motherId),
       healthWorkerId: new Types.ObjectId(userId),
       hospitalId: new Types.ObjectId(userHospitalId),
       createdBy: new Types.ObjectId(userId),
+      visitDate: visitDate, // Explicitly set visitDate as Date object
       nextVisitDate: createPregnancyDto.nextVisitDate
         ? new Date(createPregnancyDto.nextVisitDate)
         : undefined,
+      visitStatus,
     }).save();
 
     // Silently attempt referral trigger — never let it crash the create

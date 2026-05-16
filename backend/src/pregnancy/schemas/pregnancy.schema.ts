@@ -90,7 +90,7 @@ export class Pregnancy {
   visitReminderSentDate?: Date;
 
   // ── ANC scheduling ────────────────────────────────────────────────────────
-  @Prop({ enum: ['SCHEDULED', 'COMPLETED', 'MISSED', 'RESCHEDULED'], default: 'COMPLETED' })
+  @Prop({ enum: ['SCHEDULED', 'COMPLETED', 'MISSED', 'RESCHEDULED'], default: 'SCHEDULED' })
   visitStatus: 'SCHEDULED' | 'COMPLETED' | 'MISSED' | 'RESCHEDULED';
 
   @Prop()
