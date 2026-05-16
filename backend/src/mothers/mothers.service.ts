@@ -4,12 +4,14 @@ import { Model, Types } from 'mongoose';
 import { Mother, MotherDocument } from './schemas/mother.schema';
 import { CreateMotherDto } from './dto/create-mother.dto';
 import { HospitalsService } from '../hospitals/hospitals.service';
+import { AuthService } from '../auth/auth.service';
 
 @Injectable()
 export class MothersService {
   constructor(
     @InjectModel(Mother.name) private motherModel: Model<MotherDocument>,
     private hospitalsService: HospitalsService,
+    private authService: AuthService,
   ) {}
 
   private async resolveWoredaId(userHospitalId?: string, userWoredaId?: string): Promise<string | undefined> {
@@ -52,6 +54,33 @@ export class MothersService {
     }
   
     const effectiveWoredaId = await this.resolveWoredaId(userHospitalId, userWoredaId);
+
+    let motherUserId: Types.ObjectId | undefined;
+    if (createMotherDto.email) {
+      if (!createMotherDto.password) {
+        throw new BadRequestException(
+          'A password is required to create login credentials for the mother.'
+        );
+      }
+
+      try {
+        const motherUser = await this.authService.register({
+          name: createMotherDto.name,
+          email: createMotherDto.email,
+          password: createMotherDto.password,
+          role: 'MOTHER',
+          hospitalId: new Types.ObjectId(healthCenterId),
+          woredaId: effectiveWoredaId ? new Types.ObjectId(effectiveWoredaId) : undefined,
+        });
+        motherUserId = motherUser._id;
+      } catch (error: any) {
+        if (error?.code === 11000) {
+          throw new BadRequestException('A user with this email already exists.');
+        }
+        throw error;
+      }
+    }
+
     const motherData = {
       name: createMotherDto.name,
       phone: createMotherDto.phone,
@@ -64,6 +93,8 @@ export class MothersService {
       para: createMotherDto.para,
       lmp: createMotherDto.lmp,
       registeredBy: createMotherDto.registeredBy || 'System',
+      email: createMotherDto.email,
+      userId: motherUserId,
       
       bloodType: createMotherDto.bloodType,
       rhFactor: createMotherDto.rhFactor,

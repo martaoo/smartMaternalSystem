@@ -25,6 +25,14 @@ export class AuthService {
     return undefined;
   }
 
+  private normalizeEmail(email: string): string {
+    return email?.toString().trim().toLowerCase();
+  }
+
+  private escapeRegex(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
   async register(data: {
     name: string;
     email: string;
@@ -34,9 +42,11 @@ export class AuthService {
     woredaId?: Types.ObjectId;
   }) {
     const hashedPassword = await bcrypt.hash(data.password, 10);
+    const email = this.normalizeEmail(data.email);
 
     const user = new this.userModel({
       ...data,
+      email,
       password: hashedPassword,
     });
 
@@ -44,7 +54,14 @@ export class AuthService {
   }
 
   async login(email: string, password: string) {
-    const user = await this.userModel.findOne({ email });
+    const normalizedEmail = this.normalizeEmail(email);
+    let user = await this.userModel.findOne({ email: normalizedEmail });
+
+    if (!user) {
+      user = await this.userModel.findOne({
+        email: { $regex: new RegExp(`^${this.escapeRegex(email.trim())}$`, 'i') },
+      });
+    }
 
     if (!user) {
       throw new NotFoundException('User not found');

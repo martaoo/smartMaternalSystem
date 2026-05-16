@@ -14,8 +14,8 @@ export class User {
   @Prop({ required: true })
   password: string;
 
-  @Prop({ 
-    required: true, 
+  @Prop({
+    required: true,
     enum: [
       'SUPER_ADMIN',
       'SYSTEM_ADMIN',
@@ -25,12 +25,14 @@ export class User {
       'DOCTOR',
       'NURSE',
       'MIDWIFE',
+      'MOTHER',
       'DISPATCHER',
       'EMERGENCY_ADMIN',
       'LIAISON_OFFICER',
       'HOSPITAL_APPROVER',
       'GATEKEEPER',
       'SPECIALIST',
+
     ],
   })
   role: string;
