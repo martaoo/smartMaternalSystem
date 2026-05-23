@@ -61,7 +61,7 @@ export class MaternalVaccine {
 
 export const MaternalVaccineSchema = SchemaFactory.createForClass(MaternalVaccine);
 
-// ── CONSTANTS & METADATA CONFIGURATION ──────────────────────────────────────
+// ── CONSTANTS & METADATA CONFIGURATION ───────────────────────────────────
 // WHO-recommended maternal vaccines with intervals
 export const MATERNAL_VACCINE_SCHEDULE = {
   TT1: { name: 'Tetanus Toxoid 1', nextDoseWeeks: 4, doseNumber: 1 },

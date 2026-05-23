@@ -350,4 +350,5 @@ class _VaccinationScreenState extends State<VaccinationScreen> {
       ),
     );
   }
+  
 }
