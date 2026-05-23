@@ -1,76 +1,89 @@
 import 'dart:convert';
-import '../../../core/services/api_service.dart';
+import 'package:http/http.dart' as http;
+import '../../../core/constants/api_constants.dart';
 import '../../../core/services/storage_service.dart';
 import '../../../models/growth_model.dart';
 
 class GrowthService {
-  final ApiService _apiService = ApiService();
   final StorageService _storageService = StorageService();
 
+  Future<Map<String, String>> _headers() async {
+    final token = await _storageService.getToken();
+    return {
+      'Authorization': 'Bearer $token',
+      'Content-Type': 'application/json',
+    };
+  }
+
+  void _log(String msg) => print('[GrowthService] $msg');
+
+  /// GET /children/:childId/growth-records
+  /// Returns records sorted oldest → newest (for charting left-to-right).
+  /// The last element in the returned list is therefore the most recent record.
   Future<List<GrowthModel>> getGrowthRecords(String childId) async {
     try {
-      final token = await _storageService.getToken();
-      final response = await _apiService.get(
-        '/children/$childId/growth-records',
-        token: token,
+      final res = await http.get(
+        Uri.parse('${ApiConstants.baseUrl}/children/$childId/growth-records'),
+        headers: await _headers(),
       );
+      _log('GET /children/$childId/growth-records → ${res.statusCode}');
+      _log('body: ${res.body}');
 
-      if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        return data.map((json) => GrowthModel.fromJson(json)).toList();
+      if (res.statusCode == 200) {
+        final decoded = json.decode(res.body);
+
+        // Handle both plain array and { data: [...] } wrapper
+        List<dynamic> data;
+        if (decoded is List) {
+          data = decoded;
+        } else if (decoded is Map && decoded['data'] is List) {
+          data = decoded['data'] as List<dynamic>;
+        } else {
+          return [];
+        }
+
+        final records = data
+            .map((j) => GrowthModel.fromJson(j as Map<String, dynamic>))
+            .toList();
+
+        // Sort oldest → newest so chart draws left-to-right
+        // and records.last == most recent measurement
+        records.sort((a, b) => a.measurementDate.compareTo(b.measurementDate));
+        return records;
       }
+
+      _log('Non-200 response: ${res.statusCode} — ${res.body}');
       return [];
     } catch (e) {
-      print('Error fetching growth records: $e');
+      _log('Error fetching growth records: $e');
       return [];
     }
   }
 
-  Future<GrowthModel?> createGrowthRecord(Map<String, dynamic> growthData) async {
+  /// GET /children/:childId/growth-records/latest
+  /// Used as a fallback when the list endpoint returns empty.
+  Future<GrowthModel?> getLatestGrowthRecord(String childId) async {
     try {
-      final token = await _storageService.getToken();
-      final response = await _apiService.post(
-        '/growth',
-        body: growthData,
-        token: token,
+      final res = await http.get(
+        Uri.parse(
+            '${ApiConstants.baseUrl}/children/$childId/growth-records/latest'),
+        headers: await _headers(),
       );
+      _log('GET /children/$childId/growth-records/latest → ${res.statusCode}');
+      _log('body: ${res.body}');
 
-      if (response.statusCode == 201) {
-        // Parse response and return growth record
-        return null;
+      if (res.statusCode == 200) {
+        final decoded = json.decode(res.body);
+        // Backend returns null when no records exist (HTTP 200 + null body)
+        if (decoded == null) return null;
+        if (decoded is Map<String, dynamic>) {
+          return GrowthModel.fromJson(decoded);
+        }
       }
       return null;
     } catch (e) {
+      _log('Error fetching latest growth record: $e');
       return null;
-    }
-  }
-
-  Future<bool> updateGrowthRecord(String growthId, Map<String, dynamic> growthData) async {
-    try {
-      final token = await _storageService.getToken();
-      final response = await _apiService.put(
-        '/growth/$growthId',
-        body: growthData,
-        token: token,
-      );
-
-      return response.statusCode == 200;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  Future<bool> deleteGrowthRecord(String growthId) async {
-    try {
-      final token = await _storageService.getToken();
-      final response = await _apiService.delete(
-        '/growth/$growthId',
-        token: token,
-      );
-
-      return response.statusCode == 200;
-    } catch (e) {
-      return false;
     }
   }
 }
