@@ -20,12 +20,16 @@ class AppointmentsScreen extends StatefulWidget {
 }
 
 class _AppointmentsScreenState extends State<AppointmentsScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   final AppointmentService _appointmentService = AppointmentService();
   final ChildService _childService = ChildService();
   final ProfileService _profileService = ProfileService();
 
   late TabController _tabController;
+  late AnimationController _entryController;
+  late Animation<double> _fadeAnim;
+  late Animation<Offset> _slideAnim;
+  
   ScheduleData? _scheduleData;
   MotherVaccinationScheduleData? _motherVaccinationSchedule;
   List<dynamic> _children = [];
@@ -37,12 +41,32 @@ class _AppointmentsScreenState extends State<AppointmentsScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    
+    _entryController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    );
+    _fadeAnim = CurvedAnimation(
+      parent: _entryController,
+      curve: Curves.easeOut,
+    );
+    _slideAnim = Tween<Offset>(
+      begin: const Offset(0, 0.1),
+      end: Offset.zero,
+    ).animate(
+      CurvedAnimation(
+        parent: _entryController,
+        curve: Curves.easeOutCubic,
+      ),
+    );
+    
     _loadAllData();
   }
 
   @override
   void dispose() {
     _tabController.dispose();
+    _entryController.dispose();
     super.dispose();
   }
 
@@ -78,7 +102,10 @@ class _AppointmentsScreenState extends State<AppointmentsScreen>
       debugPrint('Error loading appointment data: $e');
     }
 
-    if (mounted) setState(() => _isLoading = false);
+    if (mounted) {
+      setState(() => _isLoading = false);
+      _entryController.forward();
+    }
   }
 
   void _showClinicNotice(String action) {
@@ -105,44 +132,60 @@ class _AppointmentsScreenState extends State<AppointmentsScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppointmentTheme.background,
+      backgroundColor: const Color(0xFFFFF8F5),
       body: NestedScrollView(
         headerSliverBuilder: (context, innerBoxIsScrolled) => [
           const SliverToBoxAdapter(child: AppointmentsHeader()),
           SliverPersistentHeader(
             pinned: true,
             delegate: _TabBarDelegate(
-              TabBar(
-                controller: _tabController,
-                labelColor: AppointmentTheme.brownDark,
-                unselectedLabelColor: Colors.grey.shade600,
-                indicatorColor: AppointmentTheme.brown,
-                indicatorWeight: 3,
-                labelStyle: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
+              Container(
+                color: const Color(0xFFFFF8F5),
+                child: TabBar(
+                  controller: _tabController,
+                  labelColor: AppointmentTheme.brownDark,
+                  unselectedLabelColor: Colors.grey.shade600,
+                  indicatorColor: AppointmentTheme.brown,
+                  indicatorWeight: 3,
+                  labelStyle: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
+                  isScrollable: true,
+                  tabs: const [
+                    Tab(text: 'Pregnancy Visits'),
+                    Tab(text: 'Maternal Vaccination'),
+                    Tab(text: 'Child Vaccination'),
+                  ],
                 ),
-                isScrollable: true,
-                tabs: const [
-                  Tab(text: 'Pregnancy Visits'),
-                  Tab(text: 'Maternal Vaccination'),
-                  Tab(text: 'Child Vaccination'),
-                ],
               ),
             ),
           ),
         ],
         body: _isLoading
-            ? const Center(
-                child: CircularProgressIndicator(color: AppointmentTheme.brown),
+            ? Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const CircularProgressIndicator(color: AppointmentTheme.brown),
+                    const SizedBox(height: 16),
+                    Text('Loading appointments...', style: TextStyle(color: Colors.grey.shade600)),
+                  ],
+                ),
               )
-            : TabBarView(
-                controller: _tabController,
-                children: [
-                  _buildVisitsTab(),
-                  _buildMaternalVaccinesTab(),
-                  _buildChildVaccinesTab(),
-                ],
+            : FadeTransition(
+                opacity: _fadeAnim,
+                child: SlideTransition(
+                  position: _slideAnim,
+                  child: TabBarView(
+                    controller: _tabController,
+                    children: [
+                      _buildVisitsTab(),
+                      _buildMaternalVaccinesTab(),
+                      _buildChildVaccinesTab(),
+                    ],
+                  ),
+                ),
               ),
       ),
     );
@@ -181,7 +224,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen>
       color: AppointmentTheme.brown,
       onRefresh: _loadAllData,
       child: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         children: [
           if (next != null)
             ReminderBanner(
@@ -246,7 +289,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen>
       color: AppointmentTheme.brown,
       onRefresh: _loadAllData,
       child: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         children: [
           if (nextAppt != null && nextAppt['scheduledDate'] != null)
             ReminderBanner(
@@ -275,8 +318,18 @@ class _AppointmentsScreenState extends State<AppointmentsScreen>
             ),
           ),
           Container(
-            padding: const EdgeInsets.all(16),
-            decoration: AppointmentTheme.cardDecoration,
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.06),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
@@ -286,7 +339,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen>
               ],
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 24),
           MaternalVaccineTimeline(
             slots: slots,
             allVaccines: vaccines,
@@ -309,7 +362,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen>
       color: AppointmentTheme.brown,
       onRefresh: _loadAllData,
       child: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         children: [
           ..._children.map((child) => _buildChildSection(child)),
         ],
@@ -367,7 +420,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen>
             );
           }),
         ],
-        const SizedBox(height: 24),
+        const SizedBox(height: 32),
       ],
     );
   }
@@ -390,22 +443,22 @@ class _AppointmentsScreenState extends State<AppointmentsScreen>
       children: [
         Text('$count',
             style: TextStyle(
-                fontSize: 22, fontWeight: FontWeight.bold, color: color)),
-        Text(label, style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+                fontSize: 26, fontWeight: FontWeight.bold, color: color)),
+        Text(label, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
       ],
     );
   }
 
   Widget _sectionTitle(String title) {
     return Padding(
-      padding: const EdgeInsets.only(left: 4, bottom: 12, top: 8),
+      padding: const EdgeInsets.only(left: 4, bottom: 16, top: 8),
       child: Text(
         title.toUpperCase(),
         style: const TextStyle(
-          fontSize: 12,
+          fontSize: 13,
           fontWeight: FontWeight.bold,
           color: AppointmentTheme.brownDark,
-          letterSpacing: 1.0,
+          letterSpacing: 1.2,
         ),
       ),
     );
@@ -428,16 +481,16 @@ class _AppointmentsScreenState extends State<AppointmentsScreen>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 72, color: AppointmentTheme.brownLight),
-            const SizedBox(height: 16),
+            Icon(icon, size: 80, color: AppointmentTheme.brownLight),
+            const SizedBox(height: 20),
             Text(title,
                 textAlign: TextAlign.center,
                 style: const TextStyle(
-                    fontWeight: FontWeight.bold, fontSize: 16)),
-            const SizedBox(height: 8),
+                    fontWeight: FontWeight.bold, fontSize: 17)),
+            const SizedBox(height: 12),
             Text(subtitle,
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
           ],
         ),
       ),
@@ -446,23 +499,23 @@ class _AppointmentsScreenState extends State<AppointmentsScreen>
 }
 
 class _TabBarDelegate extends SliverPersistentHeaderDelegate {
-  final TabBar tabBar;
+  final Widget child;
 
-  _TabBarDelegate(this.tabBar);
-
-  @override
-  double get minExtent => tabBar.preferredSize.height;
+  _TabBarDelegate(this.child);
 
   @override
-  double get maxExtent => tabBar.preferredSize.height;
+  double get minExtent => 48;
+
+  @override
+  double get maxExtent => 48;
 
   @override
   Widget build(
       BuildContext context, double shrinkOffset, bool overlapsContent) {
     return Material(
-      color: Colors.white,
+      color: const Color(0xFFFFF8F5),
       elevation: overlapsContent ? 2 : 0,
-      child: tabBar,
+      child: child,
     );
   }
 

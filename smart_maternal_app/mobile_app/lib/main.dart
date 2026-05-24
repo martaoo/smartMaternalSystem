@@ -22,7 +22,7 @@ class SmartMaternalApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
-      initialRoute: AppRoutes.login,
+      initialRoute: AppRoutes.landing,
       routes: AppRoutes.routes,
     );
   }
