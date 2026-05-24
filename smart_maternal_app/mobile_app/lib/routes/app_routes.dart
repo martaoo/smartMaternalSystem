@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../features/auth/screens/splash_screen.dart';
+import '../features/auth/screens/landing_screen.dart';
 import '../features/auth/screens/login_screen.dart';
 import '../features/dashboard/screens/dashboard_screen.dart';
 import '../features/appointments/screens/appointments_screen.dart';
@@ -11,29 +12,31 @@ import '../features/profile/screens/profile_screen.dart';
 import '../features/profile/screens/edit_profile_screen.dart';
 
 class AppRoutes {
-  static const String splash = '/';
-  static const String login = '/login';
-  static const String dashboard = '/dashboard';
-  static const String motherDashboard = '/mother-dashboard';
-  static const String appointments = '/appointments';
-  static const String vaccination = '/vaccination';
-  static const String childGrowth = '/child-growth';
-  static const String dangerSigns = '/danger-signs';
-  static const String referrals = '/referrals';
-  static const String profile = '/profile';
-  static const String editProfile = '/edit-profile';
+  static const String splash           = '/';
+  static const String landing          = '/landing';
+  static const String login            = '/login';
+  static const String dashboard        = '/dashboard';
+  static const String motherDashboard  = '/mother-dashboard';
+  static const String appointments     = '/appointments';
+  static const String vaccination      = '/vaccination';
+  static const String childGrowth      = '/child-growth';
+  static const String dangerSigns      = '/danger-signs';
+  static const String referrals        = '/referrals';
+  static const String profile          = '/profile';
+  static const String editProfile      = '/edit-profile';
 
   static Map<String, WidgetBuilder> routes = {
-    splash: (context) => const SplashScreen(),
-    login: (context) => const LoginScreen(),
-    dashboard: (context) => const DashboardScreen(),
+    splash:          (context) => const SplashScreen(),
+    landing:         (context) => const LandingScreen(),
+    login:           (context) => const LoginScreen(),
+    dashboard:       (context) => const DashboardScreen(),
     motherDashboard: (context) => const DashboardScreen(),
-    appointments: (context) => const AppointmentsScreen(),
-    vaccination: (context) => const VaccinationScreen(),
-    childGrowth: (context) => const ChildGrowthScreen(),
-    dangerSigns: (context) => const DangerSignsScreen(),
-    referrals: (context) => const ReferralsScreen(),
-    profile: (context) => const ProfileScreen(),
-    editProfile: (context) => const EditProfileScreen(),
+    appointments:    (context) => const AppointmentsScreen(),
+    vaccination:     (context) => const VaccinationScreen(),
+    childGrowth:     (context) => const ChildGrowthScreen(),
+    dangerSigns:     (context) => const DangerSignsScreen(),
+    referrals:       (context) => const ReferralsScreen(),
+    profile:         (context) => const ProfileScreen(),
+    editProfile:     (context) => const EditProfileScreen(),
   };
 }

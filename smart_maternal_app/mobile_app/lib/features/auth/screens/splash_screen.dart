@@ -27,7 +27,7 @@ class _SplashScreenState extends State<SplashScreen> {
       if (isLoggedIn) {
         Navigator.pushReplacementNamed(context, AppRoutes.dashboard);
       } else {
-        Navigator.pushReplacementNamed(context, AppRoutes.login);
+        Navigator.pushReplacementNamed(context, AppRoutes.landing);
       }
     }
   }
@@ -59,3 +59,6 @@ class _SplashScreenState extends State<SplashScreen> {
     );
   }
 }
+
+
+
