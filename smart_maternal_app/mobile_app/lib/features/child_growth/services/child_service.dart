@@ -6,45 +6,71 @@ import '../../../core/services/storage_service.dart';
 class ChildService {
   final StorageService _storageService = StorageService();
 
-  Future<List<dynamic>> getMyChildren() async {
+  Future<Map<String, String>> _headers() async {
+    final token = await _storageService.getToken();
+    return {
+      'Authorization': 'Bearer $token',
+      'Content-Type': 'application/json',
+    };
+  }
+
+  /// Fetch children for the logged-in mother.
+  ///
+  /// Strategy:
+  ///   1. Try GET /children/my-children  (MOTHER role endpoint)
+  ///   2. If that returns empty or fails, fall back to
+  ///      GET /children/mother/:motherId using the motherId stored in
+  ///      the profile's pregnancyInfo (passed in as [fallbackMotherId]).
+  ///
+  /// The backend /children/my-children calls findAll('MOTHER', undefined, user._id)
+  /// which calls findByUserId(user._id) to resolve the mother record.
+  Future<List<dynamic>> getMyChildren({String? fallbackMotherId}) async {
+    final headers = await _headers();
+
+    // ── Primary: /children/my-children ──────────────────────────────────────
     try {
-      final token = await _storageService.getToken();
-      final response = await http.get(
+      final res = await http.get(
         Uri.parse('${ApiConstants.baseUrl}/children/my-children'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
+        headers: headers,
       );
+      debugLog('GET /children/my-children → ${res.statusCode}');
+      debugLog('body: ${res.body}');
 
-      if (response.statusCode == 200) {
-        return json.decode(response.body);
+      if (res.statusCode == 200) {
+        final decoded = json.decode(res.body);
+        final list = _toList(decoded);
+        if (list.isNotEmpty) return list;
       }
-      return [];
     } catch (e) {
-      print('Error fetching children: $e');
-      return [];
+      debugLog('my-children error: $e');
     }
+
+    // ── Fallback: /children/mother/:motherId ─────────────────────────────────
+    if (fallbackMotherId != null && fallbackMotherId.isNotEmpty) {
+      try {
+        final res = await http.get(
+          Uri.parse('${ApiConstants.baseUrl}/children/mother/$fallbackMotherId'),
+          headers: headers,
+        );
+        debugLog('GET /children/mother/$fallbackMotherId → ${res.statusCode}');
+        debugLog('body: ${res.body}');
+
+        if (res.statusCode == 200) {
+          return _toList(json.decode(res.body));
+        }
+      } catch (e) {
+        debugLog('mother/:id error: $e');
+      }
+    }
+
+    return [];
   }
 
-  Future<Map<String, dynamic>?> getLatestGrowthRecord(String childId) async {
-    try {
-      final token = await _storageService.getToken();
-      final response = await http.get(
-        Uri.parse('${ApiConstants.baseUrl}/children/$childId/growth-records/latest'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-      );
-
-      if (response.statusCode == 200) {
-        return json.decode(response.body);
-      }
-      return null;
-    } catch (e) {
-      print('Error fetching latest growth record: $e');
-      return null;
-    }
+  List<dynamic> _toList(dynamic decoded) {
+    if (decoded is List) return decoded;
+    if (decoded is Map && decoded['data'] is List) return decoded['data'] as List;
+    return [];
   }
+
+  void debugLog(String msg) => print('[ChildService] $msg');
 }
