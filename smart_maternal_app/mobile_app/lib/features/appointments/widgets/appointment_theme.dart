@@ -6,7 +6,7 @@ class AppointmentTheme {
   static const Color brownDark = Color(0xFF5D4037);
   static const Color brownLight = Color(0xFFD7CCC8);
   static const Color brownPale = Color(0xFFEFEBE9);
-  static const Color background = Color(0xFFF8F6F4);
+  static const Color background = Color(0xFFFFF8F5);
 
   static const Color administered = Color(0xFF4CAF50);
   static const Color scheduled = Color(0xFF2196F3);

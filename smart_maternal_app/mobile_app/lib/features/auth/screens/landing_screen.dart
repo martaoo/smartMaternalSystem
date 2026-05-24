@@ -22,6 +22,27 @@ class _P {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Stats data class
+// ─────────────────────────────────────────────────────────────────────────────
+class _Stat {
+  final String value;
+  final String label;
+  final Color color;
+  const _Stat(this.value, this.label, this.color);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Feature data
+// ─────────────────────────────────────────────────────────────────────────────
+class _Feat {
+  final IconData icon;
+  final String   title;
+  final String   desc;
+  final Color    color;
+  const _Feat(this.icon, this.title, this.desc, this.color);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Landing screen
 // ─────────────────────────────────────────────────────────────────────────────
 class LandingScreen extends StatefulWidget {
@@ -58,11 +79,11 @@ class _LandingScreenState extends State<LandingScreen>
     super.initState();
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.dark,
+      statusBarIconBrightness: Brightness.light,
     ));
 
     _entryCtrl = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 1000));
+        vsync: this, duration: const Duration(milliseconds: 1200));
     _pulseCtrl = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 2200))
       ..repeat(reverse: true);
@@ -71,11 +92,11 @@ class _LandingScreenState extends State<LandingScreen>
       ..repeat();
 
     _fadeAnim = CurvedAnimation(parent: _entryCtrl, curve: Curves.easeOut);
-    _slideAnim = Tween<Offset>(begin: const Offset(0, 0.10), end: Offset.zero)
+    _slideAnim = Tween<Offset>(begin: const Offset(0, 0.15), end: Offset.zero)
         .animate(CurvedAnimation(parent: _entryCtrl, curve: Curves.easeOutCubic));
-    _imgScaleAnim = Tween<double>(begin: 1.06, end: 1.0)
+    _imgScaleAnim = Tween<double>(begin: 1.1, end: 1.0)
         .animate(CurvedAnimation(parent: _entryCtrl, curve: Curves.easeOutCubic));
-    _pulseAnim = Tween<double>(begin: 1.0, end: 1.035)
+    _pulseAnim = Tween<double>(begin: 1.0, end: 1.04)
         .animate(CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut));
     _shimmerAnim = Tween<double>(begin: -2.0, end: 3.0)
         .animate(CurvedAnimation(parent: _shimmerCtrl, curve: Curves.linear));
@@ -99,58 +120,63 @@ class _LandingScreenState extends State<LandingScreen>
 
     return Scaffold(
       backgroundColor: _P.bg,
-      body: Column(
+      body: Stack(
         children: [
-          // ── TOP SECTION: header + image (55% of screen) ──────────────────
+          // ── Full screen hero image ───────────────────────────────────────
           SizedBox(
-            height: size.height * 0.55,
+            height: size.height,
+            width: size.width,
             child: Stack(
               fit: StackFit.expand,
               children: [
-
-                // ── Full-bleed image ────────────────────────────────────────
                 ScaleTransition(
                   scale: _imgScaleAnim,
                   child: Image.asset(
                     'assets/images/pregnant_mother2.jpg',
                     fit: BoxFit.cover,
-                    alignment: Alignment.topCenter,
+                    alignment: Alignment.center,
                   ),
                 ),
-
-                // ── Bottom gradient so text is readable ─────────────────────
-                const DecoratedBox(
+                // Gradient overlay for readability
+                DecoratedBox(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
-                      stops: [0.0, 0.40, 0.75, 1.0],
+                      stops: const [0.0, 0.25, 0.55, 0.75, 0.95],
                       colors: [
-                        Color(0x00000000),
-                        Color(0x18000000),
-                        Color(0x88000000),
-                        Color(0xDD000000),
+                        Colors.black.withOpacity(0.15),
+                        Colors.black.withOpacity(0.25),
+                        Colors.black.withOpacity(0.45),
+                        Colors.black.withOpacity(0.75),
+                        _P.bg,
                       ],
                     ),
                   ),
                 ),
-
-                // ── Top header bar ──────────────────────────────────────────
-                Positioned(
-                  top: top + 12,
-                  left: 20,
-                  right: 20,
+              ],
+            ),
+          ),
+          
+          // ── Content layer ─────────────────────────────────────────────────
+          SafeArea(
+            child: Column(
+              children: [
+                // ── Header bar ───────────────────────────────────────────────
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                   child: FadeTransition(
                     opacity: _fadeAnim,
                     child: _buildHeader(),
                   ),
                 ),
-
-                // ── Title text over image bottom ────────────────────────────
-                Positioned(
-                  left: 24,
-                  right: 24,
-                  bottom: 24,
+                
+                // ── Spacer ───────────────────────────────────────────────────
+                const Spacer(flex: 2),
+                
+                // ── Title section ────────────────────────────────────────────
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
                   child: FadeTransition(
                     opacity: _fadeAnim,
                     child: SlideTransition(
@@ -159,18 +185,21 @@ class _LandingScreenState extends State<LandingScreen>
                     ),
                   ),
                 ),
+                
+                const SizedBox(height: 32),
+                
+                // ── Bottom panel with stats and features ─────────────────────
+                Expanded(
+                  flex: 5,
+                  child: FadeTransition(
+                    opacity: _fadeAnim,
+                    child: SlideTransition(
+                      position: _slideAnim,
+                      child: _buildBottomContent(bottom),
+                    ),
+                  ),
+                ),
               ],
-            ),
-          ),
-
-          // ── BOTTOM SECTION: features + button (45% of screen) ────────────
-          Expanded(
-            child: FadeTransition(
-              opacity: _fadeAnim,
-              child: SlideTransition(
-                position: _slideAnim,
-                child: _buildBottomContent(bottom),
-              ),
             ),
           ),
         ],
@@ -185,31 +214,31 @@ class _LandingScreenState extends State<LandingScreen>
       children: [
         // Logo
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.30),
+            color: Colors.white.withOpacity(0.18),
             borderRadius: BorderRadius.circular(30),
-            border: Border.all(color: Colors.white.withOpacity(0.25)),
+            border: Border.all(color: Colors.white.withOpacity(0.35)),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                padding: const EdgeInsets.all(5),
+                padding: const EdgeInsets.all(6),
                 decoration: const BoxDecoration(
                   color: _P.pink,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.favorite_rounded, color: Colors.white, size: 11),
+                child: const Icon(Icons.favorite_rounded, color: Colors.white, size: 14),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 10),
               const Text(
                 'SMHS',
                 style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
-                  fontSize: 13,
-                  letterSpacing: 2.0,
+                  fontSize: 15,
+                  letterSpacing: 2.2,
                 ),
               ),
             ],
@@ -220,19 +249,19 @@ class _LandingScreenState extends State<LandingScreen>
         GestureDetector(
           onTap: () => setState(() => _amharic = !_amharic),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.30),
+              color: Colors.white.withOpacity(0.18),
               borderRadius: BorderRadius.circular(30),
-              border: Border.all(color: Colors.white.withOpacity(0.25)),
+              border: Border.all(color: Colors.white.withOpacity(0.35)),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 _langChip('EN',  !_amharic),
                 const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 4),
-                  child: Text('·', style: TextStyle(color: Colors.white38, fontSize: 12)),
+                  padding: EdgeInsets.symmetric(horizontal: 6),
+                  child: Text('·', style: TextStyle(color: Colors.white54, fontSize: 14)),
                 ),
                 _langChip('አማ', _amharic),
               ],
@@ -246,9 +275,9 @@ class _LandingScreenState extends State<LandingScreen>
   Widget _langChip(String label, bool active) => Text(
     label,
     style: TextStyle(
-      color: active ? Colors.white : Colors.white38,
+      color: active ? Colors.white : Colors.white54,
       fontWeight: active ? FontWeight.bold : FontWeight.normal,
-      fontSize: 12,
+      fontSize: 13,
     ),
   );
 
@@ -260,45 +289,45 @@ class _LandingScreenState extends State<LandingScreen>
       children: [
         // Pill tag
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
           decoration: BoxDecoration(
-            color: _P.pink.withOpacity(0.85),
-            borderRadius: BorderRadius.circular(20),
+            color: _P.pink.withOpacity(0.95),
+            borderRadius: BorderRadius.circular(24),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.verified_rounded, color: Colors.white, size: 12),
-              const SizedBox(width: 5),
+              const Icon(Icons.verified_rounded, color: Colors.white, size: 14),
+              const SizedBox(width: 6),
               Text(
                 _amharic ? 'ኦፊሴላዊ ስርዓት' : 'Official Health System',
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 11,
+                  fontSize: 12,
                   fontWeight: FontWeight.bold,
                 ),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 14),
         Text(
           _title,
           style: const TextStyle(
             color: Colors.white,
-            fontSize: 30,
+            fontSize: 36,
             fontWeight: FontWeight.bold,
-            height: 1.2,
-            letterSpacing: -0.3,
+            height: 1.15,
+            letterSpacing: -0.5,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 12),
         Text(
           _subtitle,
           style: TextStyle(
-            color: Colors.white.withOpacity(0.80),
-            fontSize: 13,
-            height: 1.55,
+            color: Colors.white.withOpacity(0.9),
+            fontSize: 15,
+            height: 1.6,
           ),
         ),
       ],
@@ -309,52 +338,62 @@ class _LandingScreenState extends State<LandingScreen>
   Widget _buildBottomContent(double bottomPadding) {
     return Container(
       width: double.infinity,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: _P.bg,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(36)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.15),
+            blurRadius: 30,
+            offset: const Offset(0, -10),
+          ),
+        ],
       ),
-      child: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
-        padding: EdgeInsets.fromLTRB(24, 28, 24, 16 + bottomPadding),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+      child: ClipRRect(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(36)),
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          padding: EdgeInsets.fromLTRB(24, 32, 24, 20 + bottomPadding),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
 
-            // ── Stats row ─────────────────────────────────────────────────
-            _buildStatsRow(),
-            const SizedBox(height: 24),
+              // ── Stats row ─────────────────────────────────────────────────
+              _buildStatsRow(),
+              const SizedBox(height: 32),
 
-            // ── Section label ─────────────────────────────────────────────
-            Text(
-              _amharic ? 'ዋና ባህሪያት' : 'Key Features',
-              style: const TextStyle(
-                color: _P.textDark,
-                fontSize: 15,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 14),
-
-            // ── Feature grid ──────────────────────────────────────────────
-            _buildFeatureGrid(),
-            const SizedBox(height: 28),
-
-            // ── Sign In button ────────────────────────────────────────────
-            _buildSignInButton(),
-            const SizedBox(height: 16),
-
-            // ── Footer ───────────────────────────────────────────────────
-            Center(
-              child: Text(
-                _footer,
+              // ── Section label ─────────────────────────────────────────────
+              Text(
+                _amharic ? 'ዋና ባህሪያት' : 'Key Features',
                 style: const TextStyle(
-                  color: _P.textSoft,
-                  fontSize: 12,
-                  fontStyle: FontStyle.italic,
+                  color: _P.textDark,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
-            ),
-          ],
+              const SizedBox(height: 16),
+
+              // ── Feature grid ──────────────────────────────────────────────
+              _buildFeatureGrid(),
+              const SizedBox(height: 36),
+
+              // ── Sign In button ────────────────────────────────────────────
+              _buildSignInButton(),
+              const SizedBox(height: 20),
+
+              // ── Footer ───────────────────────────────────────────────────
+              Center(
+                child: Text(
+                  _footer,
+                  style: TextStyle(
+                    color: _P.textSoft,
+                    fontSize: 14,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -362,47 +401,51 @@ class _LandingScreenState extends State<LandingScreen>
 
   // ── Stats row ─────────────────────────────────────────────────────────────────
   Widget _buildStatsRow() {
-    final stats = _amharic
-        ? [('10K+', 'እናቶች', _P.pink), ('98%', 'ደህንነት', _P.green), ('24/7', 'ድጋፍ', _P.blue)]
-        : [('10K+', 'Mothers', _P.pink), ('98%', 'Safe Births', _P.green), ('24/7', 'Support', _P.blue)];
+    final List<_Stat> stats = _amharic
+        ? [const _Stat('10K+', 'እናቶች', _P.pink), const _Stat('98%', 'ደህንነት', _P.green), const _Stat('24/7', 'ድጋፍ', _P.blue)]
+        : [const _Stat('10K+', 'Mothers', _P.pink), const _Stat('98%', 'Safe Births', _P.green), const _Stat('24/7', 'Support', _P.blue)];
 
     return Row(
-      children: stats.map((s) {
-        final isLast = stats.indexOf(s) == stats.length - 1;
+      children: stats.asMap().entries.map((entry) {
+        final int index = entry.key;
+        final _Stat stat = entry.value;
+        final bool isLast = index == stats.length - 1;
         return Expanded(
-          child: Container(
-            margin: EdgeInsets.only(right: isLast ? 0 : 12),
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, 3),
-                ),
-              ],
-            ),
-            child: Column(
-              children: [
-                Text(
-                  s.$1,
-                  style: TextStyle(
-                    color: s.$3,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
+          child: _PressableCard(
+            child: Container(
+              margin: EdgeInsets.only(right: isLast ? 0 : 14),
+              padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.08),
+                    blurRadius: 16,
+                    offset: const Offset(0, 6),
                   ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  s.$2,
-                  style: const TextStyle(
-                    color: _P.textSoft,
-                    fontSize: 11,
+                ],
+              ),
+              child: Column(
+                children: [
+                  Text(
+                    stat.value,
+                    style: TextStyle(
+                      color: stat.color,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 4),
+                  Text(
+                    stat.label,
+                    style: const TextStyle(
+                      color: _P.textSoft,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         );
@@ -412,28 +455,28 @@ class _LandingScreenState extends State<LandingScreen>
 
   // ── Feature grid ──────────────────────────────────────────────────────────────
   Widget _buildFeatureGrid() {
-    final features = _amharic
+    final List<_Feat> features = _amharic
         ? [
-            _Feat(Icons.calendar_month_rounded, 'ቀጠሮ ክትትል',    'ሁሉም ቀጠሮዎችዎን ይከታተሉ',          _P.blue),
-            _Feat(Icons.vaccines_rounded,        'ክትባት ማሳወቂያ',  'ለልጅዎ ክትባቶች ማሳወቂያ ያግኙ',       _P.green),
-            _Feat(Icons.emergency_rounded,       'አደጋ ጊዜ ድጋፍ', 'ፈጣን የጤና ድጋፍ ያግኙ',             _P.red),
-            _Feat(Icons.child_care_rounded,      'ሕፃን ዕድገት',    'የልጅዎን ዕድገት ይከታተሉ',           _P.gold),
+            const _Feat(Icons.calendar_month_rounded, 'ቀጠሮ ክትትል',    'ሁሉም ቀጠሮዎችዎን ይከታተሉ',          _P.blue),
+            const _Feat(Icons.vaccines_rounded,        'ክትባት ማሳወቂያ',  'ለልጅዎ ክትባቶች ማሳወቂያ ያግኙ',       _P.green),
+            const _Feat(Icons.emergency_rounded,       'አደጋ ጊዜ ድጋፍ', 'ፈጣን የጤና ድጋፍ ያግኙ',             _P.red),
+            const _Feat(Icons.child_care_rounded,      'ሕፃን ዕድገት',    'የልጅዎን ዕድገት ይከታተሉ',           _P.gold),
           ]
         : [
-            _Feat(Icons.calendar_month_rounded, 'ANC Tracking',      'Track all your prenatal visits',    _P.blue),
-            _Feat(Icons.vaccines_rounded,        'Vaccine Reminders', 'Never miss baby\'s immunizations',  _P.green),
-            _Feat(Icons.emergency_rounded,       'Emergency SOS',     'Quick access to urgent support',    _P.red),
-            _Feat(Icons.child_care_rounded,      'Child Growth',      'Monitor your baby\'s development',  _P.gold),
+            const _Feat(Icons.calendar_month_rounded, 'ANC Tracking',      'Track all your prenatal visits',    _P.blue),
+            const _Feat(Icons.vaccines_rounded,        'Vaccine Reminders', 'Never miss baby\'s immunizations',  _P.green),
+            const _Feat(Icons.emergency_rounded,       'Emergency SOS',     'Quick access to urgent support',    _P.red),
+            const _Feat(Icons.child_care_rounded,      'Child Growth',      'Monitor your baby\'s development',  _P.gold),
           ];
 
     return GridView.count(
       crossAxisCount: 2,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      crossAxisSpacing: 12,
-      mainAxisSpacing: 12,
-      childAspectRatio: 1.55,
-      children: features.map((f) => _FeatureCard(feat: f)).toList(),
+      crossAxisSpacing: 14,
+      mainAxisSpacing: 14,
+      childAspectRatio: 1.45,
+      children: features.map((f) => _PressableCard(child: _FeatureCard(feat: f))).toList(),
     );
   }
 
@@ -445,17 +488,17 @@ class _LandingScreenState extends State<LandingScreen>
       child: GestureDetector(
         onTap: () => Navigator.pushReplacementNamed(context, AppRoutes.login),
         child: Container(
-          height: 58,
+          height: 64,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(30),
+            borderRadius: BorderRadius.circular(32),
             gradient: const LinearGradient(
               colors: [_P.brownDeep, _P.brownRich, _P.brownWarm],
             ),
             boxShadow: [
               BoxShadow(
-                color: _P.brownRich.withOpacity(0.45),
-                blurRadius: 20,
-                offset: const Offset(0, 8),
+                color: _P.brownRich.withOpacity(0.55),
+                blurRadius: 28,
+                offset: const Offset(0, 12),
               ),
             ],
           ),
@@ -463,7 +506,7 @@ class _LandingScreenState extends State<LandingScreen>
             children: [
               // Shimmer sweep
               ClipRRect(
-                borderRadius: BorderRadius.circular(30),
+                borderRadius: BorderRadius.circular(32),
                 child: AnimatedBuilder(
                   animation: _shimmerAnim,
                   builder: (_, __) => Container(
@@ -473,7 +516,7 @@ class _LandingScreenState extends State<LandingScreen>
                         end: Alignment(_shimmerAnim.value, 0),
                         colors: [
                           Colors.transparent,
-                          Colors.white.withOpacity(0.10),
+                          Colors.white.withOpacity(0.15),
                           Colors.transparent,
                         ],
                       ),
@@ -490,22 +533,22 @@ class _LandingScreenState extends State<LandingScreen>
                       _btnLabel,
                       style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 17,
+                        fontSize: 18,
                         fontWeight: FontWeight.bold,
-                        letterSpacing: 0.4,
+                        letterSpacing: 0.5,
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 14),
                     Container(
-                      padding: const EdgeInsets.all(6),
+                      padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.20),
+                        color: Colors.white.withOpacity(0.25),
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
                         Icons.arrow_forward_rounded,
                         color: Colors.white,
-                        size: 16,
+                        size: 18,
                       ),
                     ),
                   ],
@@ -520,14 +563,55 @@ class _LandingScreenState extends State<LandingScreen>
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Feature data
+// Pressable card with scale animation
 // ─────────────────────────────────────────────────────────────────────────────
-class _Feat {
-  final IconData icon;
-  final String   title;
-  final String   desc;
-  final Color    color;
-  const _Feat(this.icon, this.title, this.desc, this.color);
+class _PressableCard extends StatefulWidget {
+  final Widget child;
+  const _PressableCard({required this.child});
+
+  @override
+  State<_PressableCard> createState() => _PressableCardState();
+}
+
+class _PressableCardState extends State<_PressableCard>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scale;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 150),
+    );
+    _scale = Tween<double>(begin: 1.0, end: 0.96).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => _controller.forward(),
+      onTapUp: (_) => _controller.reverse(),
+      onTapCancel: () => _controller.reverse(),
+      child: AnimatedBuilder(
+        animation: _scale,
+        builder: (_, child) => Transform.scale(
+          scale: _scale.value,
+          child: child,
+        ),
+        child: widget.child,
+      ),
+    );
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -540,57 +624,50 @@ class _FeatureCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(22),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            padding: const EdgeInsets.all(9),
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: feat.color.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(12),
+              color: feat.color.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(16),
             ),
-            child: Icon(feat.icon, color: feat.color, size: 20),
+            child: Icon(feat.icon, color: feat.color, size: 26),
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  feat.title,
-                  style: const TextStyle(
-                    color: _P.textDark,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    height: 1.2,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  feat.desc,
-                  style: const TextStyle(
-                    color: _P.textSoft,
-                    fontSize: 10,
-                    height: 1.4,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
+          const SizedBox(height: 12),
+          Text(
+            feat.title,
+            style: const TextStyle(
+              color: _P.textDark,
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              height: 1.2,
             ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            feat.desc,
+            style: const TextStyle(
+              color: _P.textSoft,
+              fontSize: 11,
+              height: 1.4,
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
