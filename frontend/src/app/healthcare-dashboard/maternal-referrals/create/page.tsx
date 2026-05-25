@@ -19,7 +19,7 @@ export default function CreateMaternalReferral() {
   const [formData, setFormData] = useState<CreateMaternalReferralRequest>({
     motherId: '',
     fromHospital: '',
-    toHospital: '',
+    toHospital: '', // Only set by liaison officer when sending
     urgency: UrgencyLevel.ROUTINE,
     riskLevel: RiskLevel.LOW,
     gestationalAge: undefined,
@@ -143,7 +143,7 @@ export default function CreateMaternalReferral() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.motherId || !formData.toHospital || !formData.reasonForReferral) {
+    if (!formData.motherId || !formData.reasonForReferral) {
       setError('Please fill in all required fields');
       return;
     }
@@ -156,7 +156,6 @@ export default function CreateMaternalReferral() {
       const referralData = {
         motherId: formData.motherId,
         fromHospital: formData.fromHospital,
-        toHospital: formData.toHospital,
         urgency: formData.urgency,
         riskLevel: formData.riskLevel,
         gestationalAge: Number(formData.gestationalAge) || undefined,
@@ -417,29 +416,6 @@ export default function CreateMaternalReferral() {
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 placeholder="Describe the current clinical condition..."
               />
-            </div>
-
-            {/* Target Hospital */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Target Hospital *
-              </label>
-              <select
-                name="toHospital"
-                value={formData.toHospital}
-                onChange={handleInputChange}
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              >
-                <option value="">Select target hospital</option>
-                {hospitals
-                  .filter(hospital => hospital._id !== formData.fromHospital)
-                  .map((hospital) => (
-                    <option key={hospital._id} value={hospital._id}>
-                      {hospital.name} ({hospital.type})
-                    </option>
-                  ))}
-              </select>
             </div>
 
             {/* Referral Reason */}

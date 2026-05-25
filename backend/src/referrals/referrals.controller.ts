@@ -259,12 +259,20 @@ export class ReferralsController {
     return this.referralsService.getAdminReferralStats();
   }
 
+  // ── MOTHER ENDPOINTS ─────────────────────────────────────────────────────
+  @Get('mother/active')
+  @Roles(UserRole.MOTHER)
+  async getActiveForMother(@Req() req: any) {
+    const userId = req.user._id ?? req.user.userId;
+    return this.referralsService.findActiveByMotherFromUserId(userId.toString());
+  }
+
   // ── GET ONE (must be last) ─────────────────────────────────────────────────
   @Get(':id')
   @Roles(
     UserRole.LIAISON_OFFICER, UserRole.DOCTOR, UserRole.NURSE, UserRole.MIDWIFE,
     UserRole.SPECIALIST, UserRole.HOSPITAL_ADMIN, UserRole.HEALTH_CENTER_ADMIN,
-    UserRole.GATEKEEPER,
+    UserRole.GATEKEEPER, UserRole.MOTHER,
   )
   async getOne(@Param('id') id: string, @Req() req: any) {
     return this.referralsService.getReferralById(

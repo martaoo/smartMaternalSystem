@@ -1,3 +1,4 @@
+import 'dart:convert';
 import '../../../core/services/api_service.dart';
 import '../../../core/services/storage_service.dart';
 import '../../../models/referral_model.dart';
@@ -5,6 +6,36 @@ import '../../../models/referral_model.dart';
 class ReferralService {
   final ApiService _apiService = ApiService();
   final StorageService _storageService = StorageService();
+
+  Future<List<ReferralModel>> getActiveReferralsForMother() async {
+    try {
+      final token = await _storageService.getToken();
+      print('[ReferralService] Fetching active referrals with token: ${token != null ? "has token" : "no token"}');
+      
+      final response = await _apiService.get(
+        '/referrals/mother/active',
+        token: token,
+      );
+
+      print('[ReferralService] Response status: ${response.statusCode}');
+      print('[ReferralService] Response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        if (response.body.isEmpty || response.body == 'null') {
+          print('[ReferralService] No active referrals found');
+          return [];
+        }
+        final data = json.decode(response.body) as List;
+        print('[ReferralService] Parsing ${data.length} referral(s)');
+        return data.map((json) => ReferralModel.fromJson(json)).toList();
+      }
+      return [];
+    } catch (e, stackTrace) {
+      print('[ReferralService] Error: $e');
+      print('[ReferralService] Stack trace: $stackTrace');
+      return [];
+    }
+  }
 
   Future<List<ReferralModel>> getReferrals() async {
     try {
@@ -15,8 +46,8 @@ class ReferralService {
       );
 
       if (response.statusCode == 200) {
-        // Parse response and return list of referrals
-        return [];
+        final List<dynamic> data = json.decode(response.body);
+        return data.map((json) => ReferralModel.fromJson(json)).toList();
       }
       return [];
     } catch (e) {
@@ -34,8 +65,8 @@ class ReferralService {
       );
 
       if (response.statusCode == 201) {
-        // Parse response and return referral
-        return null;
+        final data = json.decode(response.body);
+        return ReferralModel.fromJson(data);
       }
       return null;
     } catch (e) {

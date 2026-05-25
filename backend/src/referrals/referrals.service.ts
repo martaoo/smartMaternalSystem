@@ -34,6 +34,35 @@ export class ReferralsService {
     private readonly motherService: MothersService, 
   ) {}
 
+  async findActiveByMotherFromUserId(userId: string): Promise<Referral[]> {
+    const mother = await this.motherService.findByUserId(userId);
+    if (!mother) return [];
+    
+    const motherId = (mother as any)._id;
+    
+    return this.referralModel.find({
+      motherId: motherId,
+      status: {
+        $in: [
+          ReferralStatus.DRAFT,
+          ReferralStatus.PENDING,
+          ReferralStatus.ACCEPTED,
+          ReferralStatus.IN_TRANSIT,
+          ReferralStatus.CHECKED_IN,
+          ReferralStatus.ARRIVED,
+          ReferralStatus.IN_PROGRESS,
+        ],
+      },
+    })
+    .sort({ createdAt: -1 })
+    .populate('fromHospital', 'name type location')
+    .populate('toHospital', 'name type location')
+    .populate('createdBy', 'name email')
+    .populate('decisionMeta.responderId', 'name email')
+    .populate('activityLog.actor', 'name email')
+    .lean();
+  }
+
   // 1. CREATE REFERRAL (Doctor → DRAFT)
   async createReferral(
     dto: CreateReferralDto,
@@ -69,6 +98,7 @@ export class ReferralsService {
       ...referralData,
       fromHospital: facilityId,
       fromFacilityType,
+      toHospital: undefined, // Only liaison officer sets target hospital when sending
       motherId: new Types.ObjectId(mother._id),
       motherSnapshot: {
         name: mother?.name,
@@ -363,6 +393,14 @@ async createSystemReferral(data: {
 
       if (![ReferralStatus.PENDING, ReferralStatus.ACCEPTED].includes(referral.status)) {
         throw new BadRequestException('Referral not valid for entry');
+      }
+
+      if (!userHospitalId) {
+        throw new BadRequestException('User hospital information missing');
+      }
+
+      if (referral.toHospital.toString() !== userHospitalId.toString()) {
+        throw new BadRequestException('This referral is not intended for this facility');
       }
 
       referral.gateCheckedInAt = new Date();
@@ -700,13 +738,19 @@ async createSystemReferral(data: {
       throw new ForbiddenException('Your facility is not authorized to update this referral');
     }
 
-    referral.status = status;
-    
     if (status === ReferralStatus.ARRIVED || status === ReferralStatus.CHECKED_IN) {
+      if (!isTo) {
+        throw new ForbiddenException('Only the receiving facility can check in the patient');
+      }
       referral.gateCheckedInAt = new Date();
     } else if (status === ReferralStatus.COMPLETED) {
+      if (!isTo) {
+        throw new ForbiddenException('Only the receiving facility can complete the referral');
+      }
       referral.completedAt = new Date();
     }
+
+    referral.status = status;
 
     referral.activityLog.push({
       status,
