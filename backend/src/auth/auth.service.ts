@@ -1,10 +1,12 @@
-import { Injectable, UnauthorizedException, NotFoundException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, NotFoundException, BadRequestException, Inject } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { User, UserDocument } from '../users/schemas/user.schema';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { UsersService } from '../users/users.service';
+import * as crypto from 'crypto';
+import { EmailService } from '../notifications/email.service';
 
 @Injectable()
 export class AuthService {
@@ -12,6 +14,7 @@ export class AuthService {
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     private jwtService: JwtService,
     private usersService: UsersService,
+    private emailService: EmailService,
   ) {}
 
   private getIdString(value: any): string | undefined {
@@ -23,6 +26,56 @@ export class AuthService {
       if (str !== '[object Object]') return str;
     }
     return undefined;
+  }
+
+  /**
+   * Initiate forgot password flow.
+   * Security: Always return a generic message to avoid user enumeration.
+   */
+  async forgotPassword(email: string) {
+    const normalizedEmail = this.normalizeEmail(email);
+    // Generate a secure random token (raw) and a hashed version for storage
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const hashedToken = crypto.createHash('sha256').update(rawToken).digest('hex');
+    const expires = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+
+    // Attempt to find user — but we will always respond with the same message
+    const user = await this.usersService.findByEmail(normalizedEmail);
+
+    if (user) {
+      // Save hashed token and expiry
+      await this.usersService.setPasswordResetTokenByEmail(normalizedEmail, hashedToken, expires);
+
+      // Send email with raw token link (email sending failure should not leak info)
+      try {
+        await this.emailService.sendResetPasswordEmail(user.email, user.name || 'User', rawToken);
+      } catch (err) {
+        // swallow — do not reveal failures
+      }
+    }
+
+    // Always return generic message
+    return { message: 'If an account with that email exists, a reset link has been sent.' };
+  }
+
+  /**
+   * Complete password reset: verify token, expiry, and update password.
+   */
+  async resetPassword(token: string, newPassword: string) {
+    if (!token || !newPassword) throw new BadRequestException('Token and newPassword are required');
+
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+    const user = await this.usersService.findByPasswordResetToken(hashedToken);
+    if (!user) throw new BadRequestException('Invalid or expired token');
+
+    if (!user.passwordResetExpires || new Date(user.passwordResetExpires) < new Date()) {
+      throw new BadRequestException('Invalid or expired token');
+    }
+
+    // Update the password (usersService will hash and clear token fields)
+    await this.usersService.resetPasswordById(user._id.toString(), newPassword);
+
+    return { message: 'Password has been reset successfully' };
   }
 
   private normalizeEmail(email: string): string {

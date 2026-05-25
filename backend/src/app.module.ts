@@ -13,6 +13,7 @@ import { PregnancyModule } from './pregnancy/pregnancy.module';
 import { ChildrenModule } from './children/children.module';
 import { VaccinationsModule } from './vaccinations/vaccinations.module';
 import { ReferralsModule } from './referrals/referrals.module';
+import { RecommendationModule } from './recommendations/recommendation.module';
 
 import { AppController } from './app.controller';
 
@@ -42,6 +43,7 @@ import { AppController } from './app.controller';
     PregnancyModule,
     ChildrenModule,
     VaccinationsModule,
+    RecommendationModule,
   ],
 
   controllers: [AppController],

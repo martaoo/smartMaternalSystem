@@ -5,17 +5,27 @@ import * as nodemailer from 'nodemailer';
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
   private transporter: nodemailer.Transporter;
+  private lastResetPreviewUrl?: string;
+  private lastResetHtml?: string;
 
   constructor() {
-    this.transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST || 'smtp.gmail.com',
-      port: parseInt(process.env.SMTP_PORT || '587'),
-      secure: false, // true for 465, false for 587
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS, // Gmail App Password
-      },
-    });
+    const host = process.env.EMAIL_HOST || 'smtp.ethereal.email';
+    const port = parseInt(process.env.EMAIL_PORT || '587', 10);
+    const secure = port === 465;
+    const authUser = process.env.EMAIL_USER;
+    const authPass = process.env.EMAIL_PASS;
+
+    const transportOptions: nodemailer.TransportOptions = {
+      host,
+      port,
+      secure,
+    };
+
+    if (authUser && authPass) {
+      transportOptions.auth = { user: authUser, pass: authPass };
+    }
+
+    this.transporter = nodemailer.createTransport(transportOptions);
   }
 
   async sendVaccinationReminder(
@@ -76,7 +86,7 @@ export class EmailService {
 
     try {
       await this.transporter.sendMail({
-        from: `"Smart Maternal Health" <${process.env.SMTP_USER}>`,
+        from: `"Smart Maternal Health" <${process.env.EMAIL_USER || 'no-reply@example.com'}>`,
         to,
         subject: `Vaccination Reminder: ${childName} - ${vaccineName} on ${dateStr}`,
         html,
@@ -139,7 +149,7 @@ export class EmailService {
 
     try {
       await this.transporter.sendMail({
-        from: `"Smart Maternal Health" <${process.env.SMTP_USER}>`,
+        from: `"Smart Maternal Health" <${process.env.EMAIL_USER || 'no-reply@example.com'}>`,
         to,
         subject: `Antenatal Visit Reminder: ${dateStr}`,
         html,
@@ -183,7 +193,7 @@ export class EmailService {
 
     try {
       await this.transporter.sendMail({
-        from: `"Smart Maternal Health" <${process.env.SMTP_USER}>`,
+        from: `"Smart Maternal Health" <${process.env.EMAIL_USER || 'no-reply@example.com'}>`,
         to,
         subject: `TD${doseNumber} Vaccination Reminder — ${dateStr}`,
         html,
@@ -192,5 +202,100 @@ export class EmailService {
     } catch (error) {
       this.logger.error(`Failed to send mother vaccination email to ${to}: ${error.message}`);
     }
+  }
+
+  /**
+   * Send password reset email containing a one-time token link.
+   * Security: the token sent is the raw secure token; only a hashed version should be stored in the DB.
+   */
+  async sendResetPasswordEmail(to: string, name: string, token: string): Promise<void> {
+    const base = process.env.FRONTEND_BASE_URL || 'http://localhost:3000';
+    const resetUrl = `${base.replace(/\/$/, '')}/reset-password?token=${encodeURIComponent(token)}`;
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background: #111827; color: white; padding: 20px; border-radius: 8px 8px 0 0;">
+          <h2 style="margin: 0;">Reset your password</h2>
+        </div>
+        <div style="background: #f8fafc; padding: 24px; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 8px 8px;">
+          <p style="color: #374151;">Hello <strong>${name}</strong>,</p>
+          <p style="color: #374151;">We received a request to reset your account password. Click the button below to set a new password. This link will expire in 15 minutes.</p>
+          <div style="text-align:center; margin: 20px 0;">
+            <a href="${resetUrl}" style="background:#2563eb;color:white;padding:12px 20px;border-radius:6px;text-decoration:none;display:inline-block;">Reset Password</a>
+          </div>
+          <p style="color:#6b7280; font-size:13px;">If you did not request a password reset, you can safely ignore this message.</p>
+          <p style="color:#6b7280; font-size:13px; margin-top:16px; border-top:1px solid #e2e8f0; padding-top:12px;">This is an automated message from the Smart Maternal Health System.</p>
+        </div>
+      </div>
+    `;
+
+    const buildEtherealTransporter = async () => {
+      const testAccount = await nodemailer.createTestAccount();
+      return nodemailer.createTransport({
+        host: testAccount.smtp.host,
+        port: testAccount.smtp.port,
+        secure: testAccount.smtp.secure,
+        auth: { user: testAccount.user, pass: testAccount.pass },
+      });
+    };
+
+    const sendWithTransporter = async (transporter: nodemailer.Transporter) => {
+      return transporter.sendMail({
+        from: `"Smart Maternal Health" <${process.env.EMAIL_USER || 'no-reply@example.com'}>`,
+        to,
+        subject: `Reset your password`,
+        html,
+      });
+    };
+
+    const shouldUseEthereal = process.env.EMAIL_PREVIEW === 'ethereal' || !process.env.EMAIL_USER;
+    let transporterToUse = this.transporter;
+
+    if (shouldUseEthereal) {
+      transporterToUse = await buildEtherealTransporter();
+    }
+
+    try {
+      const info = await sendWithTransporter(transporterToUse);
+      this.logger.log(`Password reset email send attempted to ${to}. MessageId: ${info.messageId}`);
+      // store raw html for dev inspection
+      this.lastResetHtml = html;
+      const preview = nodemailer.getTestMessageUrl(info);
+      if (preview) {
+        this.lastResetPreviewUrl = preview;
+        this.logger.log(`Password reset preview URL: ${preview}`);
+      }
+    } catch (primaryError: any) {
+      this.logger.error(`Primary password reset email send failed to ${to}: ${primaryError.message}`);
+
+      const canFallback = process.env.NODE_ENV !== 'production' && process.env.EMAIL_PREVIEW !== 'disabled';
+      if (canFallback) {
+        try {
+          const fallbackTransporter = await buildEtherealTransporter();
+          const info = await sendWithTransporter(fallbackTransporter);
+          this.logger.log(`Fallback Ethereal password reset email sent to ${to}. MessageId: ${info.messageId}`);
+          // store raw html for dev inspection
+          this.lastResetHtml = html;
+          const preview = nodemailer.getTestMessageUrl(info);
+          if (preview) {
+            this.lastResetPreviewUrl = preview;
+            this.logger.log(`Password reset preview URL: ${preview}`);
+          }
+          return;
+        } catch (fallbackError: any) {
+          this.logger.error(`Fallback Ethereal password reset email failed to ${to}: ${fallbackError.message}`);
+        }
+      }
+    }
+  }
+
+  // Development helper to retrieve last preview URL (if any)
+  getLastResetPreviewUrl(): string | undefined {
+    return this.lastResetPreviewUrl;
+  }
+
+  // Development helper to retrieve the last raw HTML sent (if any)
+  getLastResetHtml(): string | undefined {
+    return this.lastResetHtml;
   }
 }

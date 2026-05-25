@@ -14,6 +14,12 @@ export class User {
   @Prop({ required: true })
   password: string;
 
+  @Prop()
+  passwordResetToken?: string;
+
+  @Prop()
+  passwordResetExpires?: Date;
+
   @Prop({
     required: true,
     enum: [
@@ -32,7 +38,6 @@ export class User {
       'HOSPITAL_APPROVER',
       'GATEKEEPER',
       'SPECIALIST',
-
     ],
   })
   role: string;
