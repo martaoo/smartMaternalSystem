@@ -109,6 +109,21 @@ export default function NewPregnancyVisit() {
     return nextVisitDate.toISOString().split('T')[0]; // Format as YYYY-MM-DD
   };
 
+  const calculatePregnancyWeekFromLMP = (lmpDateStr: string | undefined, referenceDateStr: string) => {
+    if (!lmpDateStr) return '';
+
+    const lmpDate = new Date(lmpDateStr);
+    const referenceDate = new Date(referenceDateStr || new Date().toISOString().split('T')[0]);
+    if (isNaN(lmpDate.getTime()) || isNaN(referenceDate.getTime())) return '';
+
+    const diffMs = referenceDate.getTime() - lmpDate.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    if (diffDays < 0) return '0';
+
+    const weeks = Math.floor(diffDays / 7) + 1;
+    return String(weeks > 0 ? weeks : 0);
+  };
+
   // Handle gestational age change to auto-calculate next visit
   const handleGestationalAgeChange = (value: string) => {
     setFormData(p => ({ ...p, gestationalAge: value }));
@@ -152,6 +167,26 @@ export default function NewPregnancyVisit() {
       setError(err.message || 'Failed to load mother data');
     }
   };
+
+  useEffect(() => {
+    if (!selectedMother?.lmp) return;
+
+    const calculatedWeek = calculatePregnancyWeekFromLMP(selectedMother.lmp, formData.visitDate);
+    if (!calculatedWeek) return;
+
+    const nextDate = calculateNextVisitDate(calculatedWeek, formData.riskLevel);
+    setFormData(prev => {
+      if (prev.week === calculatedWeek && prev.gestationalAge === calculatedWeek && prev.nextVisitDate === nextDate) {
+        return prev;
+      }
+      return {
+        ...prev,
+        week: calculatedWeek,
+        gestationalAge: calculatedWeek,
+        nextVisitDate: nextDate,
+      };
+    });
+  }, [selectedMother?.lmp, formData.visitDate, formData.riskLevel]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
@@ -311,8 +346,18 @@ export default function NewPregnancyVisit() {
                       required
                       min="1"
                       max="42"
+                      readOnly={!!selectedMother?.lmp}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
+                    {selectedMother?.lmp ? (
+                      <p className="text-xs text-gray-500 mt-1">
+                        ✅ Calculated automatically from last menstrual period ({new Date(selectedMother.lmp).toLocaleDateString()}).
+                      </p>
+                    ) : (
+                      <p className="text-xs text-gray-500 mt-1">
+                        Enter the current pregnancy week if last menstrual period is unavailable.
+                      </p>
+                    )}
                   </div>
 
                   <div>
@@ -328,8 +373,14 @@ export default function NewPregnancyVisit() {
                       required
                       min="1"
                       max="42"
+                      readOnly={!!selectedMother?.lmp}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
+                    {selectedMother?.lmp && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        Auto-filled from LMP using the selected visit date.
+                      </p>
+                    )}
                     {formData.gestationalAge && (
                       <p className="text-xs text-gray-500 mt-1">
                         💡 WHO ANC schedule: {(() => {

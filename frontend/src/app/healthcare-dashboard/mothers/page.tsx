@@ -312,6 +312,12 @@ export default function MothersManagement() {
                           >
                             Children
                           </a>
+                          <a
+                            href={`/healthcare-dashboard/vaccinations/mother/${mother._id}`}
+                            className="text-indigo-600 hover:text-indigo-900"
+                          >
+                            Vaccinations
+                          </a>
                           <button
                             onClick={() => handleDeleteMother(mother._id, mother.name)}
                             disabled={deletingMotherId === mother._id}

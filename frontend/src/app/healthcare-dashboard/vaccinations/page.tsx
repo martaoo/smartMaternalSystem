@@ -47,6 +47,7 @@ export default function VaccinationsManagement() {
   const [vaccines, setVaccines] = useState<any[]>([]);
   const [children, setChildren] = useState<any[]>([]);
   const [mothers, setMothers] = useState<any[]>([]);
+  const [selectedEntity, setSelectedEntity] = useState<'child' | 'mother'>('child');
   const [activeTab, setActiveTab] = useState<'all' | 'upcoming' | 'overdue' | 'scheduled'>('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -173,6 +174,19 @@ export default function VaccinationsManagement() {
         return 'Contraindicated';
       default:
         return status;
+    }
+  };
+
+  const getMotherStatusClass = (status: string) => {
+    switch (status) {
+      case 'ACTIVE':
+        return 'bg-green-100 text-green-800';
+      case 'DELIVERED':
+        return 'bg-blue-100 text-blue-800';
+      case 'INACTIVE':
+        return 'bg-gray-100 text-gray-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
     }
   };
 
@@ -461,10 +475,10 @@ export default function VaccinationsManagement() {
             </div>
             <div className="flex items-center space-x-4">
               <a
-                href="/healthcare-dashboard/children"
+                href={selectedEntity === 'child' ? '/healthcare-dashboard/children' : '/healthcare-dashboard/mothers'}
                 className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
               >
-                + Record Vaccination
+                {selectedEntity === 'child' ? '+ Record Vaccination' : 'View Mothers'}
               </a>
               <a
                 href="/healthcare-dashboard"
@@ -479,294 +493,430 @@ export default function VaccinationsManagement() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-blue-500">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Scheduled</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {vaccinationRecords.filter(r => r.status === 'SCHEDULED').length}
-                </p>
-              </div>
-              <div className="text-3xl text-blue-600">calendar</div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-green-500">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Administered</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {vaccinationRecords.filter(r => r.status === 'ADMINISTERED').length}
-                </p>
-              </div>
-              <div className="text-3xl text-green-600">checkmark</div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-yellow-500">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Upcoming (7 days)</p>
-                <p className="text-2xl font-bold text-gray-900">{upcomingVaccinations.length}</p>
-              </div>
-              <div className="text-3xl text-yellow-600">clock</div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-red-500">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Overdue</p>
-                <p className="text-2xl font-bold text-gray-900">{overdueVaccinations.length}</p>
-              </div>
-              <div className="text-3xl text-red-600">warning</div>
-            </div>
-          </div>
+        <div className="flex flex-wrap gap-2 mb-6">
+          <button
+            onClick={() => setSelectedEntity('child')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+              selectedEntity === 'child'
+                ? 'bg-blue-600 text-white'
+                : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+            }`}
+          >
+            Child vaccinations
+          </button>
+          <button
+            onClick={() => setSelectedEntity('mother')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+              selectedEntity === 'mother'
+                ? 'bg-blue-600 text-white'
+                : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+            }`}
+          >
+            Mother vaccinations
+          </button>
         </div>
 
-        {/* Tabs */}
-        <div className="bg-white rounded-lg shadow-md">
-          <div className="border-b border-gray-200">
-            <nav className="flex -mb-px">
-              <button
-                onClick={() => setActiveTab('all')}
-                className={`py-2 px-4 border-b-2 font-medium text-sm ${
-                  activeTab === 'all'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                All Records
-              </button>
-              <button
-                onClick={() => setActiveTab('scheduled')}
-                className={`py-2 px-4 border-b-2 font-medium text-sm ${
-                  activeTab === 'scheduled'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                Scheduled
-              </button>
-              <button
-                onClick={() => setActiveTab('upcoming')}
-                className={`py-2 px-4 border-b-2 font-medium text-sm ${
-                  activeTab === 'upcoming'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                Upcoming
-              </button>
-              <button
-                onClick={() => setActiveTab('overdue')}
-                className={`py-2 px-4 border-b-2 font-medium text-sm ${
-                  activeTab === 'overdue'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                Overdue
-              </button>
-            </nav>
-          </div>
+        {selectedEntity === 'child' ? (
+          <>
+            {/* Stats Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+              <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-blue-500">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Scheduled</p>
+                    <p className="text-2xl font-bold text-gray-900">
+                      {vaccinationRecords.filter(r => r.status === 'SCHEDULED').length}
+                    </p>
+                  </div>
+                  <div className="text-3xl text-blue-600">calendar</div>
+                </div>
+              </div>
 
-          {/* Records List */}
-          <div className="p-6">
-            {recordsToShow.length === 0 ? (
-              <div className="text-center py-12">
-                  <div className="text-gray-400 text-6xl mb-4">vaccine</div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No vaccination records found</h3>
-                  <p className="text-gray-600 mb-6">
-                    {activeTab === 'upcoming' 
-                      ? 'No upcoming vaccinations in the next 7 days' 
-                      : activeTab === 'overdue'
-                      ? 'No overdue vaccinations'
-                      : activeTab === 'scheduled'
-                      ? 'No scheduled vaccinations'
-                      : 'No vaccination records found'
-                    }
-                  </p>
+              <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-green-500">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Administered</p>
+                    <p className="text-2xl font-bold text-gray-900">
+                      {vaccinationRecords.filter(r => r.status === 'ADMINISTERED').length}
+                    </p>
+                  </div>
+                  <div className="text-3xl text-green-600">checkmark</div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-yellow-500">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Upcoming (7 days)</p>
+                    <p className="text-2xl font-bold text-gray-900">{upcomingVaccinations.length}</p>
+                  </div>
+                  <div className="text-3xl text-yellow-600">clock</div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-red-500">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Overdue</p>
+                    <p className="text-2xl font-bold text-gray-900">{overdueVaccinations.length}</p>
+                  </div>
+                  <div className="text-3xl text-red-600">warning</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Tabs */}
+            <div className="bg-white rounded-lg shadow-md">
+              <div className="border-b border-gray-200">
+                <nav className="flex -mb-px">
+                  <button
+                    onClick={() => setActiveTab('all')}
+                    className={`py-2 px-4 border-b-2 font-medium text-sm ${
+                      activeTab === 'all'
+                        ? 'border-blue-500 text-blue-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    All Records
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('scheduled')}
+                    className={`py-2 px-4 border-b-2 font-medium text-sm ${
+                      activeTab === 'scheduled'
+                        ? 'border-blue-500 text-blue-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    Scheduled
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('upcoming')}
+                    className={`py-2 px-4 border-b-2 font-medium text-sm ${
+                      activeTab === 'upcoming'
+                        ? 'border-blue-500 text-blue-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    Upcoming
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('overdue')}
+                    className={`py-2 px-4 border-b-2 font-medium text-sm ${
+                      activeTab === 'overdue'
+                        ? 'border-blue-500 text-blue-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    Overdue
+                  </button>
+                </nav>
+              </div>
+
+              {/* Records List */}
+              <div className="p-6">
+                {recordsToShow.length === 0 ? (
+                  <div className="text-center py-12">
+                      <div className="text-gray-400 text-6xl mb-4">vaccine</div>
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">No vaccination records found</h3>
+                      <p className="text-gray-600 mb-6">
+                        {activeTab === 'upcoming' 
+                          ? 'No upcoming vaccinations in the next 7 days' 
+                          : activeTab === 'overdue'
+                          ? 'No overdue vaccinations'
+                          : activeTab === 'scheduled'
+                          ? 'No scheduled vaccinations'
+                          : 'No vaccination records found'
+                        }
+                      </p>
+                      <a
+                        href="/healthcare-dashboard/children"
+                        className="inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                      >
+                        Go to Children to Record Vaccination
+                      </a>
+                    </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Child
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Vaccine
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Dose
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Scheduled
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Administered
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Status
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Next Vaccination
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Actions
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {recordsToShow.map((record) => (
+                          <tr key={record._id} className="hover:bg-gray-50">
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div>
+                                <div className="text-sm font-medium text-gray-900">{record.childId?.name ?? '—'}</div>
+                                <div className="text-xs text-gray-500">
+                                  {record.childId?.birthDate ? calculateAge(record.childId.birthDate) : '—'} | {record.childId?.motherId?.name ?? '—'}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div>
+                                <div className="text-sm text-gray-900">{record.vaccineId.name}</div>
+                                <div className="text-xs text-gray-500">{record.vaccineId.code}</div>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              Dose {record.doseNumber}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {new Date(record.scheduledDate).toLocaleDateString()}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {record.administeredDate 
+                                ? new Date(record.administeredDate).toLocaleDateString()
+                                : '-'
+                              }
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(record.status)}`}>
+                                {getStatusText(record.status)}
+                              </span>
+                              {(record as any).isCatchUp && (
+                                <span className="ml-2 inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800">
+                                  Catch-up
+                                </span>
+                              )}
+                              {record.followUpRequired && (
+                                <span className="ml-2 inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-800">
+                                  Follow-up
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm">
+                                {(() => {
+                                  const vaccine = vaccines.find(v => v._id === record.vaccineId._id);
+                                  const nextDate = calculateNextVaccinationDate(record, vaccine);
+                                  
+                                  if (nextDate) {
+                                    return (
+                                      <div>
+                                        <div className="font-medium text-gray-900">
+                                          {nextDate.toLocaleDateString()}
+                                        </div>
+                                        <div className="text-xs text-gray-500">
+                                          Dose {record.doseNumber + 1}
+                                        </div>
+                                      </div>
+                                    );
+                                  } else if (record.status === 'ADMINISTERED') {
+                                    return (
+                                      <div className="text-gray-500">
+                                        <div>Complete</div>
+                                        <div className="text-xs">All doses given</div>
+                                      </div>
+                                    );
+                                  } else {
+                                    return (
+                                      <div className="text-gray-500">
+                                        <div>-</div>
+                                        <div className="text-xs">Pending</div>
+                                      </div>
+                                    );
+                                  }
+                                })()}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                              <div className="flex flex-col space-y-1">
+                                <div className="flex space-x-2">
+                                  {record.status === 'SCHEDULED' && (
+                                    <>
+                                      <button
+                                        onClick={() => handleMarkAdministered(record._id)}
+                                        className="text-green-600 hover:text-green-900"
+                                      >
+                                        Administer
+                                      </button>
+                                      <button
+                                        onClick={() => handleMarkMissed(record._id)}
+                                        className="text-red-600 hover:text-red-900"
+                                      >
+                                        Miss
+                                      </button>
+                                    </>
+                                  )}
+                                </div>
+                                
+                                {/* Reminder Actions */}
+                                {record.status === 'SCHEDULED' && (
+                                  <div className="flex space-x-1">
+                                    {(() => {
+                                      const pendingReminders = getPendingReminders(record);
+                                      return pendingReminders.map((reminder, index) => (
+                                        <button
+                                          key={index}
+                                          onClick={() => sendReminderToMother(record, reminder.type)}
+                                          className="text-xs px-2 py-1 bg-yellow-100 text-yellow-800 rounded hover:bg-yellow-200 transition-colors"
+                                          title={`Send ${reminder.type} reminder to mother`}
+                                        >
+                                          {reminder.type}
+                                        </button>
+                                      ));
+                                    })()}
+                                    {getPendingReminders(record).length === 0 && (
+                                      <span className="text-xs text-gray-500">Reminders sent</span>
+                                    )}
+                                  </div>
+                                )}
+                                
+                                <div className="flex space-x-2">
+                                  <a
+                                    href={`/healthcare-dashboard/children/${record.childId._id}`}
+                                    className="text-blue-600 hover:text-blue-900 text-xs"
+                                  >
+                                    View Child
+                                  </a>
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+              <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-blue-500">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Registered mothers</p>
+                    <p className="text-2xl font-bold text-gray-900">{mothers.length}</p>
+                  </div>
+                  <div className="text-3xl text-blue-600">women</div>
+                </div>
+              </div>
+              <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-green-500">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Active mothers</p>
+                    <p className="text-2xl font-bold text-gray-900">{mothers.filter(m => m.status === 'ACTIVE').length}</p>
+                  </div>
+                  <div className="text-3xl text-green-600">heartbeat</div>
+                </div>
+              </div>
+              <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-red-500">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">High-risk mothers</p>
+                    <p className="text-2xl font-bold text-gray-900">{mothers.filter(m => m.highRisk).length}</p>
+                  </div>
+                  <div className="text-3xl text-red-600">alert</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-lg shadow-md overflow-hidden">
+              <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900">Mother vaccine management</h2>
+                  <p className="text-sm text-gray-600">Select a mother to view or record TD vaccination.</p>
+                </div>
+                <a
+                  href="/healthcare-dashboard/mothers"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+                >
+                  Manage Mothers
+                </a>
+              </div>
+
+              {mothers.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="text-gray-400 text-6xl mb-4">👩</div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No mothers found</h3>
+                  <p className="text-gray-600 mb-6">Register mothers in the system before tracking maternal vaccinations.</p>
                   <a
-                    href="/healthcare-dashboard/children"
+                    href="/healthcare-dashboard/mothers/register"
                     className="inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                   >
-                    Go to Children to Record Vaccination
+                    Register Mother
                   </a>
                 </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Child
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Vaccine
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Dose
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Scheduled
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Administered
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Status
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Next Vaccination
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {recordsToShow.map((record) => (
-                      <tr key={record._id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div>
-                            <div className="text-sm font-medium text-gray-900">{record.childId?.name ?? '—'}</div>
-                            <div className="text-xs text-gray-500">
-                              {record.childId?.birthDate ? calculateAge(record.childId.birthDate) : '—'} | {record.childId?.motherId?.name ?? '—'}
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div>
-                            <div className="text-sm text-gray-900">{record.vaccineId.name}</div>
-                            <div className="text-xs text-gray-500">{record.vaccineId.code}</div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          Dose {record.doseNumber}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {new Date(record.scheduledDate).toLocaleDateString()}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {record.administeredDate 
-                            ? new Date(record.administeredDate).toLocaleDateString()
-                            : '-'
-                          }
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(record.status)}`}>
-                            {getStatusText(record.status)}
-                          </span>
-                          {(record as any).isCatchUp && (
-                            <span className="ml-2 inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800">
-                              Catch-up
-                            </span>
-                          )}
-                          {record.followUpRequired && (
-                            <span className="ml-2 inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-800">
-                              Follow-up
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm">
-                            {(() => {
-                              const vaccine = vaccines.find(v => v._id === record.vaccineId._id);
-                              const nextDate = calculateNextVaccinationDate(record, vaccine);
-                              
-                              if (nextDate) {
-                                return (
-                                  <div>
-                                    <div className="font-medium text-gray-900">
-                                      {nextDate.toLocaleDateString()}
-                                    </div>
-                                    <div className="text-xs text-gray-500">
-                                      Dose {record.doseNumber + 1}
-                                    </div>
-                                  </div>
-                                );
-                              } else if (record.status === 'ADMINISTERED') {
-                                return (
-                                  <div className="text-gray-500">
-                                    <div>Complete</div>
-                                    <div className="text-xs">All doses given</div>
-                                  </div>
-                                );
-                              } else {
-                                return (
-                                  <div className="text-gray-500">
-                                    <div>-</div>
-                                    <div className="text-xs">Pending</div>
-                                  </div>
-                                );
-                              }
-                            })()}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <div className="flex flex-col space-y-1">
-                            <div className="flex space-x-2">
-                              {record.status === 'SCHEDULED' && (
-                                <>
-                                  <button
-                                    onClick={() => handleMarkAdministered(record._id)}
-                                    className="text-green-600 hover:text-green-900"
-                                  >
-                                    Administer
-                                  </button>
-                                  <button
-                                    onClick={() => handleMarkMissed(record._id)}
-                                    className="text-red-600 hover:text-red-900"
-                                  >
-                                    Miss
-                                  </button>
-                                </>
-                              )}
-                            </div>
-                            
-                            {/* Reminder Actions */}
-                            {record.status === 'SCHEDULED' && (
-                              <div className="flex space-x-1">
-                                {(() => {
-                                  const pendingReminders = getPendingReminders(record);
-                                  return pendingReminders.map((reminder, index) => (
-                                    <button
-                                      key={index}
-                                      onClick={() => sendReminderToMother(record, reminder.type)}
-                                      className="text-xs px-2 py-1 bg-yellow-100 text-yellow-800 rounded hover:bg-yellow-200 transition-colors"
-                                      title={`Send ${reminder.type} reminder to mother`}
-                                    >
-                                      {reminder.type}
-                                    </button>
-                                  ));
-                                })()}
-                                {getPendingReminders(record).length === 0 && (
-                                  <span className="text-xs text-gray-500">Reminders sent</span>
-                                )}
-                              </div>
-                            )}
-                            
-                            <div className="flex space-x-2">
-                              <a
-                                href={`/healthcare-dashboard/children/${record.childId._id}`}
-                                className="text-blue-600 hover:text-blue-900 text-xs"
-                              >
-                                View Child
-                              </a>
-                            </div>
-                          </div>
-                        </td>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Health center</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Risk</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </div>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {mothers.map(mother => (
+                        <tr key={mother._id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{mother.name}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{mother.phone || '-'}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{mother.healthCenter?.name || '-'}</td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getMotherStatusClass(mother.status)}`}>
+                              {mother.status}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${mother.highRisk ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
+                              {mother.highRisk ? 'High Risk' : 'Normal'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                            <a
+                              href={`/healthcare-dashboard/mothers/${mother._id}`}
+                              className="text-blue-600 hover:text-blue-900"
+                            >
+                              Profile
+                            </a>
+                            <a
+                              href={`/healthcare-dashboard/vaccinations/mother/${mother._id}`}
+                              className="text-indigo-600 hover:text-indigo-900"
+                            >
+                              Vaccinations
+                            </a>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </>
+        )}
       </main>
 
     </div>
