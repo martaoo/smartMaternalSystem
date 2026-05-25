@@ -9,9 +9,13 @@ export class WoredasService {
   constructor(@InjectModel(Woreda.name) private woredaModel: Model<WoredaDocument>) {}
 
   async create(createWoredaDto: CreateWoredaDto): Promise<Woreda> {
-    const existingWoreda = await this.woredaModel.findOne({ name: createWoredaDto.name });
+    // Allow same woreda name in different regions — only block exact duplicates within the same region
+    const existingWoreda = await this.woredaModel.findOne({
+      name: createWoredaDto.name,
+      regionId: createWoredaDto.regionId,
+    });
     if (existingWoreda) {
-      throw new ConflictException('Woreda with this name already exists');
+      throw new ConflictException('A woreda with this name already exists in the selected region');
     }
 
     const createdWoreda = new this.woredaModel(createWoredaDto);

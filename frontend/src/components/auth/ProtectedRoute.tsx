@@ -30,7 +30,8 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
         // Redirect to appropriate dashboard based on user role
         switch (user.role) {
           case 'SUPER_ADMIN':
-            router.push('/system-dashboard');
+          case 'MOH_ADMIN':
+            router.push('/moh-dashboard');
             break;
           case 'SYSTEM_ADMIN':
             router.push('/system-dashboard');
@@ -53,7 +54,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
           case 'EMERGENCY_ADMIN':
             router.push('/dispatch-dashboard');
             break;
-                    default:
+          default:
             router.push('/');
         }
       }

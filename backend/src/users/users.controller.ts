@@ -25,6 +25,11 @@ export class UsersController {
   async create(@Body() createUserDto: CreateUserDto, @Request() req) {
     const user = req.user;
 
+    // SUPER_ADMIN can create any user without restriction
+    if (user.role === 'SUPER_ADMIN') {
+      return this.usersService.create(createUserDto);
+    }
+
     if (user.role === 'SYSTEM_ADMIN') {
       return this.usersService.createWithRoleValidation(
         createUserDto,
@@ -76,7 +81,7 @@ export class UsersController {
 
   // ─── Admin endpoints ─────────────────────────────────────────────────────────
 
-  @Roles('SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN', 'MOH_ADMIN')
+  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN', 'MOH_ADMIN')
   @Get()
   @ApiOperation({ summary: 'Get all users' })
   @ApiResponse({ status: 200, description: 'Users retrieved successfully' })

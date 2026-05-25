@@ -8,10 +8,10 @@ import { LoginCredentials } from '@/types/auth';
 const getDashboardForRole = (role: string): string => {
   switch (role) {
     case 'SUPER_ADMIN':
-    case 'SYSTEM_ADMIN':
-      return '/system-dashboard';
     case 'MOH_ADMIN':
       return '/moh-dashboard';
+    case 'SYSTEM_ADMIN':
+      return '/system-dashboard';
     case 'HOSPITAL_ADMIN':
       return '/hospital-dashboard';
     case 'HEALTH_CENTER_ADMIN':
@@ -22,7 +22,7 @@ const getDashboardForRole = (role: string): string => {
       return '/healthcare-dashboard';
     case 'LIAISON_OFFICER':
       return '/liaison-dashboard';
-        case 'DISPATCHER':
+    case 'DISPATCHER':
       return '/dispatch-dashboard';
     case 'WOREDA_ADMIN':
       return '/woreda-dashboard';

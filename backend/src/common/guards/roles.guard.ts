@@ -9,7 +9,12 @@ export class RolesGuard implements CanActivate {
     const roles = this.reflector.get('roles', context.getHandler());
     if (!roles) return true;
 
-    const request = context.switchToHttp().getRequest();
-    return roles.includes(request.user.role);
+    const { user } = context.switchToHttp().getRequest();
+    if (!user || !user.role) return false;
+
+    // SUPER_ADMIN bypasses all role restrictions — has access to everything
+    if (user.role === 'SUPER_ADMIN') return true;
+
+    return roles.includes(user.role);
   }
 }
