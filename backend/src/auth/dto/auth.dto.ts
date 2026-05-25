@@ -33,3 +33,16 @@ export class RegisterDto {
   @ApiProperty({ required: false })
   woredaId?: string;
 }
+
+export class ForgotPasswordDto {
+  @ApiProperty({ example: 'user@example.com' })
+  email!: string;
+}
+
+export class ResetPasswordDto {
+  @ApiProperty({ example: 'a1b2c3d4...' })
+  token!: string;
+
+  @ApiProperty({ example: 'newStrongP@ssw0rd' })
+  newPassword!: string;
+}

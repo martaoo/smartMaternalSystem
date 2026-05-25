@@ -200,7 +200,7 @@ export class UsersService {
     return this.create(createUserDto);
   }
 
-  async findByEmail(email: string): Promise<User | null> {
+  async findByEmail(email: string): Promise<UserDocument | null> {
     const normalizedEmail = this.normalizeEmail(email);
     let user = await this.userModel.findOne({ email: normalizedEmail }).exec();
     if (!user) {
@@ -211,7 +211,43 @@ export class UsersService {
     return user;
   }
 
-  async findById(id: string): Promise<User | null> {
+  /**
+   * Store a password reset token (hashed) and expiry for the given email.
+   * The token should be a securely generated value that was hashed before saving.
+   */
+  async setPasswordResetTokenByEmail(email: string, hashedToken: string, expires: Date): Promise<void> {
+    const normalizedEmail = this.normalizeEmail(email);
+    await this.userModel.findOneAndUpdate(
+      { email: normalizedEmail },
+      { passwordResetToken: hashedToken, passwordResetExpires: expires },
+      { new: true },
+    ).exec();
+  }
+
+  /**
+   * Find a user by the stored hashed password reset token.
+   */
+  async findByPasswordResetToken(hashedToken: string): Promise<UserDocument | null> {
+    if (!hashedToken) return null;
+    return this.userModel.findOne({ passwordResetToken: hashedToken }).exec();
+  }
+
+  /**
+   * Clear password reset token and expiry for a user by id.
+   */
+  async clearPasswordResetToken(userId: string): Promise<void> {
+    await this.userModel.findByIdAndUpdate(userId, { $unset: { passwordResetToken: 1, passwordResetExpires: 1 } }).exec();
+  }
+
+  /**
+   * Reset a user's password by id. Hashes the provided password and clears reset fields.
+   */
+  async resetPasswordById(userId: string, newPlainPassword: string): Promise<void> {
+    const hashed = await bcrypt.hash(newPlainPassword, 10);
+    await this.userModel.findByIdAndUpdate(userId, { password: hashed, $unset: { passwordResetToken: 1, passwordResetExpires: 1 } }).exec();
+  }
+
+  async findById(id: string): Promise<UserDocument | null> {
     return this.userModel.findById(id).exec();
   }
 
