@@ -24,7 +24,7 @@ export class HospitalsController {
     return this.hospitalsService.create(createHospitalDto);
   }
 
-  @Roles('SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN', 'MOH_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'LIAISON_OFFICER')
+  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN', 'MOH_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'LIAISON_OFFICER')
   @Get()
   @ApiOperation({ summary: 'Get all hospitals' })
   @ApiResponse({ status: 200, description: 'Hospitals retrieved successfully' })
@@ -34,7 +34,7 @@ export class HospitalsController {
     return this.hospitalsService.findAllWithRoleFilter(user.role, user.hospitalId?.toString(), user.regionId?.toString());
   }
 
-  @Roles('SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN', 'MOH_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'LIAISON_OFFICER')
+  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN', 'MOH_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'LIAISON_OFFICER')
   @Get(':id')
   @ApiOperation({ summary: 'Get hospital by ID' })
   @ApiResponse({ status: 200, description: 'Hospital retrieved successfully' })
