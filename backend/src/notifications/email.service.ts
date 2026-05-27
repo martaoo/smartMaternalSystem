@@ -1,301 +1,208 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
+import * as fs from 'fs';
+import * as path from 'path';
 
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
-  private transporter: nodemailer.Transporter;
-  private lastResetPreviewUrl?: string;
-  private lastResetHtml?: string;
 
-  constructor() {
-    const host = process.env.EMAIL_HOST || 'smtp.ethereal.email';
-    const port = parseInt(process.env.EMAIL_PORT || '587', 10);
-    const secure = port === 465;
-    const authUser = process.env.EMAIL_USER;
-    const authPass = process.env.EMAIL_PASS;
-
-    const transportOptions: nodemailer.TransportOptions = {
-      host,
-      port,
-      secure,
-    };
-
-    if (authUser && authPass) {
-      transportOptions.auth = { user: authUser, pass: authPass };
-    }
-
-    this.transporter = nodemailer.createTransport(transportOptions);
-  }
-
-  async sendVaccinationReminder(
-    to: string,
-    motherName: string,
-    childName: string,
-    vaccineName: string,
-    scheduledDate: Date,
-    facilityName: string,
-  ): Promise<void> {
-    const dateStr = scheduledDate.toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
-
-    const html = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <div style="background: #2563eb; color: white; padding: 20px; border-radius: 8px 8px 0 0;">
-          <h2 style="margin: 0;">💉 Vaccination Reminder</h2>
-          <p style="margin: 5px 0 0 0; opacity: 0.9;">Smart Maternal Health System</p>
-        </div>
-        <div style="background: #f8fafc; padding: 24px; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 8px 8px;">
-          <p style="color: #374151; font-size: 16px;">Dear <strong>${motherName}</strong>,</p>
-          <p style="color: #374151;">This is a reminder that your child <strong>${childName}</strong> has a vaccination appointment scheduled:</p>
-          
-          <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 20px 0;">
-            <table style="width: 100%; border-collapse: collapse;">
-              <tr>
-                <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Vaccine</td>
-                <td style="padding: 8px 0; color: #111827; font-weight: bold;">${vaccineName}</td>
-              </tr>
-              <tr>
-                <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Date</td>
-                <td style="padding: 8px 0; color: #111827; font-weight: bold;">${dateStr}</td>
-              </tr>
-              <tr>
-                <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Facility</td>
-                <td style="padding: 8px 0; color: #111827; font-weight: bold;">${facilityName}</td>
-              </tr>
-            </table>
-          </div>
-
-          <div style="background: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px; padding: 12px; margin: 16px 0;">
-            <p style="margin: 0; color: #92400e; font-size: 14px;">
-              ⚠️ Please bring your child's vaccination card when you visit.
-            </p>
-          </div>
-
-          <p style="color: #374151;">If you have any questions, please contact your health center.</p>
-          <p style="color: #6b7280; font-size: 13px; margin-top: 24px; border-top: 1px solid #e2e8f0; padding-top: 16px;">
-            This is an automated message from the Smart Maternal Health System. Please do not reply to this email.
-          </p>
-        </div>
-      </div>
-    `;
+  // ── Send via Resend API (HTTPS port 443 — works when SMTP ports are blocked) ──
+  private async sendViaResend(to: string, subject: string, html: string): Promise<boolean> {
+    const apiKey = process.env.RESEND_API_KEY?.trim();
+    if (!apiKey) return false;
 
     try {
-      await this.transporter.sendMail({
-        from: `"Smart Maternal Health" <${process.env.EMAIL_USER || 'no-reply@example.com'}>`,
-        to,
-        subject: `Vaccination Reminder: ${childName} - ${vaccineName} on ${dateStr}`,
-        html,
+      const from = process.env.RESEND_FROM || 'onboarding@resend.dev';
+      const res = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ from, to, subject, html }),
       });
-      this.logger.log(`Vaccination reminder email sent to ${to} for child ${childName}`);
-    } catch (error) {
-      this.logger.error(`Failed to send email to ${to}: ${error.message}`);
-      // Don't throw — a failed email should not crash the cron job
+
+      if (!res.ok) {
+        const body = await res.text();
+        this.logger.error(`Resend API error ${res.status}: ${body}`);
+        return false;
+      }
+
+      this.logger.log(`Email sent via Resend to ${to} — ${subject}`);
+      return true;
+    } catch (err: any) {
+      this.logger.error(`Resend fetch failed: ${err.message}`);
+      return false;
     }
+  }
+
+  // ── Send via SMTP (nodemailer) ─────────────────────────────────────────────
+  private async sendViaSMTP(to: string, subject: string, html: string): Promise<boolean> {
+    const user = process.env.EMAIL_USER?.trim();
+    const pass = process.env.EMAIL_PASS?.trim();
+    if (!user || !pass) return false;
+
+    const port = parseInt(process.env.EMAIL_PORT || '465', 10);
+    try {
+      const transporter = nodemailer.createTransport({
+        host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+        port,
+        secure: port === 465,
+        auth: { user, pass },
+        connectionTimeout: 8000,
+        greetingTimeout: 8000,
+      });
+
+      await transporter.sendMail({
+        from: `"Smart Maternal Health" <${user}>`,
+        to, subject, html,
+      });
+
+      this.logger.log(`Email sent via SMTP to ${to} — ${subject}`);
+      return true;
+    } catch (err: any) {
+      this.logger.error(`SMTP send failed to ${to}: ${err.message}`);
+      return false;
+    }
+  }
+
+  // ── Dev fallback: print to console + save to file ─────────────────────────
+  private devFallback(to: string, subject: string, html: string, extra?: string): void {
+    this.logger.warn('══════════════════════════════════════════════════════');
+    this.logger.warn('  EMAIL NOT SENT — no working mail transport found');
+    this.logger.warn(`  To      : ${to}`);
+    this.logger.warn(`  Subject : ${subject}`);
+    if (extra) this.logger.warn(`  ${extra}`);
+    this.logger.warn('  → Set RESEND_API_KEY in .env to send real emails');
+    this.logger.warn('══════════════════════════════════════════════════════');
+
+    try {
+      const dir = path.join(process.cwd(), 'dev-emails');
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      const ts = new Date().toISOString().replace(/[:.]/g, '-');
+      fs.writeFileSync(path.join(dir, `${ts}.html`), html, 'utf8');
+      fs.writeFileSync(path.join(dir, 'latest.html'), html, 'utf8');
+      if (extra) {
+        fs.writeFileSync(path.join(dir, 'latest-info.txt'),
+          `To: ${to}\nSubject: ${subject}\nTime: ${new Date().toISOString()}\n${extra}\n`, 'utf8');
+      }
+    } catch { /* ignore */ }
+  }
+
+  // ── Master send: Resend → SMTP → console ──────────────────────────────────
+  private async send(to: string, subject: string, html: string, extra?: string): Promise<void> {
+    if (await this.sendViaResend(to, subject, html)) return;
+    if (await this.sendViaSMTP(to, subject, html)) return;
+    this.devFallback(to, subject, html, extra);
+  }
+
+  // ── Public methods ─────────────────────────────────────────────────────────
+
+  async sendVaccinationReminder(
+    to: string, motherName: string, childName: string,
+    vaccineName: string, scheduledDate: Date, facilityName: string,
+  ): Promise<void> {
+    const dateStr = scheduledDate.toLocaleDateString('en-US', {
+      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+    });
+    const html = `
+      <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">
+        <div style="background:#2563eb;color:white;padding:20px;border-radius:8px 8px 0 0">
+          <h2 style="margin:0">💉 Vaccination Reminder</h2>
+          <p style="margin:5px 0 0;opacity:.9">Smart Maternal Health System</p>
+        </div>
+        <div style="background:#f8fafc;padding:24px;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 8px 8px">
+          <p>Dear <strong>${motherName}</strong>,</p>
+          <p>Your child <strong>${childName}</strong> has a vaccination appointment:</p>
+          <table style="width:100%;border-collapse:collapse;background:white;border:1px solid #e2e8f0;border-radius:8px;padding:16px">
+            <tr><td style="padding:8px;color:#6b7280">Vaccine</td><td style="padding:8px;font-weight:bold">${vaccineName}</td></tr>
+            <tr><td style="padding:8px;color:#6b7280">Date</td><td style="padding:8px;font-weight:bold">${dateStr}</td></tr>
+            <tr><td style="padding:8px;color:#6b7280">Facility</td><td style="padding:8px;font-weight:bold">${facilityName}</td></tr>
+          </table>
+          <p style="color:#92400e;background:#fef3c7;padding:12px;border-radius:8px;margin-top:16px">⚠️ Please bring your child's vaccination card.</p>
+        </div>
+      </div>`;
+    await this.send(to, `Vaccination Reminder: ${childName} — ${vaccineName} on ${dateStr}`, html);
   }
 
   async sendPregnancyVisitReminder(
-    to: string,
-    motherName: string,
-    nextVisitDate: Date,
-    gestationalAge: number,
-    facilityName: string,
+    to: string, motherName: string, nextVisitDate: Date,
+    gestationalAge: number, facilityName: string,
   ): Promise<void> {
     const dateStr = nextVisitDate.toLocaleDateString('en-US', {
       weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
     });
-
     const html = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <div style="background: #16a34a; color: white; padding: 20px; border-radius: 8px 8px 0 0;">
-          <h2 style="margin: 0;">🤰 Antenatal Visit Reminder</h2>
-          <p style="margin: 5px 0 0 0; opacity: 0.9;">Smart Maternal Health System</p>
+      <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">
+        <div style="background:#16a34a;color:white;padding:20px;border-radius:8px 8px 0 0">
+          <h2 style="margin:0">🤰 Antenatal Visit Reminder</h2>
         </div>
-        <div style="background: #f8fafc; padding: 24px; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 8px 8px;">
-          <p style="color: #374151; font-size: 16px;">Dear <strong>${motherName}</strong>,</p>
-          <p style="color: #374151;">This is a reminder that your next antenatal care visit is scheduled for tomorrow:</p>
-          <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 20px 0;">
-            <table style="width: 100%; border-collapse: collapse;">
-              <tr>
-                <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Date</td>
-                <td style="padding: 8px 0; color: #111827; font-weight: bold;">${dateStr}</td>
-              </tr>
-              <tr>
-                <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Gestational Age</td>
-                <td style="padding: 8px 0; color: #111827; font-weight: bold;">${gestationalAge} weeks</td>
-              </tr>
-              <tr>
-                <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Facility</td>
-                <td style="padding: 8px 0; color: #111827; font-weight: bold;">${facilityName}</td>
-              </tr>
-            </table>
-          </div>
-          <div style="background: #dcfce7; border: 1px solid #16a34a; border-radius: 8px; padding: 12px; margin: 16px 0;">
-            <p style="margin: 0; color: #14532d; font-size: 14px;">
-              ✅ Please bring your antenatal care card and any previous test results.
-            </p>
-          </div>
-          <p style="color: #374151;">Regular antenatal visits are important for your health and your baby's health.</p>
-          <p style="color: #6b7280; font-size: 13px; margin-top: 24px; border-top: 1px solid #e2e8f0; padding-top: 16px;">
-            This is an automated message from the Smart Maternal Health System. Please do not reply to this email.
-          </p>
+        <div style="background:#f8fafc;padding:24px;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 8px 8px">
+          <p>Dear <strong>${motherName}</strong>,</p>
+          <p>Your next antenatal care visit is scheduled for <strong>${dateStr}</strong>.</p>
+          <p>Gestational age: <strong>${gestationalAge} weeks</strong> | Facility: <strong>${facilityName}</strong></p>
+          <p style="color:#14532d;background:#dcfce7;padding:12px;border-radius:8px">✅ Please bring your antenatal care card and previous test results.</p>
         </div>
-      </div>
-    `;
-
-    try {
-      await this.transporter.sendMail({
-        from: `"Smart Maternal Health" <${process.env.EMAIL_USER || 'no-reply@example.com'}>`,
-        to,
-        subject: `Antenatal Visit Reminder: ${dateStr}`,
-        html,
-      });
-      this.logger.log(`Pregnancy visit reminder email sent to ${to}`);
-    } catch (error) {
-      this.logger.error(`Failed to send pregnancy visit email to ${to}: ${error.message}`);
-    }
+      </div>`;
+    await this.send(to, `Antenatal Visit Reminder: ${dateStr}`, html);
   }
 
   async sendMotherVaccinationReminder(
-    to: string,
-    motherName: string,
-    doseNumber: number,
-    scheduledDate: Date,
+    to: string, motherName: string, doseNumber: number, scheduledDate: Date,
   ): Promise<void> {
     const dateStr = scheduledDate.toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
+      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
     });
-
     const html = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <div style="background: #7c3aed; color: white; padding: 20px; border-radius: 8px 8px 0 0;">
-          <h2 style="margin: 0;">💉 Maternal Vaccination Reminder</h2>
-          <p style="margin: 5px 0 0 0; opacity: 0.9;">Smart Maternal Health System</p>
+      <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">
+        <div style="background:#7c3aed;color:white;padding:20px;border-radius:8px 8px 0 0">
+          <h2 style="margin:0">💉 Maternal Vaccination Reminder</h2>
         </div>
-        <div style="background: #f8fafc; padding: 24px; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 8px 8px;">
-          <p style="color: #374151; font-size: 16px;">Dear <strong>${motherName}</strong>,</p>
-          <p style="color: #374151;">Your tetanus toxoid (TD) vaccination appointment is coming up:</p>
-          <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 20px 0;">
-            <p style="margin: 0 0 8px 0;"><strong>Dose:</strong> TD${doseNumber}</p>
-            <p style="margin: 0;"><strong>Date:</strong> ${dateStr}</p>
-          </div>
-          <p style="color: #374151;">Please visit your health center on the scheduled date.</p>
+        <div style="background:#f8fafc;padding:24px;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 8px 8px">
+          <p>Dear <strong>${motherName}</strong>,</p>
+          <p>Your <strong>TD${doseNumber}</strong> vaccination is scheduled for <strong>${dateStr}</strong>.</p>
+          <p>Please visit your health center on the scheduled date.</p>
         </div>
-      </div>
-    `;
-
-    try {
-      await this.transporter.sendMail({
-        from: `"Smart Maternal Health" <${process.env.EMAIL_USER || 'no-reply@example.com'}>`,
-        to,
-        subject: `TD${doseNumber} Vaccination Reminder — ${dateStr}`,
-        html,
-      });
-      this.logger.log(`Mother vaccination reminder email sent to ${to}`);
-    } catch (error) {
-      this.logger.error(`Failed to send mother vaccination email to ${to}: ${error.message}`);
-    }
+      </div>`;
+    await this.send(to, `TD${doseNumber} Vaccination Reminder — ${dateStr}`, html);
   }
 
-  /**
-   * Send password reset email containing a one-time token link.
-   * Security: the token sent is the raw secure token; only a hashed version should be stored in the DB.
-   */
   async sendResetPasswordEmail(to: string, name: string, token: string): Promise<void> {
-    const base = process.env.FRONTEND_BASE_URL || 'http://localhost:3000';
-    const resetUrl = `${base.replace(/\/$/, '')}/reset-password?token=${encodeURIComponent(token)}`;
+    const base = (process.env.FRONTEND_BASE_URL || 'http://localhost:3000').replace(/\/$/, '');
+    const resetUrl = `${base}/reset-password?token=${encodeURIComponent(token)}`;
 
     const html = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <div style="background: #111827; color: white; padding: 20px; border-radius: 8px 8px 0 0;">
-          <h2 style="margin: 0;">Reset your password</h2>
+      <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">
+        <div style="background:#111827;color:white;padding:20px;border-radius:8px 8px 0 0">
+          <h2 style="margin:0">🔐 Reset your password</h2>
+          <p style="margin:5px 0 0;opacity:.8">Smart Maternal Health System</p>
         </div>
-        <div style="background: #f8fafc; padding: 24px; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 8px 8px;">
-          <p style="color: #374151;">Hello <strong>${name}</strong>,</p>
-          <p style="color: #374151;">We received a request to reset your account password. Click the button below to set a new password. This link will expire in 15 minutes.</p>
-          <div style="text-align:center; margin: 20px 0;">
-            <a href="${resetUrl}" style="background:#2563eb;color:white;padding:12px 20px;border-radius:6px;text-decoration:none;display:inline-block;">Reset Password</a>
+        <div style="background:#f8fafc;padding:24px;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 8px 8px">
+          <p>Hello <strong>${name}</strong>,</p>
+          <p>We received a request to reset your password. Click the button below — this link expires in <strong>15 minutes</strong>.</p>
+          <div style="text-align:center;margin:24px 0">
+            <a href="${resetUrl}" style="background:#2563eb;color:white;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block">
+              Reset Password
+            </a>
           </div>
-          <p style="color:#6b7280; font-size:13px;">If you did not request a password reset, you can safely ignore this message.</p>
-          <p style="color:#6b7280; font-size:13px; margin-top:16px; border-top:1px solid #e2e8f0; padding-top:12px;">This is an automated message from the Smart Maternal Health System.</p>
+          <p style="color:#6b7280;font-size:13px">Or copy this link into your browser:<br>
+            <a href="${resetUrl}" style="color:#2563eb;word-break:break-all">${resetUrl}</a>
+          </p>
+          <p style="color:#6b7280;font-size:12px;margin-top:16px;border-top:1px solid #e2e8f0;padding-top:12px">
+            If you did not request a password reset, ignore this message.
+          </p>
         </div>
-      </div>
-    `;
+      </div>`;
 
-    const buildEtherealTransporter = async () => {
-      const testAccount = await nodemailer.createTestAccount();
-      return nodemailer.createTransport({
-        host: testAccount.smtp.host,
-        port: testAccount.smtp.port,
-        secure: testAccount.smtp.secure,
-        auth: { user: testAccount.user, pass: testAccount.pass },
-      });
-    };
-
-    const sendWithTransporter = async (transporter: nodemailer.Transporter) => {
-      return transporter.sendMail({
-        from: `"Smart Maternal Health" <${process.env.EMAIL_USER || 'no-reply@example.com'}>`,
-        to,
-        subject: `Reset your password`,
-        html,
-      });
-    };
-
-    const shouldUseEthereal = process.env.EMAIL_PREVIEW === 'ethereal' || !process.env.EMAIL_USER;
-    let transporterToUse = this.transporter;
-
-    if (shouldUseEthereal) {
-      transporterToUse = await buildEtherealTransporter();
-    }
-
-    try {
-      const info = await sendWithTransporter(transporterToUse);
-      this.logger.log(`Password reset email send attempted to ${to}. MessageId: ${info.messageId}`);
-      // store raw html for dev inspection
-      this.lastResetHtml = html;
-      const preview = nodemailer.getTestMessageUrl(info);
-      if (preview) {
-        this.lastResetPreviewUrl = preview;
-        this.logger.log(`Password reset preview URL: ${preview}`);
-      }
-    } catch (primaryError: any) {
-      this.logger.error(`Primary password reset email send failed to ${to}: ${primaryError.message}`);
-
-      const canFallback = process.env.NODE_ENV !== 'production' && process.env.EMAIL_PREVIEW !== 'disabled';
-      if (canFallback) {
-        try {
-          const fallbackTransporter = await buildEtherealTransporter();
-          const info = await sendWithTransporter(fallbackTransporter);
-          this.logger.log(`Fallback Ethereal password reset email sent to ${to}. MessageId: ${info.messageId}`);
-          // store raw html for dev inspection
-          this.lastResetHtml = html;
-          const preview = nodemailer.getTestMessageUrl(info);
-          if (preview) {
-            this.lastResetPreviewUrl = preview;
-            this.logger.log(`Password reset preview URL: ${preview}`);
-          }
-          return;
-        } catch (fallbackError: any) {
-          this.logger.error(`Fallback Ethereal password reset email failed to ${to}: ${fallbackError.message}`);
-        }
-      }
-    }
+    await this.send(
+      to,
+      'Reset your password — Smart Maternal Health',
+      html,
+      `RESET LINK: ${resetUrl}`,
+    );
   }
 
-  // Development helper to retrieve last preview URL (if any)
-  getLastResetPreviewUrl(): string | undefined {
-    return this.lastResetPreviewUrl;
-  }
-
-  // Development helper to retrieve the last raw HTML sent (if any)
-  getLastResetHtml(): string | undefined {
-    return this.lastResetHtml;
-  }
+  getLastResetPreviewUrl(): string | undefined { return undefined; }
+  getLastResetHtml(): string | undefined { return undefined; }
 }

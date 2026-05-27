@@ -1,0 +1,4 @@
+To: hibr@gmail.com
+Name: hibr
+Time: 2026-05-26T18:17:36.138Z
+Link: http://localhost:3000/reset-password?token=9bf0c94f2cad8c2c337f8e09ee7d8f8987101ebd5b88bcfe4872a91cecf2b195

@@ -12,18 +12,44 @@ export class SmsService {
 
     if (apiKey && username) {
       try {
+        // Fix SSL certificate verification issue on Windows/corporate networks
+        process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+
         // eslint-disable-next-line @typescript-eslint/no-var-requires
         const AfricasTalking = require('africastalking');
         this.client = AfricasTalking({ apiKey, username });
         this.isConfigured = true;
-        this.logger.log(`SMS service initialized (username: ${username})`);
+        this.logger.log(`SMS service initialized (username: ${username}, sandbox: ${username === 'sandbox'})`);
       } catch (err) {
-        this.logger.warn('africastalking package not found. SMS will be skipped.');
+        this.logger.warn(`africastalking package not found or init failed: ${err.message}. SMS will be skipped.`);
         this.isConfigured = false;
       }
     } else {
       this.logger.warn('AT_API_KEY or AT_USERNAME not set. SMS notifications disabled.');
       this.isConfigured = false;
+    }
+  }
+
+  /** Direct test method — call from controller to verify SMS works */
+  async sendTestSms(phone: string): Promise<{ success: boolean; result?: any; error?: string; normalizedPhone: string }> {
+    const normalizedPhone = this.normalizePhone(phone);
+    if (!this.isConfigured) {
+      return { success: false, error: 'SMS not configured — check AT_API_KEY and AT_USERNAME in .env', normalizedPhone };
+    }
+    try {
+      const result = await this.client.SMS.send({
+        to: [normalizedPhone],
+        message: 'TEST: Smart Maternal Health System SMS test message. If you see this, SMS is working!',
+        from: process.env.AT_SENDER_ID || undefined,
+      });
+      this.logger.log(`TEST SMS result: ${JSON.stringify(result)}`);
+      const recipients = result?.SMSMessageData?.Recipients || [];
+      const status = recipients[0]?.status || 'unknown';
+      const cost = recipients[0]?.cost || 'unknown';
+      return { success: true, result: { recipients, status, cost }, normalizedPhone };
+    } catch (error) {
+      this.logger.error(`TEST SMS failed to ${normalizedPhone}: ${error.message}`);
+      return { success: false, error: error.message, normalizedPhone };
     }
   }
 

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, UseGuards, Request, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, UseGuards, Request, BadRequestException, NotFoundException, Query } from '@nestjs/common';
 import { MothersService } from '../mothers/mothers.service';
 import { UserRole } from '../common/enums/user-role.enum';
 import { PregnancyService } from './pregnancy.service';
@@ -8,7 +8,8 @@ import { CreatePregnancyDto } from './dto/create-pregnancy.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiQuery } from '@nestjs/swagger';
+import { SmsService } from '../notifications/sms.service';
 
 @ApiTags('Pregnancy')
 @ApiBearerAuth()
@@ -20,15 +21,43 @@ export class PregnancyController {
     private readonly pregnancyReminderService: PregnancyReminderService,
     private readonly ancScheduleService: AncScheduleService,
     private readonly mothersService: MothersService,
+    private readonly smsService: SmsService,
   ) {}
 
   // ── Manual trigger (dev/testing) ─────────────────────────────────────────────
-  @Roles('SYSTEM_ADMIN')
+  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN')
   @Post('reminders/trigger')
   @ApiOperation({ summary: 'Manually trigger all ANC jobs (reminders + missed detection)' })
   @ApiResponse({ status: 200, description: 'Jobs triggered' })
   async triggerReminders() {
     return this.ancScheduleService.triggerManually();
+  }
+
+  // ── Test reminder: reset flags then fire immediately ─────────────────────────
+  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN')
+  @Post('reminders/test')
+  @ApiOperation({ summary: 'TEST: Reset all reminder flags then fire reminders immediately' })
+  @ApiResponse({ status: 200, description: 'Test reminders sent — check backend console/dev-emails/' })
+  async testReminders() {
+    // Reset all reminder flags so the job finds records regardless of prior runs
+    await this.pregnancyReminderService.resetAllReminderFlags();
+    await this.ancScheduleService.triggerManually();
+    return {
+      message: 'Test reminders triggered. Check backend console for email output.',
+      hint: 'Emails saved to backend/dev-emails/ folder if SMTP is unavailable.',
+    };
+  }
+
+  // ── Test SMS directly ─────────────────────────────────────────────────────────
+  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'WOREDA_ADMIN', 'MOH_ADMIN', 'LIAISON_OFFICER')
+  @Post('sms/test')
+  @ApiOperation({ summary: 'TEST: Send a test SMS to verify Africa\'s Talking works' })
+  @ApiQuery({ name: 'phone', required: true, description: 'Phone number e.g. 0911234567' })
+  @ApiResponse({ status: 200, description: 'SMS test result' })
+  async testSms(@Query('phone') phone: string) {
+    if (!phone) return { success: false, error: 'phone query param required' };
+    const result = await this.smsService.sendTestSms(phone);
+    return result;
   }
 
   // ── Complete a visit ──────────────────────────────────────────────────────────

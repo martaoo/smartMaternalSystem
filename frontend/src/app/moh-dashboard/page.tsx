@@ -9,7 +9,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/lib/api';
 import { referralsApi, vaccinationsApi, childrenApi } from '@/lib/healthcare-api';
 
-type Tab = 'overview' | 'hospitals' | 'health-centers' | 'admins' | 'analytics';
+type Tab = 'overview' | 'hospitals' | 'health-centers' | 'admins' | 'analytics' | 'reports';
 
 export default function MOHDashboard() {
   const { user, logout } = useAuth();
@@ -87,6 +87,7 @@ export default function MOHDashboard() {
     { id: 'health-centers'as Tab, label: 'Health Centers', icon: '🏨' },
     { id: 'admins'        as Tab, label: 'Admins',         icon: '🛡️' },
     { id: 'analytics'     as Tab, label: 'Analytics',      icon: '📈' },
+    { id: 'reports'       as Tab, label: 'Reports',        icon: '📋' },
   ];
 
   const roleBadge = (role: string) => {
@@ -384,9 +385,127 @@ export default function MOHDashboard() {
             </div>
           )}
 
-          {/* ══ ANALYTICS TAB ══ */}
-          {tab === 'analytics' && (
+          {/* ══ REPORTS TAB ══ */}
+          {tab === 'reports' && (
             <div className="space-y-6">
+              <div className="flex items-center justify-between print:hidden">
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900">📋 National Reports</h2>
+                  <p className="text-sm text-gray-500">Generated: {new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}</p>
+                </div>
+                <button onClick={() => window.print()}
+                  className="flex items-center gap-2 px-5 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-900 text-sm font-medium">
+                  🖨️ Print / Export PDF
+                </button>
+              </div>
+
+              {/* Print header */}
+              <div className="hidden print:block text-center mb-4 border-b pb-4">
+                <h1 className="text-2xl font-bold">Ministry of Health — National Report</h1>
+                <p className="text-gray-500 text-sm">Smart Maternal Health System · {new Date().toLocaleString()}</p>
+              </div>
+
+              {/* Referral Report */}
+              <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+                <h3 className="text-base font-bold text-gray-900 mb-1">🔄 Referral Report</h3>
+                <p className="text-xs text-gray-400 mb-4">National referral statistics across all facilities</p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {[
+                    {label:'Total Referrals',   value:refStats.total??0,     bg:'bg-blue-50   border-blue-200',   text:'text-blue-900'},
+                    {label:'Completed',         value:refStats.completed??0, bg:'bg-green-50  border-green-200',  text:'text-green-900'},
+                    {label:'Pending',           value:refStats.pending??0,   bg:'bg-yellow-50 border-yellow-200', text:'text-yellow-900'},
+                    {label:'Accepted',          value:refStats.accepted??0,  bg:'bg-indigo-50 border-indigo-200', text:'text-indigo-900'},
+                    {label:'Rejected',          value:refStats.rejected??0,  bg:'bg-red-50    border-red-200',    text:'text-red-900'},
+                    {label:'Checked In',        value:refStats.checkedIn??0, bg:'bg-purple-50 border-purple-200', text:'text-purple-900'},
+                    {label:'Active',            value:refStats.active??0,    bg:'bg-orange-50 border-orange-200', text:'text-orange-900'},
+                    {label:'Expired',           value:refStats.expired??0,   bg:'bg-gray-50   border-gray-200',   text:'text-gray-900'},
+                  ].map(s => (
+                    <div key={s.label} className={`rounded-lg p-4 border ${s.bg}`}>
+                      <p className={`text-xs font-medium mb-1 opacity-70 ${s.text}`}>{s.label}</p>
+                      <p className={`text-3xl font-bold ${s.text}`}>{loading?'…':s.value}</p>
+                      {(refStats.total??0)>0 && <p className="text-xs opacity-50 mt-1">{Math.round(((s.value as number)/(refStats.total||1))*100)}%</p>}
+                    </div>
+                  ))}
+                </div>
+                {(refStats.total??0)>0 && (
+                  <div className="mt-4">
+                    <div className="flex justify-between text-xs text-gray-500 mb-1">
+                      <span>Completion Rate</span>
+                      <span className="font-semibold">{Math.round(((refStats.completed??0)/(refStats.total||1))*100)}%</span>
+                    </div>
+                    <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-green-500 rounded-full" style={{width:`${Math.round(((refStats.completed??0)/(refStats.total||1))*100)}%`}}/>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Children & Vaccination Report */}
+              <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+                <h3 className="text-base font-bold text-gray-900 mb-1">👶 Children & Vaccination Report</h3>
+                <p className="text-xs text-gray-400 mb-4">Child health status and immunization coverage</p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {[
+                    {label:'Total Children',          value:childStats.total??0,           bg:'bg-pink-50   border-pink-200',   text:'text-pink-900'},
+                    {label:'Healthy',                 value:childStats.healthy??0,         bg:'bg-green-50  border-green-200',  text:'text-green-900'},
+                    {label:'Needs Attention',         value:childStats.needsAttention??0,  bg:'bg-yellow-50 border-yellow-200', text:'text-yellow-900'},
+                    {label:'Critical',                value:childStats.critical??0,        bg:'bg-red-50    border-red-200',    text:'text-red-900'},
+                    {label:'Vaccinations Scheduled',  value:vacStats.scheduled??0,         bg:'bg-blue-50   border-blue-200',   text:'text-blue-900'},
+                    {label:'Vaccinations Given',      value:vacStats.administered??0,      bg:'bg-indigo-50 border-indigo-200', text:'text-indigo-900'},
+                    {label:'Vaccinations Missed',     value:vacStats.missed??0,            bg:'bg-orange-50 border-orange-200', text:'text-orange-900'},
+                    {label:'Coverage Rate',           value:`${Math.round(vacStats.coverageRate??0)}%`, bg:'bg-teal-50 border-teal-200', text:'text-teal-900'},
+                  ].map(s => (
+                    <div key={s.label} className={`rounded-lg p-4 border ${s.bg}`}>
+                      <p className={`text-xs font-medium mb-1 opacity-70 ${s.text}`}>{s.label}</p>
+                      <p className={`text-3xl font-bold ${s.text}`}>{loading?'…':s.value}</p>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-4">
+                  <div className="flex justify-between text-xs text-gray-500 mb-1">
+                    <span>Vaccination Coverage</span>
+                    <span className="font-semibold">{Math.round(vacStats.coverageRate??0)}%</span>
+                  </div>
+                  <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
+                    <div className={`h-full rounded-full ${(vacStats.coverageRate??0)>=80?'bg-green-500':(vacStats.coverageRate??0)>=50?'bg-yellow-500':'bg-red-500'}`}
+                      style={{width:`${Math.min(vacStats.coverageRate??0,100)}%`}}/>
+                  </div>
+                  <p className="text-xs text-gray-400 mt-1">
+                    {(vacStats.coverageRate??0)>=80?'✅ Good coverage':(vacStats.coverageRate??0)>=50?'⚠️ Moderate — improvement needed':'🔴 Low — urgent action required'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Facilities & Admin Report */}
+              <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+                <h3 className="text-base font-bold text-gray-900 mb-1">🏥 Facilities & Administration Report</h3>
+                <p className="text-xs text-gray-400 mb-4">Infrastructure and system administration overview</p>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {[
+                    {label:'Total Hospitals',      value:allHospitals.length,  bg:'bg-indigo-50 border-indigo-200', text:'text-indigo-900'},
+                    {label:'Total Health Centers', value:allHCs.length,        bg:'bg-teal-50   border-teal-200',   text:'text-teal-900'},
+                    {label:'Total Facilities',     value:hospitals.length,     bg:'bg-gray-50   border-gray-200',   text:'text-gray-900'},
+                    {label:'Super Admins',         value:superAdmins.length,   bg:'bg-purple-50 border-purple-200', text:'text-purple-900'},
+                    {label:'System Admins',        value:systemAdmins.length,  bg:'bg-blue-50   border-blue-200',   text:'text-blue-900'},
+                    {label:'Total System Users',   value:users.length,         bg:'bg-slate-50  border-slate-200',  text:'text-slate-900'},
+                  ].map(s => (
+                    <div key={s.label} className={`rounded-lg p-4 border ${s.bg}`}>
+                      <p className={`text-xs font-medium mb-1 opacity-70 ${s.text}`}>{s.label}</p>
+                      <p className={`text-3xl font-bold ${s.text}`}>{loading?'…':s.value}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Print footer */}
+              <div className="hidden print:block text-center text-xs text-gray-400 mt-8 border-t pt-4">
+                Smart Maternal Health System — Ministry of Health Ethiopia · {new Date().toLocaleString()}
+              </div>
+            </div>
+          )}
+
+          {/* ══ ANALYTICS TAB ══ */}
+          {tab === 'analytics' && (            <div className="space-y-6">
               <h2 className="text-lg font-bold text-gray-900">📈 National Analytics</h2>
 
               {/* Referral report */}
@@ -465,8 +584,6 @@ export default function MOHDashboard() {
 
         </main>
       </div>
-
-      {/* ── Modals ── */}
       {showHospitalModal && (
         <AddHospitalForm
           onClose={() => { setShowHospitalModal(false); setEditHospital(null); }}

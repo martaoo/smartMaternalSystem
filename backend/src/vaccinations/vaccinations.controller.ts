@@ -17,12 +17,26 @@ export class VaccinationsController {
   ) {}
 
   // ── Manual reminder trigger (dev/testing only) ──────────────────────────────
-  @Roles('SYSTEM_ADMIN')
+  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN')
   @Post('reminders/trigger')
   @ApiOperation({ summary: 'Manually trigger vaccination reminder job (dev/testing)' })
   @ApiResponse({ status: 200, description: 'Reminder job triggered' })
   async triggerReminders() {
     return this.vaccinationReminderService.triggerManually();
+  }
+
+  // ── Test: reset flags then fire immediately ───────────────────────────────────
+  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN')
+  @Post('reminders/test')
+  @ApiOperation({ summary: 'TEST: Reset reminder flags then fire vaccination reminders immediately' })
+  @ApiResponse({ status: 200, description: 'Test reminders sent — check backend console/dev-emails/' })
+  async testReminders() {
+    await this.vaccinationReminderService.resetAllReminderFlags();
+    await this.vaccinationReminderService.triggerManually();
+    return {
+      message: 'Test vaccination reminders triggered. Check backend console for email output.',
+      hint: 'Emails saved to backend/dev-emails/ folder if SMTP is unavailable.',
+    };
   }
 
   // Vaccine Management Endpoints

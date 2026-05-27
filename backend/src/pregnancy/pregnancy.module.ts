@@ -9,6 +9,7 @@ import { MaternalVaccine, MaternalVaccineSchema } from './schemas/maternal-vacci
 import { ReferralsModule } from '@/referrals/referrals.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { MothersModule } from '../mothers/mothers.module';
+import { SmsService } from '../notifications/sms.service';
 
 @Module({
   imports: [
@@ -21,7 +22,7 @@ import { MothersModule } from '../mothers/mothers.module';
     MothersModule,
   ],
   controllers: [PregnancyController],
-  providers: [PregnancyService, PregnancyReminderService, AncScheduleService],
+  providers: [PregnancyService, PregnancyReminderService, AncScheduleService, SmsService],
   exports: [PregnancyService, PregnancyReminderService, AncScheduleService],
 })
 export class PregnancyModule {}
