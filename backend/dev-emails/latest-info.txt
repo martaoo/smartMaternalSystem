@@ -1,0 +1,4 @@
+To: hibr@gmail.com
+Subject: Reset your password — Smart Maternal Health
+Time: 2026-05-26T18:33:10.858Z
+RESET LINK: http://localhost:3000/reset-password?token=3464d65d95729165dc7817d13a957a540c9586b79b6d83c1d3792393b507f759

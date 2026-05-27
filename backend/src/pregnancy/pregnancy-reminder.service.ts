@@ -120,4 +120,13 @@ export class PregnancyReminderService {
     await this.sendDailyReminders();
     return { message: 'Pregnancy visit reminder job triggered. Check server logs for results.' };
   }
+
+  /** TEST ONLY: Reset all visitReminderSent flags so reminders fire again */
+  async resetAllReminderFlags(): Promise<void> {
+    await this.pregnancyModel.updateMany(
+      { visitReminderSent: true },
+      { $set: { visitReminderSent: false, reminder3DaySent: false, reminderSameDaySent: false } },
+    );
+    this.logger.warn('[TEST] All pregnancy reminder flags reset.');
+  }
 }

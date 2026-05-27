@@ -232,6 +232,12 @@ export default function WoredaDashboard() {
               >
                 📄 Birth Certificates
               </Link>
+              <Link
+                href="/woreda-dashboard/reports"
+                className="py-4 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-green-600 hover:border-green-500 whitespace-nowrap"
+              >
+                📋 Reports
+              </Link>
             </nav>
           </div>
         </div>

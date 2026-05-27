@@ -120,4 +120,13 @@ export class VaccinationReminderService {
     await this.sendDailyReminders();
     return { sent: 0, failed: 0 };
   }
+
+  /** TEST ONLY: Reset all reminder flags so reminders fire again */
+  async resetAllReminderFlags(): Promise<void> {
+    await this.vaccinationRecordModel.updateMany(
+      { $or: [{ reminderSent: true }, { reminder3DaySent: true }, { reminderSameDaySent: true }] },
+      { $set: { reminderSent: false, reminder3DaySent: false, reminderSameDaySent: false } },
+    );
+    this.logger.warn('[TEST] All vaccination reminder flags reset.');
+  }
 }
