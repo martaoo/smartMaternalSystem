@@ -3,7 +3,7 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { UserProfilePage } from '@/components/UserProfilePage';
 
-export default function ProfilePage() {
+export default function MOHProfilePage() {
   const { logout } = useAuth();
   return <UserProfilePage onLogout={logout} backHref="/moh-dashboard" />;
 }

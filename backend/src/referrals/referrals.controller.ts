@@ -255,6 +255,7 @@ export class ReferralsController {
   @Get()
   @Roles(
     UserRole.SUPER_ADMIN, UserRole.SYSTEM_ADMIN, UserRole.HOSPITAL_ADMIN, UserRole.HEALTH_CENTER_ADMIN,
+    UserRole.WOREDA_ADMIN, UserRole.MOH_ADMIN,
     UserRole.LIAISON_OFFICER, UserRole.DOCTOR, UserRole.NURSE, UserRole.MIDWIFE,
   )
   async getReferrals(
@@ -266,7 +267,7 @@ export class ReferralsController {
 
   // ── ADMIN STATS ────────────────────────────────────────────────────────────
   @Get('admin/stats')
-  @Roles(UserRole.SUPER_ADMIN, UserRole.SYSTEM_ADMIN, UserRole.HOSPITAL_ADMIN, UserRole.HEALTH_CENTER_ADMIN)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.SYSTEM_ADMIN, UserRole.HOSPITAL_ADMIN, UserRole.HEALTH_CENTER_ADMIN, UserRole.WOREDA_ADMIN, UserRole.MOH_ADMIN)
   async getAdminStats(@Req() req: any) {
     if (req.user.role === UserRole.SYSTEM_ADMIN && req.user.regionId) {
       return this.referralsService.getSystemAdminReferralStats(req.user.regionId);

@@ -116,6 +116,10 @@ export default function MOHDashboard() {
               <div className="flex items-center gap-3">
                 <span className="text-sm text-blue-100 hidden sm:block">Welcome, <strong>{user?.name}</strong></span>
                 <span className="text-xs bg-white/20 px-2 py-1 rounded-full font-semibold">{user?.role?.replace(/_/g,' ')}</span>
+                <a href="/moh-dashboard/profile"
+                  className="text-sm text-blue-200 hover:text-white underline whitespace-nowrap transition-colors">
+                  My Profile
+                </a>
                 <button onClick={() => { logout(); router.push('/auth'); }}
                   className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
                   Logout
