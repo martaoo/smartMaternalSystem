@@ -809,46 +809,31 @@ export default function VaccinationsManagement() {
           </>
         ) : (
           <>
+            {/* Mother Stats Cards — same style as child stats */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
               <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-blue-500">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Registered mothers</p>
-                    <p className="text-2xl font-bold text-gray-900">{mothers.length}</p>
-                  </div>
-                  <div className="text-3xl text-blue-600">women</div>
-                </div>
+                <p className="text-sm font-medium text-gray-600">Registered Mothers</p>
+                <p className="text-2xl font-bold text-gray-900">{mothers.length}</p>
               </div>
               <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-green-500">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Active mothers</p>
-                    <p className="text-2xl font-bold text-gray-900">{mothers.filter(m => m.status === 'ACTIVE').length}</p>
-                  </div>
-                  <div className="text-3xl text-green-600">heartbeat</div>
-                </div>
+                <p className="text-sm font-medium text-gray-600">Active Mothers</p>
+                <p className="text-2xl font-bold text-gray-900">{mothers.filter(m => m.status === 'ACTIVE').length}</p>
               </div>
               <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-red-500">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">High-risk mothers</p>
-                    <p className="text-2xl font-bold text-gray-900">{mothers.filter(m => m.highRisk).length}</p>
-                  </div>
-                  <div className="text-3xl text-red-600">alert</div>
-                </div>
+                <p className="text-sm font-medium text-gray-600">High-Risk Mothers</p>
+                <p className="text-2xl font-bold text-gray-900">{mothers.filter(m => m.highRisk).length}</p>
               </div>
             </div>
 
+            {/* Mother list — same card/table style as child vaccination list */}
             <div className="bg-white rounded-lg shadow-md overflow-hidden">
               <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
                 <div>
-                  <h2 className="text-lg font-semibold text-gray-900">Mother vaccine management</h2>
-                  <p className="text-sm text-gray-600">Select a mother to view or record TD vaccination.</p>
+                  <h2 className="text-lg font-semibold text-gray-900">Mother Vaccine Management</h2>
+                  <p className="text-sm text-gray-600">Select a mother to view or record TD vaccination schedule.</p>
                 </div>
-                <a
-                  href="/healthcare-dashboard/mothers"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
-                >
+                <a href="/healthcare-dashboard/mothers"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
                   Manage Mothers
                 </a>
               </div>
@@ -858,10 +843,8 @@ export default function VaccinationsManagement() {
                   <div className="text-gray-400 text-6xl mb-4">👩</div>
                   <h3 className="text-lg font-medium text-gray-900 mb-2">No mothers found</h3>
                   <p className="text-gray-600 mb-6">Register mothers in the system before tracking maternal vaccinations.</p>
-                  <a
-                    href="/healthcare-dashboard/mothers/register"
-                    className="inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                  >
+                  <a href="/healthcare-dashboard/mothers/register"
+                    className="inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
                     Register Mother
                   </a>
                 </div>
@@ -870,43 +853,52 @@ export default function VaccinationsManagement() {
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Health center</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Risk</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        {['Mother', 'Phone', 'Health Center', 'Status', 'Risk', 'Actions'].map(h => (
+                          <th key={h} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{h}</th>
+                        ))}
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                       {mothers.map(mother => (
-                        <tr key={mother._id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{mother.name}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{mother.phone || '-'}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{mother.healthCenter?.name || '-'}</td>
+                        <tr key={mother._id} className="hover:bg-gray-50 transition-colors">
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getMotherStatusClass(mother.status)}`}>
+                            <div className="flex items-center gap-3">
+                              <div className="h-9 w-9 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0">
+                                <span className="text-purple-700 font-semibold text-sm">
+                                  {mother.name?.charAt(0)?.toUpperCase() ?? 'M'}
+                                </span>
+                              </div>
+                              <div>
+                                <p className="text-sm font-bold text-gray-900">{mother.name}</p>
+                                <p className="text-xs text-gray-500">Age {mother.age ?? '—'}</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{mother.phone || '—'}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{mother.healthCenter?.name || '—'}</td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`inline-flex px-2.5 py-1 text-xs font-semibold rounded-full ${getMotherStatusClass(mother.status)}`}>
                               {mother.status}
                             </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${mother.highRisk ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
-                              {mother.highRisk ? 'High Risk' : 'Normal'}
+                            <span className={`inline-flex px-2.5 py-1 text-xs font-semibold rounded-full ${
+                              mother.highRisk ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
+                            }`}>
+                              {mother.highRisk ? '⚠ High Risk' : 'Normal'}
                             </span>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                            <a
-                              href={`/healthcare-dashboard/mothers/${mother._id}`}
-                              className="text-blue-600 hover:text-blue-900"
-                            >
-                              Profile
-                            </a>
-                            <a
-                              href={`/healthcare-dashboard/vaccinations/mother/${mother._id}`}
-                              className="text-indigo-600 hover:text-indigo-900"
-                            >
-                              Vaccinations
-                            </a>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex gap-2">
+                              <a href={`/healthcare-dashboard/vaccinations/mother/${mother._id}`}
+                                className="px-3 py-1.5 bg-indigo-600 text-white text-xs rounded-lg hover:bg-indigo-700 transition-colors font-medium shadow-sm">
+                                💉 TD Vaccinations
+                              </a>
+                              <a href={`/healthcare-dashboard/mothers/${mother._id}`}
+                                className="px-3 py-1.5 bg-gray-100 text-gray-700 text-xs rounded-lg hover:bg-gray-200 transition-colors font-medium">
+                                Profile
+                              </a>
+                            </div>
                           </td>
                         </tr>
                       ))}

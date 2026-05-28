@@ -439,6 +439,13 @@ export default function RegisterMother() {
         }
       }
 
+      // Validate Para ≤ Gravida
+      if (formData.para && formData.gravida) {
+        if (parseInt(formData.para) > parseInt(formData.gravida)) {
+          throw new Error('Para (number of births) cannot exceed Gravida (number of pregnancies). Para ≤ Gravida.');
+        }
+      }
+
       // Validate that the woredaId is a valid MongoDB ObjectId
       const isValidObjectId = (id: string) => /^[0-9a-fA-F]{24}$/.test(id);
       if (!isValidObjectId(formData.woredaId)) {
@@ -953,6 +960,7 @@ export default function RegisterMother() {
                     min="0"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
+                  <p className="text-xs text-gray-400 mt-1">Total number of pregnancies (including current)</p>
                 </div>
 
                 <div>
@@ -966,8 +974,22 @@ export default function RegisterMother() {
                     value={formData.para}
                     onChange={handleInputChange}
                     min="0"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    max={formData.gravida ? formData.gravida : undefined}
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                      formData.para && formData.gravida && parseInt(formData.para) > parseInt(formData.gravida)
+                        ? 'border-red-400 bg-red-50'
+                        : 'border-gray-300'
+                    }`}
                   />
+                  {formData.para && formData.gravida && parseInt(formData.para) > parseInt(formData.gravida) ? (
+                    <p className="text-xs text-red-600 mt-1">
+                      ⚠ Para cannot exceed Gravida — births cannot be more than total pregnancies (Para ≤ Gravida)
+                    </p>
+                  ) : formData.para && formData.gravida && parseInt(formData.para) <= parseInt(formData.gravida) ? (
+                    <p className="text-xs text-green-600 mt-1">✓ Valid (Para ≤ Gravida)</p>
+                  ) : (
+                    <p className="text-xs text-gray-400 mt-1">Must be ≤ Gravida (births ≤ pregnancies)</p>
+                  )}
                 </div>
 
                 <div>
