@@ -62,6 +62,11 @@ export class CreateUserDto {
   @IsNotEmpty()
   assignedRegion?: string;
 
+  @ApiPropertyOptional({ example: '507f1f77bcf86cd799439011', description: 'Region ObjectId for SYSTEM_ADMIN' })
+  @IsOptional()
+  @IsMongoId()
+  regionId?: string;
+
   @ApiPropertyOptional({ example: '0911234567', description: 'Ethiopian phone number (09XXXXXXXX, 07XXXXXXXX, or +2519XXXXXXXX)' })
   @IsOptional()
   @IsString()

@@ -122,7 +122,7 @@ export class MothersService {
     const mother = new this.motherModel(motherData);
     return mother.save();
   }
-  async findAll(userRole: string, userHospitalId?: string, userWoredaId?: string): Promise<Mother[]> {
+  async findAll(userRole: string, userHospitalId?: string, userWoredaId?: string, userRegionId?: string): Promise<Mother[]> {
     let query: any = {};
 
     // Filter based on user role
@@ -132,6 +132,19 @@ export class MothersService {
     } else if (userRole === 'WOREDA_ADMIN') {
       // Woreda admin can see mothers from their woreda
       query.woredaId = new Types.ObjectId(userWoredaId);
+    } else if (userRole === 'SYSTEM_ADMIN' && userRegionId) {
+      // System admin sees only mothers in their region (via woredaId → regionId)
+      const allMothers = await this.motherModel.find()
+        .populate({ path: 'woredaId', populate: { path: 'regionId' } })
+        .populate('healthCenter', 'name type')
+        .populate('assignedHealthWorker', 'name email role')
+        .sort({ registrationDate: -1 })
+        .exec();
+      return allMothers.filter((m: any) => {
+        const wRegion = m.woredaId?.regionId;
+        const rid = wRegion && typeof wRegion === 'object' ? wRegion._id?.toString() : wRegion?.toString();
+        return rid === userRegionId;
+      });
     }
     // SYSTEM_ADMIN can see all mothers
 

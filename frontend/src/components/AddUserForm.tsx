@@ -42,7 +42,10 @@ const FACILITY_ROLES = [
 ];
 
 // Roles that are national-level — no woreda needed
-const NATIONAL_ROLES = ['SUPER_ADMIN', 'SYSTEM_ADMIN', 'MOH_ADMIN'];
+const NATIONAL_ROLES = ['SUPER_ADMIN', 'MOH_ADMIN'];
+
+// Roles that are regional — need a region but no woreda/facility
+const REGIONAL_ROLES = ['SYSTEM_ADMIN'];
 
 // Roles that need a woreda but NOT a facility
 const WOREDA_ONLY_ROLES = ['WOREDA_ADMIN'];
@@ -124,10 +127,17 @@ export function AddUserForm({
 
   // Derived
   const isNationalRole  = NATIONAL_ROLES.includes(form.role);
+  const isRegionalRole  = REGIONAL_ROLES.includes(form.role);  // SYSTEM_ADMIN
   const isFacilityRole  = FACILITY_ROLES.includes(form.role);
   const isWoredaOnly    = WOREDA_ONLY_ROLES.includes(form.role);
-  const needsWoreda     = !isNationalRole; // everyone except SUPER/SYSTEM/MOH needs a woreda
+  const needsWoreda     = !isNationalRole && !isRegionalRole;
   const needsFacility   = isFacilityRole && !hideHospitalSelect && !fixedHospitalId && !isFacilityAdmin;
+
+  // For SYSTEM_ADMIN: SUPER_ADMIN picks region manually; SYSTEM_ADMIN auto-inherits their own region
+  const isCreatorSuperAdmin  = authUser?.role === 'SUPER_ADMIN';
+  const isCreatorSystemAdmin = authUser?.role === 'SYSTEM_ADMIN';
+  const systemAdminNeedsRegionPicker = isRegionalRole && isCreatorSuperAdmin;
+  const systemAdminAutoRegion        = isRegionalRole && isCreatorSystemAdmin;
 
   // Woredas filtered by nothing (show all with region label)
   const woredaLabel = (w: any) => {
@@ -194,6 +204,16 @@ export function AddUserForm({
       if (isNationalRole) {
         delete payload.woredaId;
         delete payload.hospitalId;
+      }
+
+      // Regional roles (SYSTEM_ADMIN): strip woreda/hospital but keep regionId
+      if (isRegionalRole) {
+        delete payload.woredaId;
+        delete payload.hospitalId;
+        // If creator is SYSTEM_ADMIN, auto-assign their own regionId
+        if (isCreatorSystemAdmin && authUser?.regionId) {
+          payload.regionId = authUser.regionId;
+        }
       }
 
       // Non-facility roles: strip hospitalId
@@ -280,6 +300,36 @@ export function AddUserForm({
           {isNationalRole && (
             <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700">
               ℹ️ {form.role.replace(/_/g,' ')} is a national-level role — no woreda or facility assignment needed.
+            </div>
+          )}
+
+          {/* ── SYSTEM_ADMIN: SUPER_ADMIN picks region; SYSTEM_ADMIN auto-inherits ── */}
+          {isRegionalRole && systemAdminNeedsRegionPicker && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Region <span className="text-red-500">*</span>
+                <span className="ml-2 text-xs font-normal text-gray-500">— System Admin will manage this region</span>
+              </label>
+              <select required value={form.regionId}
+                onChange={e => setForm(p => ({ ...p, regionId: e.target.value }))}
+                className="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                <option value="">— Select Region —</option>
+                {regions.map((r: any) => (
+                  <option key={r._id} value={r._id?.toString() ?? ''}>{r.name}</option>
+                ))}
+              </select>
+              {form.regionId && (
+                <div className="mt-1.5 flex items-center gap-1.5 text-xs text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+                  <span>✓</span>
+                  <span>System Admin will be assigned to <strong>{regions.find(r => r._id?.toString() === form.regionId)?.name}</strong></span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {isRegionalRole && systemAdminAutoRegion && (
+            <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
+              ✓ Region will be automatically assigned from your account ({regions.find(r => r._id?.toString() === authUser?.regionId)?.name || authUser?.assignedRegion || 'your region'}).
             </div>
           )}
 

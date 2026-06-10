@@ -44,7 +44,7 @@ export class HospitalsService {
   }
 
   async update(id: string, updateHospitalDto: any): Promise<Hospital> {
-    const hospital = await this.hospitalModel.findById(id);
+    const hospital = await this.hospitalModel.findById(id).populate({ path: 'woredaId', populate: { path: 'regionId' } }).exec();
     if (!hospital) {
       throw new ConflictException('Hospital not found');
     }
@@ -57,5 +57,18 @@ export class HospitalsService {
     if (!result) {
       throw new ConflictException('Hospital not found');
     }
+  }
+
+  /** Check if a hospital belongs to a given region — used for SYSTEM_ADMIN scoping */
+  async isInRegion(hospitalId: string, regionId: string): Promise<boolean> {
+    const hospital = await this.hospitalModel.findById(hospitalId)
+      .populate({ path: 'woredaId', populate: { path: 'regionId' } })
+      .exec();
+    if (!hospital) return false;
+    const woredaRegion = (hospital as any).woredaId?.regionId;
+    const hRegion = woredaRegion && typeof woredaRegion === 'object'
+      ? woredaRegion._id?.toString()
+      : woredaRegion?.toString();
+    return hRegion === regionId;
   }
 }

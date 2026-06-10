@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Body, UseGuards, Request, Param } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, UseGuards, Request, Param, ForbiddenException } from '@nestjs/common';
 import { HospitalsService } from './hospitals.service';
 import { CreateHospitalDto } from './dto/create-hospital.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -50,7 +50,13 @@ export class HospitalsController {
   @ApiResponse({ status: 400, description: 'Bad Request' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden' })
-  async update(@Param('id') id: string, @Body() updateHospitalDto: any) {
+  async update(@Param('id') id: string, @Body() updateHospitalDto: any, @Request() req) {
+    const user = req.user;
+    // SYSTEM_ADMIN can only update hospitals in their region
+    if (user.role === 'SYSTEM_ADMIN' && user.regionId) {
+      const inRegion = await this.hospitalsService.isInRegion(id, user.regionId.toString());
+      if (!inRegion) throw new ForbiddenException('You can only update hospitals in your assigned region');
+    }
     return this.hospitalsService.update(id, updateHospitalDto);
   }
 
@@ -60,7 +66,13 @@ export class HospitalsController {
   @ApiResponse({ status: 200, description: 'Hospital deleted successfully' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden' })
-  async remove(@Param('id') id: string) {
+  async remove(@Param('id') id: string, @Request() req) {
+    const user = req.user;
+    // SYSTEM_ADMIN can only delete hospitals in their region
+    if (user.role === 'SYSTEM_ADMIN' && user.regionId) {
+      const inRegion = await this.hospitalsService.isInRegion(id, user.regionId.toString());
+      if (!inRegion) throw new ForbiddenException('You can only delete hospitals in your assigned region');
+    }
     return this.hospitalsService.remove(id);
   }
 }

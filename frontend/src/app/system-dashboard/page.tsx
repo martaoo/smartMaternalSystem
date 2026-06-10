@@ -181,7 +181,7 @@ export default function SystemDashboard() {
                 </div>
                 <div>
                   <h1 className="text-xl font-bold text-gray-900">System Admin Dashboard</h1>
-                  <p className="text-sm text-gray-500">Region: {user?.assignedRegion || 'System Administration'}</p>
+                  <p className="text-sm text-gray-500">Welcome, {user?.name}</p>
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-2">
