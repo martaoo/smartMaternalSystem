@@ -40,7 +40,8 @@ export class MothersController {
     return this.mothersService.findAll(
       user.role,
       user.hospitalId?.toString(),
-      user.woredaId?.toString()
+      user.woredaId?.toString(),
+      user.regionId?.toString()
     );
   }
 

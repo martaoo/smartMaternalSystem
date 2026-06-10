@@ -56,7 +56,7 @@ export class UsersService {
   }
 
   async create(createUserDto: CreateUserDto): Promise<User> {
-    const { email, password, role, hospitalId, healthCenterId, woredaId, ...userData } = createUserDto;
+    const { email, password, role, hospitalId, healthCenterId, woredaId, regionId, ...userData } = createUserDto as any;
     const selectedHospitalId = hospitalId ?? healthCenterId;
     const normalizedEmail = this.normalizeEmail(email);
 
@@ -74,11 +74,14 @@ export class UsersService {
       email: normalizedEmail,
       password: hashedPassword,
       role,
-      hospitalId: selectedHospitalId && Types.ObjectId.isValid(selectedHospitalId) 
-        ? new Types.ObjectId(selectedHospitalId) 
+      hospitalId: selectedHospitalId && Types.ObjectId.isValid(selectedHospitalId)
+        ? new Types.ObjectId(selectedHospitalId)
         : undefined,
-      woredaId: woredaId && Types.ObjectId.isValid(woredaId) 
-        ? new Types.ObjectId(woredaId) 
+      woredaId: woredaId && Types.ObjectId.isValid(woredaId)
+        ? new Types.ObjectId(woredaId)
+        : undefined,
+      regionId: regionId && Types.ObjectId.isValid(regionId)
+        ? new Types.ObjectId(regionId)
         : undefined,
     });
 
@@ -157,6 +160,20 @@ export class UsersService {
     creatorAssignedRegion?: string,
   ): Promise<User> {
     const { role: newRole, hospitalId } = createUserDto;
+
+    // ── SYSTEM_ADMIN creating SYSTEM_ADMIN: auto-assign their own region ──────
+    if (creatorRole === 'SYSTEM_ADMIN' && newRole === 'SYSTEM_ADMIN') {
+      const dto: any = { ...createUserDto };
+      // Force the creator's regionId onto the new system admin
+      if (creatorAssignedRegion) {
+        dto.regionId = creatorAssignedRegion;
+        dto.assignedRegion = creatorAssignedRegion;
+      }
+      // Strip facility/woreda — system admins are regional only
+      delete dto.hospitalId;
+      delete dto.woredaId;
+      return this.create(dto);
+    }
 
     if (creatorRole === 'HOSPITAL_ADMIN' || creatorRole === 'HEALTH_CENTER_ADMIN') {
       if (!creatorHospitalId) {
