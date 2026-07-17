@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Child, ChildDocument } from './schemas/child.schema';
 import { GrowthRecord, GrowthRecordDocument } from './schemas/growth-record.schema';
+import { Hospital, HospitalDocument } from '../hospitals/schemas/hospital.schema';
 import { CreateChildDto } from './dto/create-child.dto';
 import { CreateGrowthRecordDto } from './dto/create-growth-record.dto';
 
@@ -10,36 +11,117 @@ import { CreateGrowthRecordDto } from './dto/create-growth-record.dto';
 export class ChildrenService {
   constructor(
     @InjectModel(Child.name) private childModel: Model<ChildDocument>,
-    @InjectModel(GrowthRecord.name) private growthRecordModel: Model<GrowthRecordDocument>
+    @InjectModel(GrowthRecord.name) private growthRecordModel: Model<GrowthRecordDocument>,
+    @InjectModel(Hospital.name) private hospitalModel: Model<HospitalDocument>
   ) {}
 
-  async create(createChildDto: CreateChildDto, userRole: string, userHospitalId?: string, userId?: string): Promise<Child> {
-    // Validate hospital assignment based on user role
-    if (userRole === 'HOSPITAL_ADMIN' || userRole === 'DOCTOR' || userRole === 'NURSE' || userRole === 'MIDWIFE') {
-      if (createChildDto.birthHospital !== userHospitalId) {
-        throw new BadRequestException('You can only register children for your hospital');
-      }
+  async findByWoreda(woredaId: string): Promise<Child[]> {
+    if (!woredaId) return [];
+    
+    // 1. Find all hospitals belonging to this woreda
+    const hospitals = await this.hospitalModel.find({ woredaId }).select('_id').exec();
+    const hospitalIds = hospitals.map(h => h._id);
+
+    // 2. Find children born in these hospitals
+    return this.childModel
+      .find({ birthHospital: { $in: hospitalIds } })
+      .populate('birthHospital', 'name type address woredaId')
+      .populate('motherId', 'name phone age address')
+      .populate('deliveredBy', 'name email role')
+      .sort({ registrationDate: -1 })
+      .exec();
+  }
+
+  async issueBirthCertificate(
+    id: string,
+    userRole: string,
+    userWoredaId?: string,
+    extraData?: { fatherName?: string; fatherPhone?: string; birthLocation?: string },
+  ): Promise<Child> {
+    const child = await this.childModel
+      .findById(id)
+      .populate({ path: 'birthHospital', select: 'name type woredaId' })
+      .populate('motherId', 'name phone age address woredaId')
+      .exec();
+
+    if (!child) throw new NotFoundException('Child not found');
+
+    if (child.verified) {
+      throw new BadRequestException('Birth certificate has already been issued for this child');
     }
 
-    const childData = {
-      ...createChildDto,
-      birthDate: new Date(createChildDto.birthDate),
-      birthHospital: new Types.ObjectId(createChildDto.birthHospital),
-      motherId: new Types.ObjectId(createChildDto.motherId),
-      deliveredBy: new Types.ObjectId(createChildDto.deliveredBy),
-      assignedHealthWorker: createChildDto.assignedHealthWorker ? 
-        new Types.ObjectId(createChildDto.assignedHealthWorker) : undefined,
+    // Generate a unique certificate number: BC-YYYY-WOREDA-XXXXXX
+    const year = new Date().getFullYear();
+    const random = Math.floor(100000 + Math.random() * 900000);
+    
+    // Robust woreda code generation
+    let woredaCode = 'XXXX';
+    if (userWoredaId) {
+      const idStr = userWoredaId.toString();
+      woredaCode = idStr.length >= 4 ? idStr.slice(-4).toUpperCase() : idStr.toUpperCase();
+    }
+    
+    const certificateNumber = `BC-${year}-${woredaCode}-${random}`;
+
+    const updateData: any = {
+      verified: true,
+      verifiedAt: new Date(),
+      verifiedBy: userRole,
+      certificateNumber,
+      certificateIssuedDate: new Date(),
+      ...extraData,
     };
 
-    const child = new this.childModel(childData);
-    return child.save();
+    return this.childModel
+      .findByIdAndUpdate(id, updateData, { new: true })
+      .populate('motherId', 'name phone age address')
+      .populate('birthHospital', 'name type address')
+      .populate('deliveredBy', 'name email role')
+      .exec();
+  }
+
+  async create(createChildDto: CreateChildDto, userRole: string, userHospitalId?: string, userId?: string): Promise<Child> {
+    try {
+      console.log('Child creation attempt:', { createChildDto, userRole, userHospitalId, userId });
+      
+      // Validate access to child
+      // await this.findById(createChildDto.motherId, userRole, userHospitalId);
+      
+      // Validate hospital assignment based on user role
+      if (userRole === 'HOSPITAL_ADMIN' || userRole === 'DOCTOR' || userRole === 'NURSE' || userRole === 'MIDWIFE') {
+        if (createChildDto.birthHospital !== userHospitalId) {
+          throw new BadRequestException('You can only register children for your hospital');
+        }
+      }
+
+      const childData = {
+        ...createChildDto,
+        birthDate: new Date(createChildDto.birthDate),
+        birthHospital: new Types.ObjectId(createChildDto.birthHospital),
+        motherId: new Types.ObjectId(createChildDto.motherId),
+        deliveredBy: createChildDto.deliveredBy ? 
+          new Types.ObjectId(createChildDto.deliveredBy) : undefined,
+        assignedHealthWorker: createChildDto.assignedHealthWorker ? 
+          new Types.ObjectId(createChildDto.assignedHealthWorker) : undefined,
+      };
+
+      console.log('Creating child with data:', childData);
+
+      const child = new this.childModel(childData);
+      const result = await child.save();
+      console.log('Child created successfully:', result);
+      return result;
+    } catch (error) {
+      console.error('Child creation error:', error);
+      throw error;
+    }
   }
 
   async findAll(userRole: string, userHospitalId?: string, userWoredaId?: string): Promise<Child[]> {
     let query: any = {};
 
     // Filter based on user role
-    if (userRole === 'HOSPITAL_ADMIN' || userRole === 'DOCTOR' || userRole === 'NURSE' || userRole === 'MIDWIFE') {
+    if ((userRole === 'HOSPITAL_ADMIN' || userRole === 'DOCTOR' || userRole === 'NURSE' || userRole === 'MIDWIFE') && userHospitalId) {
       query.birthHospital = new Types.ObjectId(userHospitalId);
     } else if (userRole === 'WOREDA_ADMIN') {
       // Need to join with mothers to filter by woreda
@@ -133,10 +215,40 @@ export class ChildrenService {
       .exec();
   }
 
-  async verifyChild(id: string, userRole: string, userWoredaId?: string): Promise<Child> {
+  async notifyWoreda(id: string, userRole: string, userHospitalId?: string, senderName?: string): Promise<Child> {
     const child = await this.childModel.findById(id)
+      .populate({ path: 'birthHospital', select: 'name type woredaId' })
+      .exec();
+
+    if (!child) throw new NotFoundException('Child not found');
+
+    // Only hospital staff can send to woreda
+    if (userHospitalId && child.birthHospital) {
+      const hospitalId = (child.birthHospital as any)._id?.toString() ?? child.birthHospital.toString();
+      if (hospitalId !== userHospitalId) {
+        throw new BadRequestException('You can only notify the woreda for children registered at your facility');
+      }
+    }
+
+    return this.childModel.findByIdAndUpdate(
+      id,
+      {
+        sentToWoreda: true,
+        sentToWoredaAt: new Date(),
+        sentToWoredaBy: senderName ?? userRole,
+      },
+      { new: true },
+    )
       .populate('motherId', 'name phone age address')
       .populate('birthHospital', 'name type address')
+      .populate('deliveredBy', 'name email role')
+      .exec();
+  }
+
+  async verifyChild(id: string, userRole: string, userWoredaId?: string): Promise<Child> {
+    const child = await this.childModel.findById(id)
+      .populate('motherId', 'name phone age address woredaId')
+      .populate('birthHospital', 'name type address woredaId')
       .populate('deliveredBy', 'name email role')
       .populate('assignedHealthWorker', 'name email role')
       .exec();
@@ -148,9 +260,10 @@ export class ChildrenService {
     // Check if user has permission to verify this child
     if (userRole === 'WOREDA_ADMIN') {
       // For woreda admin, check if the child belongs to their woreda
-      // This might require checking through the birth facility or mother
-      const hospitalWoreda = (child.birthHospital as any)?.woreda;
-      if (hospitalWoreda !== userWoredaId) {
+      const motherWoredaId = (child.motherId as any)?.woredaId?.toString();
+      const hospitalWoredaId = (child.birthHospital as any)?.woredaId?.toString();
+      
+      if (motherWoredaId !== userWoredaId && hospitalWoredaId !== userWoredaId) {
         throw new BadRequestException('You can only verify children in your woreda');
       }
     }
@@ -350,7 +463,7 @@ export class ChildrenService {
     userHospitalId?: string, 
     userWoredaId?: string
   ): Promise<Child[]> {
-    if (userRole === 'SUPER_ADMIN' || userRole === 'SYSTEM_ADMIN') {
+    if (userRole === 'SYSTEM_ADMIN') {
       return children;
     }
 

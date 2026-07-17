@@ -3,10 +3,26 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Mother, MotherDocument } from './schemas/mother.schema';
 import { CreateMotherDto } from './dto/create-mother.dto';
+import { HospitalsService } from '../hospitals/hospitals.service';
 
 @Injectable()
 export class MothersService {
-  constructor(@InjectModel(Mother.name) private motherModel: Model<MotherDocument>) {}
+  constructor(
+    @InjectModel(Mother.name) private motherModel: Model<MotherDocument>,
+    private hospitalsService: HospitalsService,
+  ) {}
+
+  private async resolveWoredaId(userHospitalId?: string, userWoredaId?: string): Promise<string | undefined> {
+    if (userWoredaId) return userWoredaId;
+    if (!userHospitalId) return undefined;
+
+    const hospital = await this.hospitalsService.findById(userHospitalId);
+    if (!hospital) return undefined;
+
+    const woreda = hospital.woredaId;
+    if (!woreda) return undefined;
+    return typeof woreda === 'string' ? woreda : String((woreda as any)._id ?? woreda);
+  }
 
   async create(
     createMotherDto: CreateMotherDto,
@@ -35,6 +51,7 @@ export class MothersService {
       );
     }
   
+    const effectiveWoredaId = await this.resolveWoredaId(userHospitalId, userWoredaId);
     const motherData = {
       name: createMotherDto.name,
       phone: createMotherDto.phone,
@@ -48,9 +65,17 @@ export class MothersService {
       lmp: createMotherDto.lmp,
       registeredBy: createMotherDto.registeredBy || 'System',
       
-      // ✅ FIX: Use woredaId from DTO if userWoredaId is not available
-      woredaId: userWoredaId 
-        ? new Types.ObjectId(userWoredaId) 
+      bloodType: createMotherDto.bloodType,
+      rhFactor: createMotherDto.rhFactor,
+      hivStatus: createMotherDto.hivStatus,
+      hepatitisB: createMotherDto.hepatitisB,
+      hypertension: createMotherDto.hypertension,
+      diabetes: createMotherDto.diabetes,
+      anemia: createMotherDto.anemia,
+      previousCSection: createMotherDto.previousCSection,
+      
+      woredaId: effectiveWoredaId
+        ? new Types.ObjectId(effectiveWoredaId)
         : (createMotherDto.woredaId ? new Types.ObjectId(createMotherDto.woredaId) : undefined),
       
       healthCenter: new Types.ObjectId(healthCenterId),
@@ -77,7 +102,7 @@ export class MothersService {
       // Woreda admin can see mothers from their woreda
       query.woredaId = new Types.ObjectId(userWoredaId);
     }
-    // SUPER_ADMIN and SYSTEM_ADMIN can see all mothers
+    // SYSTEM_ADMIN can see all mothers
 
     return this.motherModel.find(query)
       .populate('healthCenter', 'name type')

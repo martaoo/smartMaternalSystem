@@ -14,7 +14,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiQuery }
 export class ChildrenController {
   constructor(private readonly childrenService: ChildrenService) {}
 
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
+  @Roles('SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'LIAISON_OFFICER')
   @Post()
   @ApiOperation({ summary: 'Register a new child' })
   @ApiResponse({ status: 201, description: 'Child successfully registered' })
@@ -31,7 +31,7 @@ export class ChildrenController {
     );
   }
 
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
+  @Roles('SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'LIAISON_OFFICER')
   @Get()
   @ApiOperation({ summary: 'Get all children' })
   @ApiResponse({ status: 200, description: 'Children retrieved successfully' })
@@ -45,7 +45,40 @@ export class ChildrenController {
     );
   }
 
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
+  // ── Woreda-specific: birth certificate workflow ─────────────────────────────
+  @Roles('SYSTEM_ADMIN', 'WOREDA_ADMIN')
+  @Get('woreda/:woredaId')
+  @ApiOperation({ summary: 'Get all children in a woreda (for birth certificate workflow)' })
+  @ApiParam({ name: 'woredaId', description: 'Woreda ID' })
+  @ApiResponse({ status: 200, description: 'Children retrieved successfully' })
+  async findByWoreda(@Param('woredaId') woredaId: string, @Request() req) {
+    const user = req.user;
+    const targetWoreda = user.role === 'WOREDA_ADMIN'
+      ? user.woredaId?.toString()
+      : woredaId;
+    return this.childrenService.findByWoreda(targetWoreda);
+  }
+
+  @Roles('WOREDA_ADMIN', 'SYSTEM_ADMIN')
+  @Patch(':id/issue-certificate')
+  @ApiOperation({ summary: 'Issue birth certificate for a child' })
+  @ApiParam({ name: 'id', description: 'Child ID' })
+  @ApiResponse({ status: 200, description: 'Birth certificate issued successfully' })
+  async issueCertificate(
+    @Param('id') id: string,
+    @Body() body: { fatherName?: string; fatherPhone?: string; birthLocation?: string },
+    @Request() req,
+  ) {
+    const user = req.user;
+    return this.childrenService.issueBirthCertificate(
+      id,
+      user.role,
+      user.woredaId?.toString(),
+      body,
+    );
+  }
+
+  @Roles('SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'LIAISON_OFFICER')
   @Get('search')
   @ApiOperation({ summary: 'Search children by name or mother information' })
   @ApiQuery({ name: 'q', required: true, description: 'Search query' })
@@ -60,7 +93,7 @@ export class ChildrenController {
     );
   }
 
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
+  @Roles('SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'LIAISON_OFFICER')
   @Get('stats')
   @ApiOperation({ summary: 'Get children statistics' })
   @ApiResponse({ status: 200, description: 'Statistics retrieved successfully' })
@@ -73,7 +106,7 @@ export class ChildrenController {
     );
   }
 
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
+  @Roles('SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'LIAISON_OFFICER')
   @Get('follow-up-needed')
   @ApiOperation({ summary: 'Get children needing follow-up' })
   @ApiResponse({ status: 200, description: 'Children needing follow-up retrieved successfully' })
@@ -86,7 +119,7 @@ export class ChildrenController {
     );
   }
 
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
+  @Roles('SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'LIAISON_OFFICER')
   @Get('mother/:motherId')
   @ApiOperation({ summary: 'Get children for a specific mother' })
   @ApiParam({ name: 'motherId', description: 'Mother ID' })
@@ -102,7 +135,7 @@ export class ChildrenController {
     );
   }
 
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
+  @Roles('SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'LIAISON_OFFICER')
   @Get(':id')
   @ApiOperation({ summary: 'Get child by ID' })
   @ApiParam({ name: 'id', description: 'Child ID' })
@@ -119,7 +152,7 @@ export class ChildrenController {
     );
   }
 
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
+  @Roles('SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'LIAISON_OFFICER')
   @Patch(':id')
   @ApiOperation({ summary: 'Update child information' })
   @ApiParam({ name: 'id', description: 'Child ID' })
@@ -138,7 +171,7 @@ export class ChildrenController {
     );
   }
 
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN')
+  @Roles('SYSTEM_ADMIN', 'WOREDA_ADMIN')
   @Patch(':id/verify')
   @ApiOperation({ summary: 'Verify child registration for official documentation' })
   @ApiParam({ name: 'id', description: 'Child ID' })
@@ -156,7 +189,24 @@ export class ChildrenController {
     );
   }
 
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
+  @Roles('SYSTEM_ADMIN', 'HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
+  @Patch(':id/notify-woreda')
+  @ApiOperation({ summary: 'Send child birth data to woreda admin for birth certificate processing' })
+  @ApiParam({ name: 'id', description: 'Child ID' })
+  @ApiResponse({ status: 200, description: 'Child marked as sent to woreda' })
+  @ApiResponse({ status: 403, description: 'Forbidden - can only notify for your own facility' })
+  @ApiResponse({ status: 404, description: 'Child not found' })
+  async notifyWoreda(@Param('id') id: string, @Request() req) {
+    const user = req.user;
+    return this.childrenService.notifyWoreda(
+      id,
+      user.role,
+      user.hospitalId?.toString(),
+      user.name,
+    );
+  }
+
+  @Roles('SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'LIAISON_OFFICER')
   @Delete(':id')
   @ApiOperation({ summary: 'Delete child record' })
   @ApiParam({ name: 'id', description: 'Child ID' })
@@ -174,7 +224,7 @@ export class ChildrenController {
   }
 
   // Growth Record Endpoints
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
+  @Roles('SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
   @Post(':childId/growth-records')
   @ApiOperation({ summary: 'Add growth record for a child' })
   @ApiParam({ name: 'childId', description: 'Child ID' })
@@ -195,7 +245,7 @@ export class ChildrenController {
     );
   }
 
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
+  @Roles('SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
   @Get(':childId/growth-records')
   @ApiOperation({ summary: 'Get growth records for a child' })
   @ApiParam({ name: 'childId', description: 'Child ID' })
@@ -210,7 +260,7 @@ export class ChildrenController {
     );
   }
 
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
+  @Roles('SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
   @Get(':childId/growth-records/latest')
   @ApiOperation({ summary: 'Get latest growth record for a child' })
   @ApiParam({ name: 'childId', description: 'Child ID' })
@@ -225,7 +275,7 @@ export class ChildrenController {
     );
   }
 
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
+  @Roles('SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
   @Patch('growth-records/:id')
   @ApiOperation({ summary: 'Update growth record' })
   @ApiParam({ name: 'id', description: 'Growth record ID' })
@@ -244,7 +294,7 @@ export class ChildrenController {
     );
   }
 
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
+  @Roles('SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
   @Delete('growth-records/:id')
   @ApiOperation({ summary: 'Delete growth record' })
   @ApiParam({ name: 'id', description: 'Growth record ID' })

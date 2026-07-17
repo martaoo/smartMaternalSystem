@@ -3,10 +3,13 @@ export enum ReferralStatus {
   PENDING = 'PENDING',
   ACCEPTED = 'ACCEPTED',
   REJECTED = 'REJECTED',
-  SCHEDULED = 'SCHEDULED',      // After hospital accepts but before arrival
-  CHECKED_IN = 'CHECKED_IN',    // Patient arrived at hospital
+  IN_TRANSIT = 'IN_TRANSIT',
+  ARRIVED = 'ARRIVED',
+  IN_PROGRESS = 'IN_PROGRESS',
   COMPLETED = 'COMPLETED',
   EXPIRED = 'EXPIRED',
+  NO_SHOW = 'NO_SHOW',
+  CHECKED_IN = 'CHECKED_IN', // Keep for backward compatibility if needed, but ARRIVED is preferred
 }
 
 

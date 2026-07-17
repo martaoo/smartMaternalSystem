@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { pregnancyApi } from '@/lib/healthcare-api';
+import { useSearchParams } from 'next/navigation';
 
 interface PregnancyRecord {
   _id: string;
@@ -32,9 +33,14 @@ interface PregnancyRecord {
     name: string;
     role: string;
   };
+  // Reminder fields
+  visitReminderSent?: boolean;
+  visitReminderSentDate?: string;
+  reminder3DaySent?: boolean;
+  reminderSameDaySent?: boolean;
 }
 
-export default function PregnancyTracking() {
+function PregnancyTrackingContent() {
   const [pregnancyRecords, setPregnancyRecords] = useState<PregnancyRecord[]>([]);
   const [filteredRecords, setFilteredRecords] = useState<PregnancyRecord[]>([]);
   const [groupedRecords, setGroupedRecords] = useState<{ [key: string]: PregnancyRecord[] }>({});
@@ -43,10 +49,27 @@ export default function PregnancyTracking() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedMothers, setExpandedMothers] = useState<Set<string>>(new Set());
+  const searchParams = useSearchParams();
+  const motherIdFromUrl = searchParams.get('motherId');
 
   useEffect(() => {
     fetchPregnancyRecords();
   }, []);
+
+  // Auto-select and expand mother when coming from mother profile
+  useEffect(() => {
+    if (motherIdFromUrl && pregnancyRecords.length > 0) {
+      // Find the mother in the records and expand her section
+      const motherRecords = pregnancyRecords.filter(record => 
+        record.motherId && record.motherId._id === motherIdFromUrl
+      );
+      
+      if (motherRecords.length > 0) {
+        const motherKey = `${motherIdFromUrl}-${motherRecords[0].motherId?.name || 'Unknown Mother'}`;
+        setExpandedMothers(prev => new Set(Array.from(prev).concat(motherKey)));
+      }
+    }
+  }, [motherIdFromUrl, pregnancyRecords]);
 
   useEffect(() => {
     let filtered = pregnancyRecords;
@@ -71,7 +94,7 @@ export default function PregnancyTracking() {
     // Group records by mother
     const grouped: { [key: string]: PregnancyRecord[] } = {};
     filteredRecords.forEach(record => {
-      const motherKey = `${record.motherId._id}-${record.motherId.name}`;
+      const motherKey = `${record.motherId?._id || 'unknown'}-${record.motherId?.name || 'Unknown Mother'}`;
       if (!grouped[motherKey]) {
         grouped[motherKey] = [];
       }
@@ -89,13 +112,30 @@ export default function PregnancyTracking() {
   }, [filteredRecords]);
 
   const toggleMotherExpansion = (motherKey: string) => {
-    const newExpanded = new Set(expandedMothers);
-    if (newExpanded.has(motherKey)) {
-      newExpanded.delete(motherKey);
-    } else {
-      newExpanded.add(motherKey);
+    setExpandedMothers(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(motherKey)) {
+        newSet.delete(motherKey);
+      } else {
+        newSet.add(motherKey);
+      }
+      return newSet;
+    });
+  };
+
+  const handleDeleteVisit = async (visitId: string, visitDate: string) => {
+    if (!window.confirm(`Are you sure you want to delete the pregnancy visit from ${new Date(visitDate).toLocaleDateString()}? This action cannot be undone.`)) {
+      return;
     }
-    setExpandedMothers(newExpanded);
+    
+    try {
+      await pregnancyApi.delete(visitId);
+      setPregnancyRecords(prev => prev.filter(record => record._id !== visitId));
+      setFilteredRecords(prev => prev.filter(record => record._id !== visitId));
+    } catch (err: any) {
+      console.error('Error deleting pregnancy visit:', err);
+      setError(err.message || 'Failed to delete pregnancy visit');
+    }
   };
 
   const fetchPregnancyRecords = async () => {
@@ -137,6 +177,122 @@ export default function PregnancyTracking() {
       default:
         return riskLevel;
     }
+  };
+
+  // Get reminder dates for a pregnancy visit
+  const getReminderDates = (scheduledDate: string) => {
+    const visitDate = new Date(scheduledDate);
+    const reminder3Day = new Date(visitDate);
+    reminder3Day.setDate(reminder3Day.getDate() - 3);
+    
+    const reminder2Day = new Date(visitDate);
+    reminder2Day.setDate(reminder2Day.getDate() - 2);
+    
+    const reminder1Day = new Date(visitDate);
+    reminder1Day.setDate(reminder1Day.getDate() - 1);
+
+    return {
+      visitDate,
+      reminder3Day,
+      reminder2Day,
+      reminder1Day
+    };
+  };
+
+  // Check if reminders should be sent today
+  const getPendingReminders = (record: PregnancyRecord) => {
+    if (!record.nextVisitDate) return [];
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Set to start of day for comparison
+    
+    const reminders = getReminderDates(record.nextVisitDate);
+    const pendingReminders = [];
+
+    // Check 3-day reminder
+    if (!record.reminder3DaySent && reminders.reminder3Day <= today) {
+      pendingReminders.push({
+        type: '3-day',
+        date: reminders.reminder3Day,
+        message: `Reminder: Your next pregnancy visit is in 3 days (${reminders.visitDate.toLocaleDateString()})`
+      });
+    }
+
+    // Check 2-day reminder
+    if (!record.reminderSameDaySent && reminders.reminder2Day <= today) {
+      pendingReminders.push({
+        type: '2-day',
+        date: reminders.reminder2Day,
+        message: `Reminder: Your next pregnancy visit is in 2 days (${reminders.visitDate.toLocaleDateString()})`
+      });
+    }
+
+    // Check 1-day reminder
+    if (!record.visitReminderSent && reminders.reminder1Day <= today) {
+      pendingReminders.push({
+        type: '1-day',
+        date: reminders.reminder1Day,
+        message: `Reminder: Your next pregnancy visit is tomorrow (${reminders.visitDate.toLocaleDateString()})`
+      });
+    }
+
+    return pendingReminders;
+  };
+
+  // Send reminder to mother (simulate SMS/phone call)
+  const sendReminderToMother = async (record: PregnancyRecord, reminderType: string) => {
+    try {
+      const motherPhone = record.motherId?.phone;
+      const motherName = record.motherId?.name;
+      const visitDate = record.nextVisitDate ? new Date(record.nextVisitDate).toLocaleDateString() : '';
+
+      if (!motherPhone) {
+        console.error('Mother phone number not available');
+        return;
+      }
+
+      // Create reminder message
+      const message = `Dear ${motherName}, this is a reminder that your next pregnancy visit is scheduled for ${visitDate}. Please ensure to attend the health center on time for your ANC checkup.`;
+
+      // In a real implementation, this would integrate with SMS gateway or phone system
+      console.log('PREGNANCY VISIT REMINDER SENT:', {
+        to: motherPhone,
+        message: message,
+        type: reminderType,
+        visitDate: visitDate
+      });
+
+      // Update the record to mark reminder as sent
+      const updateData = {
+        visitReminderSent: reminderType === '1-day',
+        reminder3DaySent: reminderType === '3-day',
+        reminderSameDaySent: reminderType === '2-day',
+        visitReminderSentDate: new Date()
+      };
+
+      await pregnancyApi.update(record._id, updateData);
+      
+      // Refresh data
+      fetchPregnancyRecords();
+    } catch (error) {
+      console.error('Error sending pregnancy visit reminder:', error);
+    }
+  };
+
+  // Get next visit for a mother
+  const getNextVisitForMother = (motherId: string) => {
+    const motherRecords = pregnancyRecords.filter(record => 
+      record.motherId._id === motherId && 
+      record.nextVisitDate && 
+      new Date(record.nextVisitDate) > new Date()
+    );
+    
+    if (motherRecords.length === 0) return null;
+    
+    // Sort by next visit date to get the earliest upcoming visit
+    motherRecords.sort((a, b) => new Date(a.nextVisitDate!).getTime() - new Date(b.nextVisitDate!).getTime());
+    
+    return motherRecords[0];
   };
 
   if (loading) {
@@ -274,13 +430,13 @@ export default function PregnancyTracking() {
                             <div className="flex-shrink-0">
                               <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
                                 <span className="text-blue-600 font-medium text-sm">
-                                  {mother.name.charAt(0).toUpperCase()}
+                                  {mother?.name?.charAt(0).toUpperCase() || 'M'}
                                 </span>
                               </div>
                             </div>
                             <div>
-                              <h3 className="text-lg font-medium text-gray-900">{mother.name}</h3>
-                              <p className="text-sm text-gray-500">{mother.phone}</p>
+                              <h3 className="text-lg font-medium text-gray-900">{mother?.name || 'Unknown Mother'}</h3>
+                              <p className="text-sm text-gray-500">{mother?.phone || 'No phone'}</p>
                               <p className="text-xs text-gray-400 mt-1">
                                 {visits.length} visit{visits.length !== 1 ? 's' : ''} recorded
                               </p>
@@ -362,10 +518,53 @@ export default function PregnancyTracking() {
                                   </div>
                                   
                                   <div>
-                                    <span className="font-medium text-gray-700">Next Actions:</span>
-                                    {visit.nextVisitDate && (
-                                      <div>Next: {new Date(visit.nextVisitDate).toLocaleDateString()}</div>
+                                    <span className="font-medium text-gray-700">Next Visit:</span>
+                                    {visit.nextVisitDate ? (
+                                      <div className="space-y-1">
+                                        <div className="font-medium text-green-600">
+                                          📅 {new Date(visit.nextVisitDate).toLocaleDateString()}
+                                        </div>
+                                        <div className="text-xs text-gray-500">
+                                          {(() => {
+                                            const today = new Date();
+                                            const nextVisit = new Date(visit.nextVisitDate);
+                                            const daysUntil = Math.ceil((nextVisit.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                                            if (daysUntil < 0) return `Overdue by ${Math.abs(daysUntil)} days`;
+                                            if (daysUntil === 0) return 'Today';
+                                            if (daysUntil === 1) return 'Tomorrow';
+                                            return `In ${daysUntil} days`;
+                                          })()}
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <div className="text-gray-500">No next visit scheduled</div>
                                     )}
+                                    
+                                    {/* Reminder Actions */}
+                                    {visit.nextVisitDate && (
+                                      <div className="mt-2">
+                                        <div className="text-xs text-gray-600 mb-1">Reminders:</div>
+                                        <div className="flex flex-wrap gap-1">
+                                          {(() => {
+                                            const pendingReminders = getPendingReminders(visit);
+                                            return pendingReminders.map((reminder, index) => (
+                                              <button
+                                                key={index}
+                                                onClick={() => sendReminderToMother(visit, reminder.type)}
+                                                className="text-xs px-2 py-1 bg-yellow-100 text-yellow-800 rounded hover:bg-yellow-200 transition-colors"
+                                                title={`Send ${reminder.type} reminder to mother`}
+                                              >
+                                                {reminder.type}
+                                              </button>
+                                            ));
+                                          })()}
+                                          {getPendingReminders(visit).length === 0 && (
+                                            <span className="text-xs text-gray-500">✅ All reminders sent</span>
+                                          )}
+                                        </div>
+                                      </div>
+                                    )}
+                                    
                                     <div className="flex space-x-2 mt-2">
                                       <a
                                         href={`/healthcare-dashboard/pregnancy/${visit._id}`}
@@ -374,11 +573,17 @@ export default function PregnancyTracking() {
                                         View Details
                                       </a>
                                       <a
-                                        href={`/healthcare-dashboard/pregnancy/${visit._id}/edit`}
-                                        className="text-indigo-600 hover:text-indigo-800 text-xs font-medium"
+                                        href={`/healthcare-dashboard/pregnancy/schedule/${visit.motherId._id}`}
+                                        className="text-green-600 hover:text-green-800 text-xs font-medium"
                                       >
-                                        Edit
+                                        Schedule Next
                                       </a>
+                                      <button
+                                        onClick={() => handleDeleteVisit(visit._id, visit.visitDate)}
+                                        className="text-red-600 hover:text-red-800 text-xs font-medium"
+                                      >
+                                        Delete
+                                      </button>
                                     </div>
                                   </div>
                                 </div>
@@ -396,5 +601,22 @@ export default function PregnancyTracking() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function PregnancyTracking() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Loading pregnancy records...</p>
+          </div>
+        </div>
+      }
+    >
+      <PregnancyTrackingContent />
+    </Suspense>
   );
 }

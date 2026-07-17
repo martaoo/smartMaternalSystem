@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 
 interface Child {
   _id: string;
@@ -29,9 +30,16 @@ interface FacilityListProps {
 export function FacilityList({ facilities, children }: FacilityListProps) {
   // Calculate birth statistics per facility
   const facilityStats = facilities.map(facility => {
-    const facilityChildren = children.filter(child => 
-      child.birthFacility._id === facility._id
-    );
+    const facilityChildren = children.filter((child: any) => {
+      // birthHospital can be a populated object or a raw ObjectId string
+      const childHospitalId =
+        child.birthHospital?._id?.toString() ??
+        child.birthHospital?.toString() ??
+        child.birthFacility?._id?.toString() ??
+        child.birthFacility?.toString() ??
+        '';
+      return childHospitalId === facility._id?.toString();
+    });
     
     // Recent births (last 30 days)
     const thirtyDaysAgo = new Date();
@@ -117,12 +125,18 @@ export function FacilityList({ facilities, children }: FacilityListProps) {
                 </div>
 
                 <div className="mt-4 flex space-x-2">
-                  <button className="flex-1 px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700">
+                  <Link 
+                    href={`/woreda-dashboard/facilities/${facility._id}`}
+                    className="flex-1 px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 text-center"
+                  >
                     View Details
-                  </button>
-                  <button className="flex-1 px-3 py-2 bg-gray-600 text-white text-sm rounded-lg hover:bg-gray-700">
+                  </Link>
+                  <a 
+                    href={`tel:${facility.contactPhone}`}
+                    className="flex-1 px-3 py-2 bg-gray-600 text-white text-sm rounded-lg hover:bg-gray-700 text-center"
+                  >
                     Contact
-                  </button>
+                  </a>
                 </div>
               </div>
             ))}

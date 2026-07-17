@@ -3,6 +3,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { AuthModule } from '../auth/auth.module';
 import { WoredasModule } from '../woredas/woredas.module';
 import { HospitalsModule } from '../hospitals/hospitals.module';
+import { RegionsModule } from '../regions/regions.module';
 import { User, UserSchema } from './schemas/user.schema';
 import { UsersService } from './users.service';
 import { UsersController } from './users.controller';
@@ -15,6 +16,7 @@ import { UsersController } from './users.controller';
     forwardRef(() => AuthModule),
     WoredasModule,
     HospitalsModule,
+    RegionsModule,
   ],
   controllers: [UsersController],
   providers: [UsersService],

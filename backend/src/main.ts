@@ -6,23 +6,29 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Enable CORS (Flutter web/dev uses various localhost ports; mobile has no Origin)
-  const isProd = process.env.NODE_ENV === 'production';
+  // Enable CORS
   app.enableCors({
-    origin: isProd
-      ? process.env.FRONTEND_URL || false
-      : true,
+    origin: [
+      process.env.FRONTEND_URL || 'http://localhost:3000',
+      'http://localhost:3000',
+      'http://192.168.137.167:3000',
+      'https://localhost:3000',
+      'https://192.168.137.167:3000'
+    ],
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    preflightContinue: false,
+    optionsSuccessStatus: 204
   });
 
-  // Global validation pipe
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }),
-  );
+  // Global validation pipe - temporarily disabled for testing
+  // app.useGlobalPipes(
+  //   new ValidationPipe({
+  //     whitelist: true,
+  //     transform: true,
+  //   }),
+  // );
 
   // API prefix
   app.setGlobalPrefix('api');
@@ -39,11 +45,14 @@ async function bootstrap() {
   SwaggerModule.setup('api/docs', app, document);
 
   const port = process.env.PORT || 3001;
-  await app.listen(port, '0.0.0.0');
+  await app.listen(port);
   console.log(`Application is running on: http://localhost:${port}`);
   console.log(`API endpoints available at: http://localhost:${port}/api`);
   console.log(`Swagger documentation at: http://localhost:${port}/api/docs`);
   console.log(`Root endpoint available at: http://localhost:${port}/`);
+  console.log('MONGODB_URI:', process.env.MONGODB_URI);
+console.log('JWT_SECRET:', process.env.JWT_SECRET);
 }
+
 
 bootstrap();

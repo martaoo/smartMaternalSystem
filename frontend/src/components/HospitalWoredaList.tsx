@@ -74,49 +74,9 @@ export function HospitalWoredaList({
         api.getWoredas()
       ]);
 
-      let filteredHospitals = Array.isArray(hospitalsResponse) ? hospitalsResponse : [];
-      let filteredWoredas = Array.isArray(woredasResponse) ? woredasResponse : [];
-
-      // Filter based on user role
-      if (user) {
-        switch (user.role) {
-          case 'SYSTEM_ADMIN':
-            // System Admin sees hospitals/woredas in their assigned region
-            filteredHospitals = filteredHospitals.filter(hospital => 
-              hospital.woredaId && filteredWoredas.some(w => 
-                w._id === hospital.woredaId && 
-                (user.assignedRegion && w.region === user.assignedRegion)
-              )
-            );
-            filteredWoredas = filteredWoredas.filter(w => 
-              user.assignedRegion && w.region === user.assignedRegion
-            );
-            break;
-            
-          case 'WOREDA_ADMIN':
-            // Woreda Admin sees hospitals/woredas in their woreda
-            filteredHospitals = filteredHospitals.filter(hospital => 
-              hospital.woredaId === user.woredaId
-            );
-            filteredWoredas = filteredWoredas.filter(w => 
-              w._id === user.woredaId
-            );
-            break;
-            
-          case 'HOSPITAL_ADMIN':
-            // Hospital Admin sees only their hospital
-            filteredHospitals = filteredHospitals.filter(hospital => 
-              hospital._id === user.hospitalId
-            );
-            // Woreda admins don't need to see woredas list
-            filteredWoredas = [];
-            break;
-            
-          case 'SUPER_ADMIN':
-            // Super Admin sees everything
-            break;
-        }
-      }
+      // Data is already filtered by the backend based on user role and permissions
+      const filteredHospitals = Array.isArray(hospitalsResponse) ? hospitalsResponse : [];
+      const filteredWoredas = Array.isArray(woredasResponse) ? woredasResponse : [];
 
       setHospitals(filteredHospitals);
       setWoredas(filteredWoredas);
@@ -167,7 +127,12 @@ export function HospitalWoredaList({
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-500">{hospital.location || '-'}</div>
+                        <div className="text-sm text-gray-900">
+                          {hospital.location || '-'}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {hospital.woredaId?.regionId?.name || hospital.woredaId?.city || '-'}
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <button
@@ -214,7 +179,8 @@ export function HospitalWoredaList({
                         <div className="text-sm font-medium text-gray-900">{woreda.name}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-500">{woreda.region || '-'}</div>
+                        <div className="text-sm text-gray-900">{woreda.city || '-'}</div>
+                        <div className="text-xs text-gray-500">{woreda.regionId?.name || woreda.region || '-'}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <button

@@ -22,12 +22,7 @@ const getDashboardForRole = (role: string): string => {
       return '/healthcare-dashboard';
     case 'LIAISON_OFFICER':
       return '/liaison-dashboard';
-    case 'SPECIALIST':
-    case 'HOSPITAL_APPROVER':
-      return '/receiving-dashboard';
-    case 'GATEKEEPER':
-      return '/gate-dashboard';
-    case 'DISPATCHER':
+        case 'DISPATCHER':
       return '/dispatch-dashboard';
     case 'WOREDA_ADMIN':
       return '/woreda-dashboard';
@@ -52,8 +47,12 @@ export const LoginForm: React.FC = () => {
 
     const storedUser = localStorage.getItem('user');
     if (storedUser) {
-      const parsed = JSON.parse(storedUser);
-      router.push(getDashboardForRole(parsed.role));
+      try {
+        const parsed = JSON.parse(storedUser);
+        router.push(getDashboardForRole(parsed.role));
+      } catch {
+        localStorage.removeItem('user');
+      }
     }
   };
 

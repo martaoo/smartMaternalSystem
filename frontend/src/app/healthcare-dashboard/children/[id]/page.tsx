@@ -268,26 +268,30 @@ export default function ChildDetail() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <h3 className="text-sm font-medium text-gray-500">Mother Name</h3>
-                  <p className="text-lg font-medium text-gray-900">{child.motherId.name}</p>
+                  <p className="text-lg font-medium text-gray-900">{child.motherId?.name ?? 'Unknown'}</p>
                 </div>
                 <div>
                   <h3 className="text-sm font-medium text-gray-500">Contact</h3>
-                  <p className="text-lg font-medium text-gray-900">{child.motherId.phone}</p>
+                  <p className="text-lg font-medium text-gray-900">{child.motherId?.phone ?? '—'}</p>
                 </div>
               </div>
               <div className="mt-6 flex space-x-4">
-                <a
-                  href={`/healthcare-dashboard/mothers/${child.motherId._id}`}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  View Mother Details
-                </a>
-                <a
-                  href={`/healthcare-dashboard/pregnancy/mother/${child.motherId._id}`}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                >
-                  View Pregnancy History
-                </a>
+                {child.motherId?._id && (
+                  <>
+                    <a
+                      href={`/healthcare-dashboard/mothers/${child.motherId._id}`}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                      View Mother Details
+                    </a>
+                    <a
+                      href={`/healthcare-dashboard/pregnancy/mother/${child.motherId._id}`}
+                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                    >
+                      View Pregnancy History
+                    </a>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -356,12 +360,14 @@ export default function ChildDetail() {
                 >
                   View Vaccinations
                 </a>
-                <a
-                  href={`/healthcare-dashboard/mothers/${child.motherId._id}`}
-                  className="block w-full px-4 py-2 bg-blue-600 text-white text-center rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  View Mother
-                </a>
+                {child.motherId?._id && (
+                  <a
+                    href={`/healthcare-dashboard/mothers/${child.motherId._id}`}
+                    className="block w-full px-4 py-2 bg-blue-600 text-white text-center rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    View Mother
+                  </a>
+                )}
               </div>
             </div>
           </div>

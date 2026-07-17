@@ -1,4 +1,4 @@
-import { IsString, IsNumber, IsOptional, IsMongoId, IsEnum, IsDateString, Min, Max } from 'class-validator';
+import { IsString, IsNumber, IsOptional, IsMongoId, IsEnum, IsDateString, Min, Max, IsBoolean } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateMotherDto {
@@ -9,6 +9,11 @@ export class CreateMotherDto {
   @ApiProperty({ example: '+251911234567', description: 'Phone number' })
   @IsString()
   phone: string;
+
+  @ApiPropertyOptional({ example: 'abeba@example.com', description: 'Email address for notifications' })
+  @IsOptional()
+  @IsString()
+  email?: string;
 
   @ApiProperty({ example: 28, description: 'Mother age' })
   @IsNumber()
@@ -22,8 +27,6 @@ woredaId: string;
   @ApiProperty({ example: 'Addis Ababa, Bole, Street 123', description: 'Home address' })
   @IsString()
   address: string;
-
- email?: string;
   @ApiPropertyOptional({ example: '+251911234568', description: 'Emergency contact number' })
   @IsOptional()
   @IsString()
@@ -64,6 +67,41 @@ woredaId: string;
   @IsString()
   registeredBy?: string;
   @ApiProperty({ example: '664f1c2a8a3e2f0098765432', description: 'Health Center ID' })
-@IsMongoId()
-healthCenter: string;
+  @IsMongoId()
+  healthCenter: string;
+
+  @ApiPropertyOptional({ example: 'Positive', description: 'RH Factor' })
+  @IsOptional()
+  @IsString()
+  rhFactor?: string;
+
+  @ApiPropertyOptional({ example: 'Negative', description: 'HIV Status' })
+  @IsOptional()
+  @IsString()
+  hivStatus?: string;
+
+  @ApiPropertyOptional({ example: 'Negative', description: 'Hepatitis B Status' })
+  @IsOptional()
+  @IsString()
+  hepatitisB?: string;
+
+  @ApiPropertyOptional({ example: false, description: 'Has Hypertension' })
+  @IsOptional()
+  @IsBoolean()
+  hypertension?: boolean;
+
+  @ApiPropertyOptional({ example: false, description: 'Has Diabetes' })
+  @IsOptional()
+  @IsBoolean()
+  diabetes?: boolean;
+
+  @ApiPropertyOptional({ example: false, description: 'Has Anemia' })
+  @IsOptional()
+  @IsBoolean()
+  anemia?: boolean;
+
+  @ApiPropertyOptional({ example: false, description: 'Had previous C-Section' })
+  @IsOptional()
+  @IsBoolean()
+  previousCSection?: boolean;
 }

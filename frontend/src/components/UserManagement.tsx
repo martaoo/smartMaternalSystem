@@ -12,8 +12,9 @@ interface User {
   role: string;
   hospitalId?: string | { name?: string } | null;
   woredaId?: string | { name?: string } | null;
-  assignedRegion?: string;
+  regionId?: string | { name?: string } | null;
   phoneNumber?: string;
+  assignedRegion?: string;
   createdAt: string;
 }
 
@@ -28,6 +29,20 @@ export function UserManagement() {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
+  const [visibleCount, setVisibleCount] = useState(10);
+
+  const getAllowedRolesForCurrentUser = () => {
+    switch (user?.role) {
+      case 'SYSTEM_ADMIN':
+        return ['WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'LIAISON_OFFICER', 'DISPATCHER', 'EMERGENCY_ADMIN', 'HOSPITAL_APPROVER', 'GATEKEEPER', 'SPECIALIST', 'MOTHER'];
+      case 'HOSPITAL_ADMIN':
+      case 'HEALTH_CENTER_ADMIN':
+        return ['DOCTOR', 'NURSE', 'MIDWIFE', 'LIAISON_OFFICER', 'DISPATCHER', 'GATEKEEPER'];
+      case 'SUPER_ADMIN':
+      default:
+        return ['SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'LIAISON_OFFICER', 'DISPATCHER', 'EMERGENCY_ADMIN', 'HOSPITAL_APPROVER', 'GATEKEEPER', 'SPECIALIST', 'MOTHER'];
+    }
+  };
 
   useEffect(() => {
     fetchUsers();
@@ -38,8 +53,17 @@ export function UserManagement() {
   const fetchUsers = async () => {
     try {
       const response = await api.getUsers();
-      setAllUsers(Array.isArray(response) ? response : []);
+      const users = Array.isArray(response) ? response : [];
+      console.log('[UserManagement] Fetched users:', users);
+      const systemAdmins = users.filter((u: any) => u.role === 'SYSTEM_ADMIN');
+      console.log('[UserManagement] System admins:', systemAdmins);
+      setAllUsers(users);
     } catch (err: any) {
+      // 403 = role not allowed to list users — show empty list silently
+      if (err?.message === 'Forbidden resource') {
+        setAllUsers([]);
+        return;
+      }
       setError(err.message || 'Failed to fetch users');
     } finally {
       setLoading(false);
@@ -154,67 +178,101 @@ export function UserManagement() {
     if (hospital && hospital.woredaId) {
       const woreda = woredas.find(w => w._id === hospital.woredaId._id);
       if (woreda) {
-        return `${woreda.name} (${woreda.region})`;
+        return `${woreda.name} (${woreda.regionId?.name || '-'})`;
       }
     }
     
     return '-';
   };
 
-  // Check if current user can edit/delete a specific user
-  const canEditUser = (targetUser: User) => {
-    if (!user) return false;
+  const getFacilityAndWoredaInfo = (user: User) => {
+    const hospitalName = getHospitalName(user.hospitalId);
+    const woredaName = user.assignedRegion || getWoredaFromHospital(user) || getWoredaName(user.woredaId) || '-';
     
-    // Debug logging for MOTHER role
-    if (targetUser.role === 'MOTHER') {
-      console.log('DEBUG MOTHER user:', targetUser);
-      console.log('DEBUG MOTHER fields:', Object.keys(targetUser));
+    // If no facility assigned, just show woreda
+    if (hospitalName === '-') {
+      return woredaName === '-' ? '-' : woredaName;
     }
     
+    // If no woreda assigned, just show facility
+    if (woredaName === '-') {
+      return hospitalName;
+    }
+    
+    // Show both facility and woreda together
+    return `${hospitalName} • ${woredaName}`;
+  };
+
+  const getFacilityType = (user: User) => {
+    if (!user.hospitalId) return null;
+    
+    const hospital = hospitals.find(h => h._id === user.hospitalId);
+    if (!hospital) return null;
+    
+    const type = String(hospital?.type ?? '').trim().toUpperCase().replace(/\s+/g, '_');
+    return type === 'HEALTH_CENTER' ? 'Health Center' : 'Hospital';
+  };
+
+  // Check if current user can edit/delete a specific user
+  const normalizeId = (value: any) => {
+    if (!value) return undefined;
+    if (typeof value === 'string') return value;
+    return value._id || value.id || undefined;
+  };
+
+  const isUserInRegion = (targetUser: User): boolean => {
+    if (!user?.regionId) return false;
+
+    const targetRegionId = normalizeId(targetUser.regionId);
+    const targetWoredaId = normalizeId(targetUser.woredaId);
+    const targetHospitalId = normalizeId(targetUser.hospitalId);
+
+    // Check if user is directly assigned to the same region
+    if (targetRegionId === user.regionId) return true;
+
+    // Check if user's woreda is in the same region
+    const woredaInRegion = targetWoredaId && woredas.some(w => w._id === targetWoredaId && normalizeId(w.regionId) === user.regionId);
+    
+    // Check if user's hospital is in the same region (via woreda)
+    const hospitalInRegion = targetHospitalId && hospitals.some(h => {
+      const hospitalWoredaId = normalizeId(h.woredaId);
+      return h._id === targetHospitalId && hospitalWoredaId && woredas.some(w => w._id === hospitalWoredaId && normalizeId(w.regionId) === user.regionId);
+    });
+
+    return !!woredaInRegion || !!hospitalInRegion;
+  };
+
+  const canEditUser = (targetUser: User) => {
+    if (!user) return false;
+
+    // Super Admin can edit everyone
+    if (user.role === 'SUPER_ADMIN') return true;
+
+    // For other administrative roles, if they can see the user in their filtered list, 
+    // they should generally be able to edit them (except themselves if it's a delete, etc.)
+    // The backend already handles the heavy lifting of filtering users by region/woreda.
+    
     switch (user.role) {
-      case 'SUPER_ADMIN':
-        return true; // Super Admin can edit anyone
-      
       case 'SYSTEM_ADMIN':
-        // System Admin can edit all users in their assigned region
-        if (!user.assignedRegion) return false;
-        
-        // Check if target user is in System Admin's region
-        const isInRegion = targetUser.assignedRegion === user.assignedRegion;
-        
-        // Check if target user has woreda in System Admin's region
-        const hasWoredaInRegion = targetUser.woredaId && 
-          woredas.some(w => w._id === targetUser.woredaId && w.region === user.assignedRegion);
-        
-        // Check if target user has hospital in System Admin's region
-        const hasHospitalInRegion = targetUser.hospitalId && 
-          hospitals.some(h => h._id === targetUser.hospitalId && 
-            h.woredaId && woredas.some(w => w._id === h.woredaId._id && w.region === user.assignedRegion));
-        
-        return isInRegion || hasWoredaInRegion || hasHospitalInRegion;
-      
+        // System Admin can edit any user in their filtered list (already region-filtered by backend)
+        return true;
+
       case 'WOREDA_ADMIN':
-        // Can edit users in their woreda
-        return (targetUser.woredaId && typeof targetUser.woredaId === 'string' && targetUser.woredaId === user.woredaId) ||
-               (targetUser.hospitalId && typeof targetUser.hospitalId === 'string' && 
-                hospitals.some(h => h._id === targetUser.hospitalId && h.woredaId === user.woredaId));
-      
+        // Woreda Admin can edit any user in their filtered list (already woreda-filtered by backend/frontend)
+        return true;
+
       case 'HOSPITAL_ADMIN':
-        // Can edit users in their hospital
-        return (targetUser.hospitalId && typeof targetUser.hospitalId === 'string' && targetUser.hospitalId === user.hospitalId);
-      
       case 'HEALTH_CENTER_ADMIN':
-        // Can edit users in their health center
-        return (targetUser.hospitalId && typeof targetUser.hospitalId === 'string' && targetUser.hospitalId === user.hospitalId);
+        // Facility admins can edit users in their facility
+        const targetHospitalId = normalizeId(targetUser.hospitalId);
+        return targetHospitalId === user.hospitalId;
       
       default:
-        // Other roles can only edit themselves
         return targetUser._id === user.id;
     }
   };
 
   const canDeleteUser = (targetUser: User) => {
-    // Same logic as edit, but can't delete themselves
     if (!user) return false;
     return canEditUser(targetUser) && targetUser._id !== user.id;
   };
@@ -226,6 +284,10 @@ export function UserManagement() {
     const matchesRole = !roleFilter || userItem.role === roleFilter;
     return matchesSearch && matchesRole;
   });
+
+  const visibleUsers = filteredUsers.slice(0, visibleCount);
+  const hasMore = visibleCount < filteredUsers.length;
+  const hasLess = visibleCount > 10;
 
   const getRoleBadgeColor = (role: string) => {
     switch (role) {
@@ -273,12 +335,12 @@ export function UserManagement() {
             type="text"
             placeholder="Search users..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => { setSearchTerm(e.target.value); setVisibleCount(10); }}
             className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <select
             value={roleFilter}
-            onChange={(e) => setRoleFilter(e.target.value)}
+            onChange={(e) => { setRoleFilter(e.target.value); setVisibleCount(10); }}
             className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="">All Roles</option>
@@ -321,10 +383,7 @@ export function UserManagement() {
                 Role
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Hospital
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Woreda/Region
+                Facility & Location
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Phone
@@ -338,7 +397,7 @@ export function UserManagement() {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {filteredUsers.map((user) => (
+            {visibleUsers.map((user) => (
               <tr key={user._id} className="hover:bg-gray-50">
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="text-sm font-medium text-gray-900">{user.name}</div>
@@ -352,14 +411,14 @@ export function UserManagement() {
                   </span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-500">
-                    {getHospitalName(user.hospitalId)}
+                  <div className="text-sm text-gray-900">
+                    {getFacilityAndWoredaInfo(user)}
                   </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-500">
-                    {user.assignedRegion || getWoredaFromHospital(user) || getWoredaName(user.woredaId) || '-'}
-                  </div>
+                  {getFacilityType(user) && (
+                    <div className="text-xs text-gray-500 mt-1">
+                      {getFacilityType(user)}
+                    </div>
+                  )}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="text-sm text-gray-500">{user.phoneNumber || '-'}</div>
@@ -400,6 +459,34 @@ export function UserManagement() {
             <p className="text-gray-500">No users found</p>
           </div>
         )}
+
+        {/* Pagination footer */}
+        {filteredUsers.length > 0 && (
+          <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
+            <p className="text-sm text-gray-500">
+              Showing <span className="font-medium">{visibleUsers.length}</span> of{' '}
+              <span className="font-medium">{filteredUsers.length}</span> users
+            </p>
+            <div className="flex gap-2">
+              {hasLess && (
+                <button
+                  onClick={() => setVisibleCount((c) => Math.max(10, c - 10))}
+                  className="px-4 py-2 text-sm border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  Show Less
+                </button>
+              )}
+              {hasMore && (
+                <button
+                  onClick={() => setVisibleCount((c) => c + 10)}
+                  className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  Show More ({filteredUsers.length - visibleCount} remaining)
+                </button>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {showAddUser && (
@@ -410,6 +497,7 @@ export function UserManagement() {
           }}
           onSuccess={handleAddUserSuccess}
           userToEdit={editingUser || undefined}
+          allowedRoles={getAllowedRolesForCurrentUser()}
         />
       )}
     </div>

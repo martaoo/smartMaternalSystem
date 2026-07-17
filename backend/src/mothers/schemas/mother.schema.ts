@@ -11,6 +11,9 @@ export class Mother {
   @Prop({ required: true })
   phone: string;
 
+  @Prop()
+  email?: string;
+
   @Prop({ required: true })
   age: number;
 
@@ -61,6 +64,27 @@ export class Mother {
 
   @Prop({ enum: ['A+', 'A-', 'B+', 'B-', 'O+', 'O-'] })
   bloodType?: 'A+' | 'A-' | 'B+' | 'B-' | 'O+' | 'O-';
+
+  @Prop()
+  rhFactor?: string;
+
+  @Prop()
+  hivStatus?: string;
+
+  @Prop()
+  hepatitisB?: string;
+
+  @Prop({ default: false })
+  hypertension?: boolean;
+
+  @Prop({ default: false })
+  diabetes?: boolean;
+
+  @Prop({ default: false })
+  anemia?: boolean;
+
+  @Prop({ default: false })
+  previousCSection?: boolean;
 }
 
 export const MotherSchema = SchemaFactory.createForClass(Mother);

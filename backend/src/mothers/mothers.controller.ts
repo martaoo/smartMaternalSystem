@@ -13,7 +13,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiQuery }
 export class MothersController {
   constructor(private readonly mothersService: MothersService) {}
 
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'DISPATCHER')
+  @Roles('SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'DISPATCHER', 'LIAISON_OFFICER')
   @Post()
   @ApiOperation({ summary: 'Register a new mother' })
   @ApiResponse({ status: 201, description: 'Mother successfully registered' })
@@ -30,7 +30,7 @@ export class MothersController {
     );
   }
 
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'DISPATCHER')
+  @Roles('SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'DISPATCHER', 'LIAISON_OFFICER')
   @Get()
   @ApiOperation({ summary: 'Get all mothers' })
   @ApiResponse({ status: 200, description: 'Mothers retrieved successfully' })
@@ -44,7 +44,7 @@ export class MothersController {
     );
   }
 
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'DISPATCHER')
+  @Roles('SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'DISPATCHER', 'LIAISON_OFFICER')
   @Get('search')
   @ApiOperation({ summary: 'Search mothers by name, phone, or address' })
   @ApiQuery({ name: 'q', required: true, description: 'Search query' })
@@ -59,7 +59,7 @@ export class MothersController {
     );
   }
 
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'DISPATCHER')
+  @Roles('SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'DISPATCHER', 'LIAISON_OFFICER')
   @Get('health-worker/:healthWorkerId')
   @ApiOperation({ summary: 'Get mothers assigned to a specific health worker' })
   @ApiParam({ name: 'healthWorkerId', description: 'Health worker ID' })
@@ -73,7 +73,7 @@ export class MothersController {
     );
   }
 
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'DISPATCHER')
+  @Roles('SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'DISPATCHER', 'LIAISON_OFFICER')
   @Get(':id')
   @ApiOperation({ summary: 'Get mother by ID' })
   @ApiParam({ name: 'id', description: 'Mother ID' })
@@ -90,7 +90,7 @@ export class MothersController {
     );
   }
 
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
+  @Roles('SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'LIAISON_OFFICER')
   @Patch(':id')
   @ApiOperation({ summary: 'Update mother information' })
   @ApiParam({ name: 'id', description: 'Mother ID' })
@@ -109,7 +109,7 @@ export class MothersController {
     );
   }
 
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
+  @Roles('SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
   @Delete(':id')
   @ApiOperation({ summary: 'Delete mother record' })
   @ApiParam({ name: 'id', description: 'Mother ID' })

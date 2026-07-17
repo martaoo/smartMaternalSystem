@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { mothersApi, pregnancyApi, childrenApi, hospitalsApi, referralsApi } from '@/lib/healthcare-api';
 import { useAuth } from '@/contexts/AuthContext';
+import { uploadReferralDoc } from '@/services/files';
 
 interface ReferralFormData {
   motherId: string;
@@ -14,13 +15,16 @@ interface ReferralFormData {
   targetHospitalId: string;
   notes: string;
   emergency: boolean;
+  attachments: File[];
 }
 
 export default function CreateReferral() {
   const { user, logout, isLoading: authLoading } = useAuth();
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const motherId = params.motherId as string;
+  const referralId = searchParams?.get('referralId');
   const [formData, setFormData] = useState<ReferralFormData>({
     motherId: motherId || '',
     pregnancyId: '',
@@ -30,6 +34,7 @@ export default function CreateReferral() {
     targetHospitalId: '',
     notes: '',
     emergency: false,
+    attachments: [],
   });
 
   const [mothers, setMothers] = useState<any[]>([]);
@@ -45,6 +50,7 @@ export default function CreateReferral() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [successMessage, setSuccessMessage] = useState('Referral created successfully.');
+  const [isEditMode, setIsEditMode] = useState(false);
 
   const normalizeEthiopianPhone = (phone?: string): string | null => {
     if (!phone) return null;
@@ -90,6 +96,49 @@ export default function CreateReferral() {
     }
   }, [authLoading]);
 
+  const loadReferral = async (rid: string, mothersData: any[] = []) => {
+    try {
+      const referral = await referralsApi.getById(rid);
+      if (!referral) {
+        setError('Referral not found');
+        return;
+      }
+      if (referral.status !== 'DRAFT') {
+        setError('Only draft referrals can be edited');
+        return;
+      }
+
+      const selectedMotherId = referral.motherId?._id ?? referral.motherId;
+      setIsEditMode(true);
+      setFormData(prev => ({
+        ...prev,
+        motherId: selectedMotherId,
+        reason: referral.reasonForReferral ?? '',
+        priority:
+          referral.urgency === 'EMERGENCY'
+            ? 'URGENT'
+            : referral.urgency === 'URGENT'
+            ? 'HIGH'
+            : 'MEDIUM',
+        targetHospitalId: referral.toHospital?._id ?? referral.toHospital ?? '',
+        notes: referral.clinicalNotes ?? '',
+        emergency: referral.urgency === 'EMERGENCY',
+      }));
+
+      const selectedMother = mothersData.find((m: any) => m._id === selectedMotherId);
+      if (selectedMother) {
+        setSelectedMother(selectedMother);
+      }
+
+      if (selectedMotherId) {
+        await fetchMotherPregnancies(selectedMotherId);
+      }
+    } catch (err: any) {
+      console.error('Error loading referral for edit:', err);
+      setError(err?.message || 'Failed to load referral for editing');
+    }
+  };
+
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -123,12 +172,13 @@ export default function CreateReferral() {
       const hospitalsData = await hospitalsApi.getAll();
       setHospitals(Array.isArray(hospitalsData) ? hospitalsData : []);
 
-      // If mother is preselected, fetch her details and pregnancies
-      if (motherId) {
+      // If referral edit mode is active, load the draft values
+      if (referralId) {
+        await loadReferral(referralId, mothersData);
+      } else if (motherId) {
         const mother = mothersData.find((m: any) => m._id === motherId);
         if (mother) {
           setSelectedMother(mother);
-          // Fetch pregnancies specifically for this mother
           await fetchMotherPregnancies(motherId);
         }
       }
@@ -159,6 +209,21 @@ export default function CreateReferral() {
     }
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    setFormData(prev => ({
+      ...prev,
+      attachments: [...prev.attachments, ...files],
+    }));
+  };
+
+  const removeFile = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      attachments: prev.attachments.filter((_, i) => i !== index),
+    }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -187,6 +252,14 @@ export default function CreateReferral() {
         return;
       }
 
+      // Map frontend priority to backend urgency
+      const urgencyMap: Record<string, string> = {
+        LOW: 'ROUTINE',
+        MEDIUM: 'ROUTINE',
+        HIGH: 'URGENT',
+        URGENT: 'EMERGENCY',
+      };
+
       // Map frontend data to backend DTO structure
       const referralData = {
         motherId: formData.motherId,
@@ -194,9 +267,7 @@ export default function CreateReferral() {
         doctorName: user?.name || 'Doctor',
         patientName: selectedMotherInfo.fullName || selectedMotherInfo.name || 'Unknown',
         patientPhone: normalizedPhone,
-        urgency: formData.priority === 'LOW' ? 'ROUTINE' : 
-                 formData.priority === 'MEDIUM' ? 'ROUTINE' : 
-                 formData.priority === 'HIGH' ? 'URGENT' : 'EMERGENCY',
+        urgency: urgencyMap[formData.priority] ?? 'ROUTINE',
         reasonForReferral: formData.reason,
         clinicalNotes: formData.notes || undefined,
       };
@@ -205,16 +276,29 @@ export default function CreateReferral() {
       console.log('User info:', user);
       console.log('Selected mother:', selectedMotherInfo);
 
-      const response = await referralsApi.create(referralData);
-      console.log('Referral created successfully:', response);
+      const response = referralId
+        ? await referralsApi.update(referralId, referralData)
+        : await referralsApi.create(referralData);
 
-      // In maternal flow we can send immediately when target hospital is chosen.
-      if (formData.targetHospitalId && response?._id) {
-        await referralsApi.send(response._id, formData.targetHospitalId);
-        setSuccessMessage('Referral created and sent to receiving hospital.');
-      } else {
-        setSuccessMessage('Referral created as draft. Please send it from referral management.');
+      console.log('Referral saved successfully:', response);
+
+      // Upload any attached files
+      const savedId = response?._id ?? referralId;
+      if (savedId && formData.attachments.length > 0) {
+        const uploadResults = await Promise.allSettled(
+          formData.attachments.map(file => uploadReferralDoc(savedId, file))
+        );
+        const failed = uploadResults.filter(r => r.status === 'rejected').length;
+        if (failed > 0) {
+          console.warn(`${failed} file(s) failed to upload`);
+        }
       }
+
+      setSuccessMessage(
+        referralId
+          ? 'Referral draft updated successfully.'
+          : 'Referral created as draft. Please send it from Manage Referrals.'
+      );
 
       setSuccess(true);
       
@@ -261,8 +345,12 @@ export default function CreateReferral() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Create Referral</h1>
-              <p className="text-sm text-gray-600">Refer a patient to another facility</p>
+              <h1 className="text-2xl font-bold text-gray-900">
+                {isEditMode ? 'Edit Referral' : 'Create Referral'}
+              </h1>
+              <p className="text-sm text-gray-600">
+                {isEditMode ? 'Update the draft referral before sending it.' : 'Refer a patient to another facility'}
+              </p>
             </div>
             <div className="flex items-center space-x-4">
               <button
@@ -436,100 +524,6 @@ export default function CreateReferral() {
                   <p className="text-xs text-gray-500 mt-1">Mother pre-selected - click above to change</p>
                 )}
               </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Pregnancy (Optional)
-                </label>
-                <select
-                  name="pregnancyId"
-                  value={formData.pregnancyId}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                >
-                  <option value="">Select Pregnancy</option>
-                  {pregnancies
-                    .filter((p) => !formData.motherId || p.motherId === formData.motherId)
-                    .map((pregnancy) => (
-                      <option key={pregnancy._id} value={pregnancy._id}>
-                        Visit: {pregnancy.visitDate ? new Date(pregnancy.visitDate as any).toLocaleDateString() : 'Unknown'}
-                        {' - Risk: '}{pregnancy.riskLevel || 'Unknown'}
-                        {pregnancy.emergency ? ' - EMERGENCY' : ''}
-                      </option>
-                    ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Child (Optional)
-                </label>
-                <select
-                  name="childId"
-                  value={formData.childId}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                >
-                  <option value="">Select Child</option>
-                  {children
-                    .filter((c) => !formData.motherId || c.motherId === formData.motherId)
-                    .map((child) => (
-                      <option key={child._id} value={child._id}>
-                        {child.name} - DOB: {child.birthDate ? new Date(child.birthDate as any).toLocaleDateString() : 'Unknown'}
-                      </option>
-                    ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Target Hospital *
-                </label>
-                <select
-                  name="targetHospitalId"
-                  value={formData.targetHospitalId}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  required
-                >
-                  <option value="">Select Target Hospital</option>
-                  {(() => {
-                    const userWoredaId = userHospital?.woredaId;
-                    const userWoredaIdStr = typeof userWoredaId === 'string' ? userWoredaId : userWoredaId?._id || userWoredaId;
-                    
-                    return hospitals
-                      .filter(hospital => {
-                        const hospitalWoredaId = hospital.woredaId as any;
-                        const hospitalWoredaIdStr = typeof hospitalWoredaId === 'string' ? hospitalWoredaId : hospitalWoredaId?._id || hospitalWoredaId;
-                        return hospitalWoredaIdStr === userWoredaIdStr;
-                      }) // Filter by same woreda
-                      .map((hospital) => (
-                        <option key={hospital._id} value={hospital._id}>
-                          {hospital.name} ({hospital.type}) - Same Woreda
-                        </option>
-                      ));
-                  })()}
-                  <optgroup label="Other Woredas">
-                    {(() => {
-                    const userWoredaId = userHospital?.woredaId;
-                    const userWoredaIdStr = typeof userWoredaId === 'string' ? userWoredaId : userWoredaId?._id || userWoredaId;
-                    
-                    return hospitals
-                      .filter(hospital => {
-                        const hospitalWoredaId = hospital.woredaId as any;
-                        const hospitalWoredaIdStr = typeof hospitalWoredaId === 'string' ? hospitalWoredaId : hospitalWoredaId?._id || hospitalWoredaId;
-                        return hospitalWoredaIdStr !== userWoredaIdStr;
-                      })
-                      .map((hospital) => (
-                        <option key={hospital._id} value={hospital._id}>
-                          {hospital.name} ({hospital.type}) - Different Woreda
-                        </option>
-                      ));
-                  })()}
-                  </optgroup>
-                </select>
-                <p className="text-xs text-gray-500 mt-1">Hospitals in your woreda are shown first</p>
-              </div>
             </div>
 
             {/* Referral Details */}
@@ -595,6 +589,58 @@ export default function CreateReferral() {
               <label htmlFor="emergency" className="ml-2 block text-sm text-gray-700">
                 Mark as Emergency (will be prioritized)
               </label>
+            </div>
+
+            {/* File Attachments */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Attach Medical Files <span className="text-gray-400 font-normal">(Optional)</span>
+              </label>
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 bg-gray-50">
+                <input
+                  type="file"
+                  name="attachments"
+                  multiple
+                  accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.dicom"
+                  onChange={handleFileChange}
+                  className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                />
+                <p className="text-xs text-gray-500 mt-2">
+                  Accepted: Images (JPG, PNG), PDF, Word, Excel, MRI/DICOM, lab results, X-rays, ultrasound reports
+                </p>
+                {formData.attachments.length > 0 && (
+                  <div className="mt-3 space-y-2">
+                    <p className="text-sm font-medium text-gray-700">Selected Files ({formData.attachments.length}):</p>
+                    <ul className="divide-y divide-gray-200 border border-gray-200 rounded-lg overflow-hidden">
+                      {formData.attachments.map((file, index) => {
+                        const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
+                        const icon = ['jpg','jpeg','png','gif','webp'].includes(ext) ? '🖼️'
+                          : ext === 'pdf' ? '📄'
+                          : ['doc','docx'].includes(ext) ? '📝'
+                          : ['xls','xlsx'].includes(ext) ? '📊'
+                          : ['dcm','dicom'].includes(ext) ? '🩻'
+                          : '📎';
+                        return (
+                          <li key={index} className="flex items-center justify-between px-3 py-2 bg-white text-sm">
+                            <span className="flex items-center gap-2">
+                              <span>{icon}</span>
+                              <span className="text-gray-800 truncate max-w-xs">{file.name}</span>
+                              <span className="text-gray-400 text-xs">({(file.size / 1024).toFixed(1)} KB)</span>
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => removeFile(index)}
+                              className="text-red-500 hover:text-red-700 text-xs ml-2 shrink-0"
+                            >
+                              ✕ Remove
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Submit Button */}

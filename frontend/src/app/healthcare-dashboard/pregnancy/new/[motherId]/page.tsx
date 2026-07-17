@@ -55,6 +55,76 @@ export default function NewPregnancyVisit() {
     bloodType: '',
   });
 
+  // Auto-calculate next visit date based on WHO ANC schedule
+  const calculateNextVisitDate = (currentWeek: string, riskLevel: string) => {
+    if (!currentWeek) return '';
+    
+    const week = parseInt(currentWeek);
+    const today = new Date();
+    let nextVisitWeek = week;
+    let intervalWeeks = 4; // Default 4 weeks
+
+    // WHO ANC Schedule with risk-based adjustments
+    if (week <= 12) {
+      // First trimester: Every 4 weeks
+      intervalWeeks = 4;
+      nextVisitWeek = Math.min(week + 4, 12);
+    } else if (week <= 28) {
+      // Second trimester: Every 4 weeks
+      intervalWeeks = 4;
+      nextVisitWeek = week + 4;
+    } else if (week <= 36) {
+      // Third trimester (up to 36 weeks): Every 2 weeks
+      intervalWeeks = 2;
+      nextVisitWeek = week + 2;
+    } else if (week <= 40) {
+      // Late third trimester (36-40 weeks): Every week
+      intervalWeeks = 1;
+      nextVisitWeek = week + 1;
+    } else {
+      // Post 40 weeks: Every 2-3 days
+      intervalWeeks = 0.5; // ~3-4 days
+      nextVisitWeek = week + 1;
+    }
+
+    // Adjust for high-risk pregnancies
+    if (riskLevel === 'HIGH') {
+      if (week <= 28) {
+        intervalWeeks = Math.min(intervalWeeks, 2); // At least every 2 weeks
+      } else {
+        intervalWeeks = 1; // Every week for high-risk
+      }
+    } else if (riskLevel === 'MODERATE') {
+      if (week > 28) {
+        intervalWeeks = Math.min(intervalWeeks, 1); // Every week after 28 weeks
+      }
+    }
+
+    // Calculate next visit date
+    const nextVisitDate = new Date(today);
+    nextVisitDate.setDate(nextVisitDate.getDate() + (intervalWeeks * 7));
+    
+    return nextVisitDate.toISOString().split('T')[0]; // Format as YYYY-MM-DD
+  };
+
+  // Handle gestational age change to auto-calculate next visit
+  const handleGestationalAgeChange = (value: string) => {
+    setFormData(p => ({ ...p, gestationalAge: value }));
+    
+    // Auto-calculate next visit date
+    const nextDate = calculateNextVisitDate(value, formData.riskLevel);
+    setFormData(p => ({ ...p, nextVisitDate: nextDate }));
+  };
+
+  // Handle risk level change to recalculate next visit
+  const handleRiskLevelChange = (riskLevel: 'LOW' | 'MODERATE' | 'HIGH') => {
+    setFormData(p => ({ ...p, riskLevel }));
+    
+    // Recalculate next visit date based on new risk level
+    const nextDate = calculateNextVisitDate(formData.gestationalAge, riskLevel);
+    setFormData(p => ({ ...p, nextVisitDate: nextDate }));
+  };
+
   const [selectedMother, setSelectedMother] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -116,6 +186,8 @@ export default function NewPregnancyVisit() {
         complications: formData.complications ? formData.complications.split(',').map(c => c.trim()) : [],
         recommendations: formData.recommendations || undefined,
         emergencyReason: formData.emergency ? formData.emergencyReason : undefined,
+        // Only send bloodType if a value was actually selected — empty string fails enum validation
+        bloodType: formData.bloodType || undefined,
       };
 
       await pregnancyApi.create(pregnancyData);
@@ -249,12 +321,24 @@ export default function NewPregnancyVisit() {
                       id="gestationalAge"
                       name="gestationalAge"
                       value={formData.gestationalAge}
-                      onChange={handleInputChange}
+                      onChange={(e) => handleGestationalAgeChange(e.target.value)}
                       required
                       min="1"
                       max="42"
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
+                    {formData.gestationalAge && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        💡 WHO ANC schedule: {(() => {
+                          const week = parseInt(formData.gestationalAge);
+                          if (week <= 12) return "Every 4 weeks (first trimester)";
+                          if (week <= 28) return "Every 4 weeks (second trimester)";
+                          if (week <= 36) return "Every 2 weeks (early third trimester)";
+                          if (week <= 40) return "Every week (late third trimester)";
+                          return "Every 2-3 days (post-term)";
+                        })()}
+                      </p>
+                    )}
                   </div>
 
                   <div>
@@ -265,7 +349,7 @@ export default function NewPregnancyVisit() {
                       id="riskLevel"
                       name="riskLevel"
                       value={formData.riskLevel}
-                      onChange={handleInputChange}
+                      onChange={(e) => handleRiskLevelChange(e.target.value as 'LOW' | 'MODERATE' | 'HIGH')}
                       required
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     >
@@ -273,11 +357,16 @@ export default function NewPregnancyVisit() {
                       <option value="MODERATE">Moderate Risk</option>
                       <option value="HIGH">High Risk</option>
                     </select>
+                    {formData.riskLevel !== 'LOW' && (
+                      <p className="text-xs text-orange-600 mt-1">
+                        ⚠️ {formData.riskLevel === 'HIGH' ? 'High-risk: More frequent visits required' : 'Moderate-risk: Increased monitoring needed'}
+                      </p>
+                    )}
                   </div>
 
                   <div>
                     <label htmlFor="nextVisitDate" className="block text-sm font-medium text-gray-700 mb-2">
-                      Next Visit Date
+                      Next Visit Date <span className="text-gray-400 font-normal">(auto-calculated)</span>
                     </label>
                     <input
                       type="date"
@@ -287,6 +376,11 @@ export default function NewPregnancyVisit() {
                       onChange={handleInputChange}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
+                    {formData.nextVisitDate && (
+                      <p className="text-xs text-green-600 mt-1">
+                        ✅ Auto-calculated based on WHO ANC schedule and risk level
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>

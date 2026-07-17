@@ -33,6 +33,7 @@ export default function MothersManagement() {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [deletingMotherId, setDeletingMotherId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchMothers();
@@ -63,6 +64,24 @@ export default function MothersManagement() {
       setError(err.message || 'Failed to load mothers');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteMother = async (motherId: string, motherName: string) => {
+    if (!window.confirm(`Are you sure you want to delete ${motherName}? This action cannot be undone.`)) {
+      return;
+    }
+    
+    try {
+      setDeletingMotherId(motherId);
+      await mothersApi.delete(motherId);
+      setMothers(mothers.filter(m => m._id !== motherId));
+      setFilteredMothers(filteredMothers.filter(m => m._id !== motherId));
+    } catch (err: any) {
+      console.error('Error deleting mother:', err);
+      setError(err.message || 'Failed to delete mother');
+    } finally {
+      setDeletingMotherId(null);
     }
   };
 
@@ -293,6 +312,13 @@ export default function MothersManagement() {
                           >
                             Children
                           </a>
+                          <button
+                            onClick={() => handleDeleteMother(mother._id, mother.name)}
+                            disabled={deletingMotherId === mother._id}
+                            className="text-red-600 hover:text-red-900 disabled:text-gray-400 disabled:cursor-not-allowed"
+                          >
+                            {deletingMotherId === mother._id ? 'Deleting...' : 'Delete'}
+                          </button>
                         </div>
                       </td>
                     </tr>

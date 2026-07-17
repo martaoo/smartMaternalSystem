@@ -45,6 +45,11 @@ export function UserList({ showOrgColumns = true, onError }: UserListProps) {
         throw new Error('Unexpected response from server');
       }
     } catch (err: any) {
+      // 403 means the current user's role can't list users — show empty list silently
+      if (err?.message === 'Forbidden resource' || err?.name === 'UnauthorizedError') {
+        setUsers([]);
+        return;
+      }
       const message = err?.message || 'Unable to load users';
       setError(message);
       onError?.(message);

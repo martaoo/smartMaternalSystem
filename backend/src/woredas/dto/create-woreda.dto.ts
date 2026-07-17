@@ -12,8 +12,8 @@ export class CreateWoredaDto {
   @IsNotEmpty()
   city: string;
 
-  @ApiProperty({ example: 'Addis Ababa', description: 'Region name' })
+  @ApiProperty({ example: '507f1f77bcf86cd799439011', description: 'Region ID' })
   @IsString()
   @IsNotEmpty()
-  region: string;
+  regionId: string;
 }

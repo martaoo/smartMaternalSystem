@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { mothersApi, pregnancyApi, childrenApi, vaccinationsApi } from '@/lib/healthcare-api';
 import { useAuth } from '@/contexts/AuthContext';
-import { incomingReferrals, outboxReferrals, createReferral } from '@/services/referrals';
+import { checkedInReferrals, incomingReferrals, outboxReferrals } from '@/services/referrals';
 
 interface DashboardStats {
   mothers: number;
@@ -17,10 +17,12 @@ interface DashboardStats {
   sentReferrals: number;
   incomingReferrals: number;
   pendingReferrals: number;
+  checkedInReferrals: number;
+  overdueAncVisits: number;
 }
 
 export default function HealthcareDashboard() {
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
   const router = useRouter();
   const [stats, setStats] = useState<DashboardStats>({
     mothers: 0,
@@ -33,16 +35,21 @@ export default function HealthcareDashboard() {
     sentReferrals: 0,
     incomingReferrals: 0,
     pendingReferrals: 0,
+    checkedInReferrals: 0,
+    overdueAncVisits: 0,
   });
+  const [checkedInList, setCheckedInList] = useState<any[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!user) return;
     fetchDashboardStats();
-  }, []);
+  }, [user]);
 
   const fetchDashboardStats = async () => {
+    if (!user) return;
     try {
       setLoading(true);
       setError(null);
@@ -56,7 +63,9 @@ export default function HealthcareDashboard() {
         overdueVaccinations,
         followUpNeeded,
         sentReferrals,
-        incomingReferralsData
+        incomingReferralsData,
+        checkedInData,
+        overdueAncData,
       ] = await Promise.all([
         mothersApi.getAll().catch(() => []),
         pregnancyApi.getStats().catch(() => ({ total: 0, highRisk: 0 })),
@@ -66,9 +75,14 @@ export default function HealthcareDashboard() {
         childrenApi.getFollowUpNeeded().catch(() => []),
         outboxReferrals().catch(() => []),
         incomingReferrals().catch(() => []),
+        checkedInReferrals().catch(() => []),
+        pregnancyApi.getAll().catch(() => []),
       ]);
 
       const pendingReferrals = incomingReferralsData.filter(r => r.status === 'PENDING').length;
+      const overdueAncVisits = Array.isArray(overdueAncData)
+        ? overdueAncData.filter((p: any) => p.visitStatus === 'SCHEDULED' && new Date(p.visitDate || p.nextVisitDate) < new Date()).length
+        : 0;
 
       setStats({
         mothers: Array.isArray(mothers) ? mothers.length : 0,
@@ -80,8 +94,11 @@ export default function HealthcareDashboard() {
         followUpNeeded: followUpNeeded.length || 0,
         sentReferrals: Array.isArray(sentReferrals) ? sentReferrals.length : 0,
         incomingReferrals: Array.isArray(incomingReferralsData) ? incomingReferralsData.length : 0,
-        pendingReferrals: pendingReferrals,
+        pendingReferrals,
+        overdueAncVisits,
+        checkedInReferrals: Array.isArray(checkedInData) ? checkedInData.length : 0,
       });
+      setCheckedInList(Array.isArray(checkedInData) ? checkedInData : []);
     } catch (err) {
       console.error('Error fetching dashboard stats:', err);
       setError('Failed to load dashboard data');
@@ -91,8 +108,7 @@ export default function HealthcareDashboard() {
   };
 
   const handleLogout = () => {
-    logout();
-    router.push('/auth');
+    logout(() => router.push('/auth'));
   };
 
   const StatCard = ({ title, value, color, icon }: { title: string; value: number; color: string; icon: string }) => (
@@ -142,21 +158,24 @@ export default function HealthcareDashboard() {
       {/* Header */}
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
+          <div className="flex flex-wrap justify-between items-center py-4 gap-y-2">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Healthcare Worker Dashboard</h1>
               <p className="text-sm text-gray-600">Maternal and Child Health Management</p>
             </div>
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center gap-3">
+              <a href="/healthcare-dashboard/profile" className="text-sm text-blue-600 hover:underline whitespace-nowrap">
+                My Profile
+              </a>
               <button
                 onClick={fetchDashboardStats}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="whitespace-nowrap px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
               >
                 Refresh
               </button>
               <button
                 onClick={handleLogout}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                className="whitespace-nowrap px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm"
               >
                 Logout
               </button>
@@ -217,6 +236,12 @@ export default function HealthcareDashboard() {
             color="text-orange-600"
             icon="⏳"
           />
+          <StatCard
+            title="Checked-in Mothers"
+            value={stats.checkedInReferrals}
+            color="text-purple-600"
+            icon="✅"
+          />
         </div>
 
         {/* Quick Actions */}
@@ -234,7 +259,7 @@ export default function HealthcareDashboard() {
                 href="/healthcare-dashboard/pregnancy/new"
                 className="block px-4 py-3 bg-green-600 text-white text-center rounded-lg hover:bg-green-700 transition-colors"
               >
-                Pregnancy Visit
+                New Pregnancy Visit
               </a>
               <a
                 href="/healthcare-dashboard/children/register"
@@ -249,13 +274,13 @@ export default function HealthcareDashboard() {
                 Vaccinations
               </a>
               <button
-                onClick={() => router.push('/healthcare-dashboard/referrals')}
+                onClick={() => router.push('/healthcare-dashboard/maternal-referrals/create')}
                 className="block px-4 py-3 bg-indigo-600 text-white text-center rounded-lg hover:bg-indigo-700 transition-colors"
               >
                 Create Referral
               </button>
               <button
-                onClick={() => router.push('/healthcare-dashboard/referrals/manage')}
+                onClick={() => router.push('/healthcare-dashboard/maternal-referrals')}
                 className="block px-4 py-3 bg-orange-600 text-white text-center rounded-lg hover:bg-orange-700 transition-colors"
               >
                 Manage Referrals
@@ -306,6 +331,16 @@ export default function HealthcareDashboard() {
                   </div>
                 </div>
               )}
+              {stats.checkedInReferrals > 0 && (
+                <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                  <div className="flex items-center">
+                    <span className="text-purple-600 mr-2">✅</span>
+                    <span className="text-purple-800">
+                      {stats.checkedInReferrals} checked-in referral{stats.checkedInReferrals !== 1 ? 's' : ''} awaiting decision/unlock
+                    </span>
+                  </div>
+                </div>
+              )}
               {stats.overdueVaccinations === 0 && stats.highRiskPregnancies === 0 && stats.followUpNeeded === 0 && stats.pendingReferrals === 0 && (
                 <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
                   <div className="flex items-center">
@@ -318,10 +353,37 @@ export default function HealthcareDashboard() {
           </div>
         </div>
 
+        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Checked-in Mothers</h2>
+          {checkedInList.length === 0 ? (
+            <p className="text-sm text-gray-600">No checked-in referrals yet.</p>
+          ) : (
+            <div className="space-y-3">
+              {checkedInList.slice(0, 6).map((r: any) => (
+                <button
+                  key={r._id}
+                  onClick={() => router.push(`/referrals/${r._id}`)}
+                  className="w-full text-left p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  <p className="font-medium text-gray-900">
+                    Referral #{r.referralCode ?? r._id?.slice(-6)}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    Mother: {r?.motherId?.name ?? '-'} {r?.motherId?.age ? `(${r.motherId.age}y)` : ''}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    From: {r?.fromHospital?.name ?? '-'} • Status: {r.status}
+                  </p>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
         {/* Recent Activity */}
         <div className="bg-white rounded-lg shadow-md p-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Navigation</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <a
               href="/healthcare-dashboard/mothers"
               className="block p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
@@ -351,12 +413,19 @@ export default function HealthcareDashboard() {
               <p className="text-sm text-gray-600 mt-1">Manage immunization schedules</p>
             </a>
             <button
-              onClick={() => router.push('/healthcare-dashboard/referrals')}
+              onClick={() => router.push('/healthcare-dashboard/maternal-referrals')}
               className="block p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-left"
             >
-              <h3 className="font-medium text-gray-900">Referral Management</h3>
-              <p className="text-sm text-gray-600 mt-1">Create and track referrals</p>
+              <h3 className="font-medium text-gray-900">Maternal Referrals</h3>
+              <p className="text-sm text-gray-600 mt-1">Create and track maternal referrals</p>
             </button>
+            <a
+              href="/healthcare-dashboard/profile"
+              className="block p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              <h3 className="font-medium text-gray-900">My Profile</h3>
+              <p className="text-sm text-gray-600 mt-1">View and edit your profile</p>
+            </a>
           </div>
         </div>
       </main>
