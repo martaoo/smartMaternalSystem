@@ -1,0 +1,32 @@
+{
+  "@@locale": "am",
+  "appTitle": "ስማርት የእናቶች ጤና",
+
+  "languageEnglish": "English",
+  "languageAmharic": "አማርኛ",
+
+  "loginWelcomeBack": "እንኳን በደህና መጡ",
+  "loginSystemName": "ስማርት የእናቶች ጤና ስርዓት",
+  "loginBeginJourneyTitle": "የእናትነት ጉዞዎን ይጀምሩ",
+  "loginBeginJourneySubtitle": "እርስዎን እና ልጅዎን በእያንዳንዱ እርምጃ ለመደገፍ የተዘጋጀ ዘመናዊ መተግበሪያ።",
+  "loginToAccount": "ወደ አካውንትዎ ይግቡ",
+  "loginEmailOrPhone": "ኢሜል ወይም ስልክ ቁጥር",
+  "loginPassword": "የይለፍ ቃል",
+  "loginForgotPassword": "የይለፍ ቃል ረሱ?",
+  "loginButton": "ይግቡ",
+  "loginSuccessToast": "በተሳካ ሁኔታ ገብተዋል!",
+  "loginFailedToast": "መግባት አልተሳካም። እባክዎ መረጃዎን ያረጋግጡ።",
+  "loginErrorToast": "ስህተት ተከስቷል። እባክዎ እንደገና ይሞክሩ።",
+  "loginEnterEmailOrPhone": "እባክዎ ኢሜል ወይም ስልክ ቁጥር ያስገቡ",
+  "loginEnterPassword": "እባክዎ የይለፍ ቃል ያስገቡ",
+  "loginPasswordTooShort": "የይለፍ ቃል ቢያንስ 6 ፊደላት መሆን አለበት",
+
+  "appointmentsTitle": "ቀጠሮዎች",
+  "appointmentsYourSchedule": "የእርስዎ መርሃ ግብር",
+  "appointmentsNoUpcoming": "የሚመጡ ቀጠሮዎች የሉም። የጤና ባለሙያዎ ቀጣይ የANC ቀጠሮዎን ያቀናብራል።",
+  "appointmentsReminderOn": "ማስታወሻ በርቷል",
+  "appointmentsReminderOff": "ማስታወሻ ጠፍቷል",
+  "appointmentsDetails": "ዝርዝር",
+  "appointmentsUnableToLoad": "ቀጠሮዎችን መጫን አልተቻለም",
+  "appointmentsRetry": "ድጋሚ ሞክር"
+}

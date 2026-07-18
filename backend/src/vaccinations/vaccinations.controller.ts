@@ -37,7 +37,7 @@ export class VaccinationsController {
     return this.vaccinationsService.createVaccine(createVaccineDto);
   }
 
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
+  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'MOTHER')
   @Get('vaccines')
   @ApiOperation({ summary: 'Get all vaccines' })
   @ApiResponse({ status: 200, description: 'Vaccines retrieved successfully' })
@@ -82,7 +82,7 @@ export class VaccinationsController {
   }
 
   // Vaccination Record Management
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
+  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
   @Post('records')
   @ApiOperation({ summary: 'Create vaccination record' })
   @ApiResponse({ status: 201, description: 'Vaccination record created successfully' })
@@ -99,7 +99,7 @@ export class VaccinationsController {
     );
   }
 
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
+  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE', 'MOTHER')
   @Get('records/child/:childId')
   @ApiOperation({ summary: 'Get vaccination records for a child' })
   @ApiParam({ name: 'childId', description: 'Child ID' })
@@ -114,7 +114,7 @@ export class VaccinationsController {
     );
   }
 
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
+  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
   @Get('records/status/:status')
   @ApiOperation({ summary: 'Get vaccination records by status' })
   @ApiParam({ name: 'status', description: 'Vaccination status' })
@@ -129,7 +129,7 @@ export class VaccinationsController {
     );
   }
 
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
+  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
   @Get('records/upcoming')
   @ApiOperation({ summary: 'Get upcoming vaccinations' })
   @ApiQuery({ name: 'days', required: false, description: 'Days ahead to look', example: 30 })
@@ -144,7 +144,7 @@ export class VaccinationsController {
     );
   }
 
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
+  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
   @Get('records/overdue')
   @ApiOperation({ summary: 'Get overdue vaccinations' })
   @ApiResponse({ status: 200, description: 'Overdue vaccinations retrieved successfully' })
@@ -157,7 +157,7 @@ export class VaccinationsController {
     );
   }
 
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
+  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
   @Patch('records/:id')
   @ApiOperation({ summary: 'Update vaccination record' })
   @ApiParam({ name: 'id', description: 'Vaccination record ID' })
@@ -176,7 +176,7 @@ export class VaccinationsController {
     );
   }
 
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
+  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
   @Delete('records/:id')
   @ApiOperation({ summary: 'Delete vaccination record' })
   @ApiParam({ name: 'id', description: 'Vaccination record ID' })
@@ -194,7 +194,7 @@ export class VaccinationsController {
   }
 
   // Schedule Management
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
+  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
   @Post('schedule/:childId')
   @ApiOperation({ summary: 'Generate vaccination schedule for a child' })
   @ApiParam({ name: 'childId', description: 'Child ID' })
@@ -214,7 +214,7 @@ export class VaccinationsController {
   }
 
   // Statistics
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
+  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
   @Get('stats')
   @ApiOperation({ summary: 'Get vaccination statistics' })
   @ApiResponse({ status: 200, description: 'Statistics retrieved successfully' })
@@ -228,7 +228,7 @@ export class VaccinationsController {
   }
 
   // Action Endpoints
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
+  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
   @Patch('records/:id/administer')
   @ApiOperation({ summary: 'Mark vaccination as administered' })
   @ApiParam({ name: 'id', description: 'Vaccination record ID' })
@@ -248,7 +248,7 @@ export class VaccinationsController {
     );
   }
 
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
+  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
   @Patch('records/:id/miss')
   @ApiOperation({ summary: 'Mark vaccination as missed' })
   @ApiParam({ name: 'id', description: 'Vaccination record ID' })
@@ -267,7 +267,7 @@ export class VaccinationsController {
     );
   }
 
-  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'HEALTH_CENTER_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
+  @Roles('SUPER_ADMIN', 'SYSTEM_ADMIN', 'WOREDA_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'MIDWIFE')
   @Patch('records/:id/defer')
   @ApiOperation({ summary: 'Defer vaccination' })
   @ApiParam({ name: 'id', description: 'Vaccination record ID' })

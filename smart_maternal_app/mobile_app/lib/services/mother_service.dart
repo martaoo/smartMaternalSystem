@@ -22,7 +22,6 @@ class MotherService {
       }
 
       http.Response? response;
-      String? workingUrl;
       
       for (String baseUrl in baseUrls) {
         try {
@@ -37,7 +36,6 @@ class MotherService {
             },
           ).timeout(Duration(seconds: 10));
           
-          workingUrl = url;
           print('Connected to pregnancy visits: $url');
           print('Response status: ${response.statusCode}');
           break;
@@ -48,24 +46,22 @@ class MotherService {
       }
       
       if (response == null) {
-        print('Failed to connect to any pregnancy visits backend URL');
-        return _getMockPregnancyVisits();
+        throw Exception('Unable to connect to backend for pregnancy visits');
       }
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final List<dynamic> responseData = jsonDecode(response.body);
         return responseData.map((json) => _parsePregnancyVisit(json)).toList();
       } else {
-        print('Failed to load pregnancy visits: ${response.statusCode}');
-        return _getMockPregnancyVisits();
+        throw Exception('Failed to load pregnancy visits (${response.statusCode})');
       }
     } catch (e) {
       print('Error loading pregnancy visits: $e');
-      return _getMockPregnancyVisits();
+      rethrow;
     }
   }
 
-  /// Get mother's profile information
+  /// Get mother's profile information from backend
   Future<MotherProfile?> getMotherProfile() async {
     try {
       final token = await _authService.getToken();
@@ -73,7 +69,107 @@ class MotherService {
         throw Exception('User not authenticated');
       }
 
-      // Try to get user info first, then try to get linked mother profile
+      http.Response? response;
+      String? workingUrl;
+      
+      for (String baseUrl in baseUrls) {
+        try {
+          final url = "$baseUrl/mothers/me/profile";
+          print('Trying mother profile URL: $url');
+          
+          response = await http.get(
+            Uri.parse(url),
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": "Bearer $token",
+            },
+          ).timeout(Duration(seconds: 10));
+          
+          workingUrl = url;
+          print('Connected to mother profile: $url');
+          print('Response status: ${response.statusCode}');
+          break;
+        } catch (e) {
+          print('Failed to connect to $baseUrl: $e');
+          continue;
+        }
+      }
+      
+      if (response == null) {
+        print('Failed to connect to any mother profile backend URL');
+        // Fallback to user info
+        return await _getFallbackProfile();
+      }
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final Map<String, dynamic> responseData = jsonDecode(response.body);
+        if (responseData['data'] != null) {
+          return _parseMotherProfile(responseData['data']);
+        }
+      }
+      
+      print('Failed to load mother profile: ${response.statusCode}');
+      return await _getFallbackProfile();
+    } catch (e) {
+      print('Error loading mother profile: $e');
+      return await _getFallbackProfile();
+    }
+  }
+
+  /// Get dashboard summary with mother profile and latest pregnancy data
+  Future<DashboardSummary?> getDashboardSummary() async {
+    try {
+      final token = await _authService.getToken();
+      if (token == null) {
+        throw Exception('User not authenticated');
+      }
+
+      http.Response? response;
+      
+      for (String baseUrl in baseUrls) {
+        try {
+          final url = "$baseUrl/mothers/me/summary";
+          print('Trying dashboard summary URL: $url');
+          
+          response = await http.get(
+            Uri.parse(url),
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": "Bearer $token",
+            },
+          ).timeout(Duration(seconds: 10));
+          
+          print('Connected to dashboard summary: $url');
+          print('Response status: ${response.statusCode}');
+          break;
+        } catch (e) {
+          print('Failed to connect to $baseUrl: $e');
+          continue;
+        }
+      }
+      
+      if (response == null) {
+        throw Exception('Unable to connect to backend for dashboard summary');
+      }
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final Map<String, dynamic> responseData = jsonDecode(response.body);
+        if (responseData['data'] != null) {
+          return _parseDashboardSummary(responseData['data']);
+        }
+        throw Exception('Dashboard summary response missing data');
+      }
+      
+      throw Exception('Failed to load dashboard summary (${response.statusCode})');
+    } catch (e) {
+      print('Error loading dashboard summary: $e');
+      rethrow;
+    }
+  }
+
+  /// Fallback method to get basic profile from auth service
+  Future<MotherProfile?> _getFallbackProfile() async {
+    try {
       final userName = await _authService.getUserName();
       final userEmail = await _authService.getUserEmail();
       
@@ -81,57 +177,61 @@ class MotherService {
         return MotherProfile(
           name: userName,
           email: userEmail,
-          // Additional profile info would come from backend if available
         );
       }
       
       return null;
     } catch (e) {
-      print('Error loading mother profile: $e');
+      print('Error in fallback profile: $e');
       return null;
     }
   }
 
   /// Get upcoming appointments from pregnancy visits
   Future<List<Appointment>> getUpcomingAppointments() async {
-    final visits = await getPregnancyVisits();
-    final now = DateTime.now();
-    
-    return visits
-        .where((visit) => visit.nextVisitDate != null && visit.nextVisitDate!.isAfter(now))
-        .map((visit) => _convertVisitToAppointment(visit, isUpcoming: true))
-        .toList()
-      ..sort((a, b) => a.dateTime.compareTo(b.dateTime));
+    final summary = await getDashboardSummary();
+    final latest = summary?.latestPregnancy;
+    if (latest == null) return [];
+    if (latest.nextVisitDate == null) return [];
+    if (!latest.nextVisitDate!.isAfter(DateTime.now())) return [];
+
+    return [_convertVisitToAppointment(latest, isUpcoming: true)];
   }
 
   /// Get past appointments from pregnancy visits
   Future<List<Appointment>> getPastAppointments() async {
-    final visits = await getPregnancyVisits();
-    final now = DateTime.now();
-    
-    return visits
-        .where((visit) => visit.visitDate.isBefore(now))
-        .map((visit) => _convertVisitToAppointment(visit, isUpcoming: false))
-        .toList()
-      ..sort((a, b) => b.dateTime.compareTo(a.dateTime));
+    final summary = await getDashboardSummary();
+    final latest = summary?.latestPregnancy;
+    if (latest == null) return [];
+    if (!latest.visitDate.isBefore(DateTime.now())) return [];
+
+    return [_convertVisitToAppointment(latest, isUpcoming: false)];
   }
 
   /// Get all appointments (both upcoming and past)
   Future<List<Appointment>> getAllAppointments() async {
-    final upcoming = await getUpcomingAppointments();
-    final past = await getPastAppointments();
-    
-    return [...upcoming, ...past]..sort((a, b) => b.dateTime.compareTo(a.dateTime));
+    final summary = await getDashboardSummary();
+    final latest = summary?.latestPregnancy;
+    if (latest == null) return [];
+
+    final appts = <Appointment>[];
+    // Next visit as UPCOMING if present and in future.
+    if (latest.nextVisitDate != null && latest.nextVisitDate!.isAfter(DateTime.now())) {
+      appts.add(_convertVisitToAppointment(latest, isUpcoming: true));
+    }
+    // Latest recorded visit as COMPLETED if it occurred in the past.
+    if (latest.visitDate.isBefore(DateTime.now())) {
+      appts.add(_convertVisitToAppointment(latest, isUpcoming: false));
+    }
+    appts.sort((a, b) => b.dateTime.compareTo(a.dateTime));
+    return appts;
   }
 
   /// Get health metrics from latest pregnancy visit
   Future<HealthMetrics?> getLatestHealthMetrics() async {
-    final visits = await getPregnancyVisits();
-    if (visits.isEmpty) return null;
-    
-    // Get the most recent visit
-    visits.sort((a, b) => b.visitDate.compareTo(a.visitDate));
-    final latestVisit = visits.first;
+    final summary = await getDashboardSummary();
+    final latestVisit = summary?.latestPregnancy;
+    if (latestVisit == null) return null;
     
     return HealthMetrics(
       systolicBP: latestVisit.systolicBP,
@@ -149,40 +249,57 @@ class MotherService {
 
   /// Get symptoms and medications from pregnancy visits
   Future<List<SymptomMedication>> getSymptomsAndMedications() async {
-    final visits = await getPregnancyVisits();
-    final List<SymptomMedication> items = [];
-    
-    for (final visit in visits) {
-      // Add symptoms
-      if (visit.symptoms != null) {
-        for (final symptom in visit.symptoms!) {
-          items.add(SymptomMedication(
-            type: 'symptom',
-            name: symptom,
-            date: visit.visitDate,
-            week: visit.week,
-          ));
-        }
-      }
-      
-      // Add medications
-      if (visit.medications != null) {
-        for (final medication in visit.medications!) {
-          items.add(SymptomMedication(
-            type: 'medication',
-            name: medication,
-            date: visit.visitDate,
-            week: visit.week,
-          ));
-        }
-      }
+    final summary = await getDashboardSummary();
+    final visit = summary?.latestPregnancy;
+    if (visit == null) return [];
+
+    final items = <SymptomMedication>[];
+
+    for (final symptom in visit.symptoms ?? const <String>[]) {
+      items.add(SymptomMedication(type: 'symptom', name: symptom, date: visit.visitDate, week: visit.week));
     }
-    
-    return items..sort((a, b) => b.date.compareTo(a.date));
+    for (final medication in visit.medications ?? const <String>[]) {
+      items.add(SymptomMedication(type: 'medication', name: medication, date: visit.visitDate, week: visit.week));
+    }
+
+    items.sort((a, b) => b.date.compareTo(a.date));
+    return items;
   }
 
   // Helper methods for data parsing and conversion
   
+  MotherProfile _parseMotherProfile(Map<String, dynamic> json) {
+    return MotherProfile(
+      name: json['name'] ?? 'Unknown',
+      email: json['email'] ?? '',
+      phone: json['phone'],
+      address: json['address'],
+      bloodType: json['bloodType'],
+      age: json['age'],
+      expectedDeliveryDate: json['expectedDeliveryDate'] != null 
+          ? DateTime.parse(json['expectedDeliveryDate']) 
+          : null,
+      gravida: json['gravida'],
+      para: json['para'],
+      lmp: json['lmp'] != null ? DateTime.parse(json['lmp']) : null,
+      highRisk: json['highRisk'] ?? false,
+      registrationDate: json['registrationDate'] != null 
+          ? DateTime.parse(json['registrationDate']) 
+          : null,
+    );
+  }
+
+  DashboardSummary _parseDashboardSummary(Map<String, dynamic> json) {
+    final motherData = json['mother'];
+    final pregnancyData = json['latestPregnancy'];
+    
+    return DashboardSummary(
+      motherProfile: motherData != null ? _parseMotherProfile(motherData) : null,
+      latestPregnancy: pregnancyData != null ? _parsePregnancyVisit(pregnancyData) : null,
+    );
+  }
+
+
   PregnancyVisit _parsePregnancyVisit(Map<String, dynamic> json) {
     return PregnancyVisit(
       id: json['_id']?.toString() ?? '',
@@ -260,106 +377,6 @@ class MotherService {
     return 'ANC Visit';
   }
 
-  // Mock data for fallback when backend is not available
-  List<PregnancyVisit> _getMockPregnancyVisits() {
-    print('Using mock pregnancy visits data as fallback');
-    final now = DateTime.now();
-    return [
-      PregnancyVisit(
-        id: 'MOCK-001',
-        week: 32,
-        gestationalAge: 32,
-        systolicBP: 120,
-        diastolicBP: 80,
-        weight: 65.5,
-        fundalHeight: 30,
-        fetalHeartRate: 140,
-        presentation: 'Cephalic',
-        notes: 'Routine checkup, monitor blood pressure',
-        riskLevel: RiskLevel.low,
-        symptoms: ['Mild swelling in feet'],
-        medications: ['Iron supplements', 'Folic acid'],
-        nextVisitDate: now.add(const Duration(days: 7)),
-        healthWorkerId: 'doctor-001',
-        hospitalId: 'hospital-001',
-        visitDate: now.subtract(const Duration(days: 7)),
-        ultrasoundFindings: 'Normal fetal development',
-        labResults: LabResults(
-          hemoglobin: 11.5,
-          urineProtein: 'Negative',
-          bloodSugar: 85,
-          hiv: 'Negative',
-          syphilis: 'Negative',
-        ),
-        complications: null,
-        recommendations: 'Continue iron supplements, increase fluid intake',
-        emergency: false,
-        bloodType: 'O+',
-      ),
-      PregnancyVisit(
-        id: 'MOCK-002',
-        week: 28,
-        gestationalAge: 28,
-        systolicBP: 118,
-        diastolicBP: 78,
-        weight: 64.2,
-        fundalHeight: 28,
-        fetalHeartRate: 145,
-        presentation: 'Cephalic',
-        notes: 'Normal development, fetal heartbeat detected',
-        riskLevel: RiskLevel.low,
-        symptoms: null,
-        medications: ['Iron supplements'],
-        nextVisitDate: now.subtract(const Duration(days: 14)),
-        healthWorkerId: 'doctor-001',
-        hospitalId: 'hospital-001',
-        visitDate: now.subtract(const Duration(days: 42)),
-        ultrasoundFindings: 'Fetal position normal',
-        labResults: LabResults(
-          hemoglobin: 11.8,
-          urineProtein: 'Negative',
-          bloodSugar: 90,
-          hiv: 'Negative',
-          syphilis: 'Negative',
-        ),
-        complications: null,
-        recommendations: 'Continue routine care',
-        emergency: false,
-        bloodType: 'O+',
-      ),
-      PregnancyVisit(
-        id: 'MOCK-003',
-        week: 20,
-        gestationalAge: 20,
-        systolicBP: 115,
-        diastolicBP: 75,
-        weight: 62.8,
-        fundalHeight: 20,
-        fetalHeartRate: 150,
-        presentation: 'Cephalic',
-        notes: 'Anemia detected, iron supplements prescribed',
-        riskLevel: RiskLevel.moderate,
-        symptoms: ['Fatigue', 'Dizziness'],
-        medications: ['Iron supplements', 'Vitamin C'],
-        nextVisitDate: now.subtract(const Duration(days: 84)),
-        healthWorkerId: 'doctor-001',
-        hospitalId: 'hospital-001',
-        visitDate: now.subtract(const Duration(days: 140)),
-        ultrasoundFindings: 'Normal anatomy scan',
-        labResults: LabResults(
-          hemoglobin: 10.2,
-          urineProtein: 'Negative',
-          bloodSugar: 88,
-          hiv: 'Negative',
-          syphilis: 'Negative',
-        ),
-        complications: ['Mild anemia'],
-        recommendations: 'Increase iron-rich foods, take supplements as prescribed',
-        emergency: false,
-        bloodType: 'O+',
-      ),
-    ];
-  }
 }
 
 // Data models for mother service
@@ -452,6 +469,13 @@ class MotherProfile {
   final String? address;
   final DateTime? dateOfBirth;
   final String? bloodType;
+  final int? age;
+  final DateTime? expectedDeliveryDate;
+  final int? gravida;
+  final int? para;
+  final DateTime? lmp;
+  final bool highRisk;
+  final DateTime? registrationDate;
 
   MotherProfile({
     required this.name,
@@ -460,6 +484,23 @@ class MotherProfile {
     this.address,
     this.dateOfBirth,
     this.bloodType,
+    this.age,
+    this.expectedDeliveryDate,
+    this.gravida,
+    this.para,
+    this.lmp,
+    this.highRisk = false,
+    this.registrationDate,
+  });
+}
+
+class DashboardSummary {
+  final MotherProfile? motherProfile;
+  final PregnancyVisit? latestPregnancy;
+
+  DashboardSummary({
+    this.motherProfile,
+    this.latestPregnancy,
   });
 }
 

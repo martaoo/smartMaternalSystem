@@ -39,6 +39,7 @@ async function bootstrap() {
       name: 'System Administrator',
       email: 'admin@maternal.gov.et',
       password: 'admin123', // Service will hash this automatically
+      role: UserRole.SYSTEM_ADMIN,
       assignedRegion: 'Addis Ababa',
       phoneNumber: '+251900000001',
     });
